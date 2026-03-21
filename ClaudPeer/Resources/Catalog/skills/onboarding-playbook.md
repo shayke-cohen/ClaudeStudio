@@ -1,8 +1,8 @@
-# Onboarding Guide
+# Onboarding Playbook
 
 ## When to Activate
 
-Use when hiring engineers or rotating teams; refresh **quarterly** or when tools (SSO, laptop policy, CI) change. Complement (don’t duplicate) the repo README—this is the human journey.
+Use when hiring engineers or rotating teams; refresh **quarterly** or when tools (SSO, laptop policy, CI) change. Complement (don't duplicate) the repo README—this is the human journey.
 
 ## Process
 
@@ -24,4 +24,4 @@ Use when hiring engineers or rotating teams; refresh **quarterly** or when tools
 
 ## Tips
 
-Use Notion or internal handbook with checkboxes new hires can self-serve. Avoid dumping 50 links—curate “start here.” Survey after 30 days: “What blocked you?” and feed answers back into the guide.
+Use Notion or internal handbook with checkboxes new hires can self-serve. Avoid dumping 50 links—curate "start here." Survey after 30 days: "What blocked you?" and feed answers back into the guide.

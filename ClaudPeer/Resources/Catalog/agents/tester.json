@@ -18,7 +18,7 @@
     "exploratory-testing",
     "claudpeer-accessibility"
   ],
-  "extraMCPs": [],
+  "extraMCPs": ["argus", "appxray"],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "QA Engineer",

@@ -8,8 +8,8 @@ final class FileExplorerIntegrationTests: XCTestCase {
 
     override func setUp() {
         tempDir = FileManager.default.temporaryDirectory
+            .resolvingSymlinksInPath()
             .appendingPathComponent("ClaudPeerExplorerTests-\(UUID().uuidString)")
-            .standardizedFileURL
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
@@ -254,9 +254,9 @@ final class FileExplorerIntegrationTests: XCTestCase {
         XCTAssertEqual(FileSystemService.formatFileSize(5_242_880), "5.0 MB")
     }
 
-    // MARK: - Git Integration: Full Tree with Status
+    // MARK: - Git Integration: Status Map + Manual Apply
 
-    func testFullTreeWithGitStatus() {
+    func testGitStatusMapAndApply() {
         initGitRepo()
         shell("touch committed.txt && git add committed.txt && git commit -m 'init'")
         createFile("modified.txt", content: "original")
@@ -264,20 +264,29 @@ final class FileExplorerIntegrationTests: XCTestCase {
         createFile("modified.txt", content: "changed!")
         createFile("untracked.txt", content: "new")
 
-        let nodes = FileSystemService.listDirectory(at: tempDir, showHidden: false)
         let statusMap = GitService.status(in: tempDir)
+        XCTAssertEqual(statusMap["modified.txt"], .modified)
+        XCTAssertEqual(statusMap["untracked.txt"], .untracked)
+        XCTAssertNil(statusMap["committed.txt"])
 
-        for node in nodes {
-            node.applyGitStatus(statusMap, rootPath: tempDir.path)
-        }
+        let rootPath = tempDir.path
+        let modNode = FileNode(name: "modified.txt",
+                               url: tempDir.appendingPathComponent("modified.txt"),
+                               isDirectory: false)
+        let untNode = FileNode(name: "untracked.txt",
+                               url: tempDir.appendingPathComponent("untracked.txt"),
+                               isDirectory: false)
+        let cleanNode = FileNode(name: "committed.txt",
+                                 url: tempDir.appendingPathComponent("committed.txt"),
+                                 isDirectory: false)
 
-        let modifiedNode = nodes.first { $0.name == "modified.txt" }
-        let untrackedNode = nodes.first { $0.name == "untracked.txt" }
-        let committedNode = nodes.first { $0.name == "committed.txt" }
+        modNode.applyGitStatus(statusMap, rootPath: rootPath)
+        untNode.applyGitStatus(statusMap, rootPath: rootPath)
+        cleanNode.applyGitStatus(statusMap, rootPath: rootPath)
 
-        XCTAssertEqual(modifiedNode?.gitStatus, .modified)
-        XCTAssertEqual(untrackedNode?.gitStatus, .untracked)
-        XCTAssertNil(committedNode?.gitStatus)
+        XCTAssertEqual(modNode.gitStatus, .modified)
+        XCTAssertEqual(untNode.gitStatus, .untracked)
+        XCTAssertNil(cleanNode.gitStatus)
     }
 
     // MARK: - FileNode hasChanges Deep Nesting

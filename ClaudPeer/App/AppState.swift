@@ -77,14 +77,8 @@ final class AppState: ObservableObject {
         instanceWorkingDirectory = InstanceConfig.userDefaults.string(
             forKey: AppSettings.instanceWorkingDirectoryKey
         )
-        print("[AppState] loadInstanceWorkingDirectory: value=\(instanceWorkingDirectory ?? "nil"), suite=\(InstanceConfig.userDefaultsSuiteName)")
         if instanceWorkingDirectory == nil {
-            print("[AppState] No working directory set — will show picker in 300ms")
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(300))
-                print("[AppState] Setting showDirectoryPicker = true")
-                showDirectoryPicker = true
-            }
+            showDirectoryPicker = true
         }
     }
 

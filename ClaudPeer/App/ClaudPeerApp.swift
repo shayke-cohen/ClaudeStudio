@@ -57,26 +57,31 @@ struct ClaudPeerApp: App {
 
     var body: some Scene {
         WindowGroup(windowTitle) {
-            MainWindowView()
-                .environmentObject(appState)
-                .preferredColorScheme(resolvedColorScheme)
-                .onAppear {
-                    appState.modelContext = modelContainer.mainContext
-                    appState.loadInstanceWorkingDirectory()
-                    if autoConnectSidecar {
-                        appState.connectSidecar()
-                    }
-                    #if DEBUG
-                    AppXray.shared.registerObservableObject(appState, name: "appState")
-                    #endif
-                }
-                .sheet(isPresented: $appState.showDirectoryPicker) {
+            Group {
+                if appState.showDirectoryPicker {
                     WorkingDirectoryPicker { path in
                         RecentDirectories.add(path)
                         appState.setInstanceWorkingDirectory(path)
                         appState.showDirectoryPicker = false
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: .windowBackgroundColor))
+                } else {
+                    MainWindowView()
                 }
+            }
+            .environmentObject(appState)
+            .preferredColorScheme(resolvedColorScheme)
+            .onAppear {
+                appState.modelContext = modelContainer.mainContext
+                appState.loadInstanceWorkingDirectory()
+                if autoConnectSidecar {
+                    appState.connectSidecar()
+                }
+                #if DEBUG
+                AppXray.shared.registerObservableObject(appState, name: "appState")
+                #endif
+            }
         }
         .modelContainer(modelContainer)
         .defaultSize(width: 1200, height: 800)

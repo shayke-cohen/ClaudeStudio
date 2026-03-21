@@ -15,7 +15,7 @@
     "owasp-top-10",
     "code-audit"
   ],
-  "extraMCPs": [],
+  "extraMCPs": ["github"],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Senior Code Reviewer",

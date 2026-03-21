@@ -1,6 +1,6 @@
 {
-  "catalogId": "onboarding-guide",
-  "name": "Onboarding Guide",
+  "catalogId": "onboarding-playbook",
+  "name": "Onboarding Playbook",
   "description": "Role-based first-week plans for engineers and contributors",
   "category": "Documentation",
   "icon": "hand.raised.fill",

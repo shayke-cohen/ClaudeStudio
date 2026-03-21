@@ -347,7 +347,11 @@ XCTest-based unit test target for verifying catalog system integrity, service lo
 | FR-13.10: CatalogServiceTests — dependency resolution excludes already-installed items | Done |
 | FR-13.11: CatalogServiceTests — data integrity (unique IDs, valid cross-references, required fields) | Done |
 | FR-13.12: InstanceConfigTests — directory structure, UserDefaults suite, port allocation | Done |
-| FR-13.13: 61 tests passing with 0 failures | Done |
+| FR-13.13: FileSystemServiceTests — directory listing, file reading, binary detection, icons, markdown detection | Done |
+| FR-13.14: GitServiceTests — repo detection, status parsing, diff/diffCached/diffSummary, fullDiff | Done |
+| FR-13.15: FileNodeTests — initialization, computed properties, loadChildren, reloadChildren, applyGitStatus | Done |
+| FR-13.16: FileExplorerIntegrationTests — git path resolution, @Published behavior, edge cases, deep nesting | Done |
+| FR-13.17: 154 tests passing with 0 failures | Done |
 
 ### FR-14: Inter-Agent Communication (PeerBus)
 

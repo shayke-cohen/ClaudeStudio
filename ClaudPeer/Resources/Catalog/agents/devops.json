@@ -15,7 +15,7 @@
     "ci-pipeline",
     "monitoring-setup"
   ],
-  "extraMCPs": [],
+  "extraMCPs": ["github"],
   "systemPromptTemplate": "worker",
   "systemPromptVariables": {
     "role": "DevOps Engineer",

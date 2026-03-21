@@ -14,7 +14,7 @@
     "readme-writing",
     "api-documentation",
     "runbook",
-    "onboarding-guide"
+    "onboarding-playbook"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

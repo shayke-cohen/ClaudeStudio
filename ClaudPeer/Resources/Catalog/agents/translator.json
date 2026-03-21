@@ -12,7 +12,7 @@
     "blackboard-patterns",
     "agent-identity",
     "readme-writing",
-    "onboarding-guide"
+    "onboarding-playbook"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "worker",

@@ -9,7 +9,7 @@
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": ["GitHub"],
   "permissionSetName": "Git Only",
-  "systemPromptTemplate": "specialist",
+  "systemPromptTemplate": "worker",
   "systemPromptVariables": {
     "role": "DevOps specialist",
     "domain": "git operations, CI/CD pipelines, deployment, and environment management",
