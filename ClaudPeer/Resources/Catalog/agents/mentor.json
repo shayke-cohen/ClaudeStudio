@@ -9,6 +9,8 @@
   "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
     "delegation-patterns",
     "onboarding-guide"
   ],

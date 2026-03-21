@@ -1,14 +1,22 @@
 import SwiftUI
 import SwiftData
 
+enum InspectorTab: String, CaseIterable, Identifiable {
+    case info = "Info"
+    case files = "Files"
+
+    var id: String { rawValue }
+}
+
 struct InspectorView: View {
     let conversationId: UUID
     @Environment(\.modelContext) private var modelContext
     @Query private var allConversations: [Conversation]
     @EnvironmentObject private var appState: AppState
-    @State private var editedTopic = ""
-    @State private var isEditingTopic = false
-    @FocusState private var topicFocused: Bool
+    @State private var now = Date()
+    @State private var inspectorTab: InspectorTab = .info
+
+    private let durationTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var conversation: Conversation? {
         allConversations.first { $0.id == conversationId }
@@ -26,94 +34,65 @@ struct InspectorView: View {
         appState.activeSessions[conversationId]
     }
 
+    private var hasWorkingDirectory: Bool {
+        guard let session = session else { return false }
+        return !session.workingDirectory.isEmpty
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            if hasWorkingDirectory {
+                Picker("Inspector Tab", selection: $inspectorTab) {
+                    ForEach(InspectorTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .accessibilityIdentifier("inspector.tabPicker")
+            }
+
+            switch inspectorTab {
+            case .info:
+                infoContent
+            case .files:
+                if let dir = session?.workingDirectory, !dir.isEmpty {
+                    FileExplorerView(
+                        workingDirectory: dir,
+                        refreshTrigger: appState.fileTreeRefreshTrigger
+                    )
+                } else {
+                    infoContent
+                }
+            }
+        }
+        .frame(minWidth: 220, idealWidth: 280)
+        .onReceive(durationTimer) { _ in
+            now = Date()
+        }
+    }
+
+    // MARK: - Info Content
+
+    private var infoContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                conversationSection
                 if session != nil {
                     sessionSection
+                    usageSection
+                }
+                if hasWorkingDirectory {
+                    workspaceSection
                 }
                 if agent != nil {
                     agentSection
                 }
+                historySection
             }
             .padding()
         }
         .accessibilityIdentifier("inspector.scrollView")
-        .frame(minWidth: 220, idealWidth: 280)
-    }
-
-    // MARK: - Conversation Section
-
-    @ViewBuilder
-    private var conversationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Conversation", systemImage: "bubble.left.and.bubble.right")
-                .font(.headline)
-
-            if let convo = conversation {
-                HStack {
-                    Text("Topic")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 80, alignment: .trailing)
-                    if isEditingTopic {
-                        TextField("Name", text: $editedTopic)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.caption)
-                            .focused($topicFocused)
-                            .onSubmit { commitTopicRename() }
-                            .onExitCommand { isEditingTopic = false }
-                            .accessibilityIdentifier("inspector.topicField")
-                    } else {
-                        Text(convo.topic ?? "Untitled")
-                            .font(.caption)
-                            .lineLimit(2)
-                            .accessibilityIdentifier("inspector.topicValue")
-                        Button {
-                            editedTopic = convo.topic ?? ""
-                            isEditingTopic = true
-                            topicFocused = true
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Rename topic")
-                        .accessibilityIdentifier("inspector.editTopicButton")
-                        .accessibilityLabel("Rename topic")
-                    }
-                }
-
-                HStack {
-                    InfoRow(label: "Status", value: convo.status.rawValue.capitalized)
-                    if convo.status == .active {
-                        Button {
-                            closeConversation(convo)
-                        } label: {
-                            Text("Close")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                        .help("Close this conversation")
-                        .accessibilityIdentifier("inspector.closeConversationButton")
-                    }
-                }
-
-                InfoRow(label: "Participants", value: "\(convo.participants.count)")
-                ForEach(convo.participants) { participant in
-                    HStack {
-                        participantIcon(participant)
-                        Text(participant.displayName)
-                            .font(.caption)
-                    }
-                    .padding(.leading, 8)
-                }
-                InfoRow(label: "Messages", value: "\(convo.messages.count)")
-                InfoRow(label: "Started", value: convo.startedAt.formatted(.relative(presentation: .named)))
-            }
-        }
     }
 
     // MARK: - Session Section
@@ -121,75 +100,92 @@ struct InspectorView: View {
     @ViewBuilder
     private var sessionSection: some View {
         if let session = session {
-            Divider()
             VStack(alignment: .leading, spacing: 8) {
                 Label("Session", systemImage: "terminal")
                     .font(.headline)
+                    .accessibilityIdentifier("inspector.sessionHeading")
 
                 InfoRow(label: "Status", value: session.status.rawValue.capitalized)
-
-                sessionActionButtons(session)
-
+                InfoRow(label: "Model", value: modelShortName(session.agent?.model ?? ""))
                 InfoRow(label: "Mode", value: session.mode.rawValue.capitalized)
-                if let mission = session.mission {
-                    InfoRow(label: "Mission", value: mission)
-                }
 
-                let liveTokens = liveInfo?.tokenCount ?? session.tokenCount
-                let liveCost = liveInfo?.cost ?? session.totalCost
-                InfoRow(label: "Tokens", value: formatNumber(liveTokens))
-                InfoRow(label: "Cost", value: String(format: "$%.4f", liveCost))
-                InfoRow(label: "Tool Calls", value: "\(session.toolCallCount)")
-                if !session.workingDirectory.isEmpty {
-                    InfoRow(label: "Working Dir", value: session.workingDirectory)
+                if let convo = conversation {
+                    InfoRow(label: "Duration", value: durationString(from: convo.startedAt))
                 }
             }
         }
     }
 
+    // MARK: - Usage Section
+
     @ViewBuilder
-    private func sessionActionButtons(_ session: Session) -> some View {
-        HStack(spacing: 8) {
-            switch session.status {
-            case .active:
-                Button {
-                    pauseCurrentSession()
-                } label: {
-                    Label("Pause", systemImage: "pause.fill")
-                }
-                .controlSize(.small)
-                .help("Pause session")
-                .accessibilityIdentifier("inspector.sessionPauseButton")
+    private var usageSection: some View {
+        if let session = session {
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Usage", systemImage: "chart.bar")
+                    .font(.headline)
+                    .accessibilityIdentifier("inspector.usageHeading")
 
-                Button(role: .destructive) {
-                    stopCurrentSession()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                }
-                .controlSize(.small)
-                .help("Stop session")
-                .accessibilityIdentifier("inspector.sessionStopButton")
+                let liveTokens = liveInfo?.tokenCount ?? session.tokenCount
+                let liveCost = liveInfo?.cost ?? session.totalCost
+                let maxTurns = agent?.maxTurns ?? 30
+                let toolCalls = session.toolCallCount
 
-            case .paused:
-                Button {
-                    resumeCurrentSession()
-                } label: {
-                    Label("Resume", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .help("Resume session")
-                .accessibilityIdentifier("inspector.sessionResumeButton")
+                InfoRow(label: "Tokens", value: formatNumber(liveTokens))
+                InfoRow(label: "Cost", value: String(format: "$%.4f", liveCost))
+                InfoRow(label: "Tool Calls", value: "\(toolCalls)")
 
-            case .completed, .failed:
-                Text(session.status == .completed ? "Session ended" : "Session failed")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .italic()
-                    .accessibilityIdentifier("inspector.sessionTerminalStatus")
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Turns")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 80, alignment: .trailing)
+                        Text("\(toolCalls) / \(maxTurns)")
+                            .font(.caption)
+                            .monospacedDigit()
+                    }
+                    .accessibilityIdentifier("inspector.turnsLabel")
+
+                    ProgressView(value: min(Double(toolCalls), Double(maxTurns)), total: Double(maxTurns))
+                        .tint(turnProgressColor(used: toolCalls, max: maxTurns))
+                        .padding(.leading, 84)
+                        .accessibilityIdentifier("inspector.turnsProgress")
+                }
             }
         }
-        .padding(.leading, 84)
+    }
+
+    // MARK: - Workspace Section
+
+    @ViewBuilder
+    private var workspaceSection: some View {
+        if let session = session, !session.workingDirectory.isEmpty {
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Workspace", systemImage: "folder")
+                    .font(.headline)
+                    .accessibilityIdentifier("inspector.workspaceHeading")
+
+                Text(abbreviatePath(session.workingDirectory))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("inspector.workspacePath")
+
+                Button {
+                    openInTerminal(session.workingDirectory)
+                } label: {
+                    Label("Open in Terminal", systemImage: "terminal")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Open working directory in Terminal")
+                .accessibilityIdentifier("inspector.openTerminalButton")
+            }
+        }
     }
 
     // MARK: - Agent Section
@@ -201,42 +197,90 @@ struct InspectorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Agent", systemImage: agent.icon)
                     .font(.headline)
-
-                InfoRow(label: "Name", value: agent.name)
-                InfoRow(label: "Model", value: agent.model)
-                InfoRow(label: "Skills", value: "\(agent.skillIds.count)")
-                InfoRow(label: "MCPs", value: "\(agent.extraMCPServerIds.count)")
-                InfoRow(label: "Policy", value: policyLabel(agent.instancePolicy))
+                    .foregroundStyle(Color.fromAgentColor(agent.color))
+                    .accessibilityIdentifier("inspector.agentHeading")
 
                 Button {
                     appState.showAgentLibrary = true
                 } label: {
-                    Label("Open in Editor", systemImage: "arrow.up.forward.square")
-                        .font(.caption)
+                    HStack(spacing: 6) {
+                        Image(systemName: agent.icon)
+                            .foregroundStyle(Color.fromAgentColor(agent.color))
+                        Text(agent.name)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .padding(.leading, 84)
-                .help("Open agent in editor")
-                .accessibilityIdentifier("inspector.openAgentEditorButton")
+                .buttonStyle(.plain)
+                .help("Open \(agent.name) in editor")
+                .accessibilityIdentifier("inspector.agentNameButton")
+
+                HStack(spacing: 12) {
+                    Label("\(agent.skillIds.count) skills", systemImage: "book")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Label("\(agent.extraMCPServerIds.count) MCPs", systemImage: "server.rack")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityIdentifier("inspector.agentCapabilities")
+
+                InfoRow(label: "Policy", value: policyLabel(agent.instancePolicy))
+            }
+        }
+    }
+
+    // MARK: - History Section
+
+    @ViewBuilder
+    private var historySection: some View {
+        if let convo = conversation {
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                Label("History", systemImage: "clock")
+                    .font(.headline)
+                    .accessibilityIdentifier("inspector.historyHeading")
+
+                InfoRow(label: "Started", value: convo.startedAt.formatted(.relative(presentation: .named)))
+                InfoRow(label: "Messages", value: "\(convo.messages.count)")
+
+                if let parentId = convo.parentConversationId,
+                   let parent = allConversations.first(where: { $0.id == parentId }) {
+                    InfoRow(label: "Forked from", value: parent.topic ?? "Untitled")
+                }
+
+                if convo.isPinned {
+                    InfoRow(label: "Pinned", value: "Yes")
+                }
             }
         }
     }
 
     // MARK: - Helpers
 
-    @ViewBuilder
-    private func participantIcon(_ participant: Participant) -> some View {
-        switch participant.type {
-        case .user:
-            Image(systemName: "person.fill")
-                .foregroundStyle(.blue)
-                .font(.caption)
-        case .agentSession:
-            Image(systemName: "cpu")
-                .foregroundStyle(.purple)
-                .font(.caption)
+    private func durationString(from start: Date) -> String {
+        let interval = now.timeIntervalSince(start)
+        let hours = Int(interval) / 3600
+        let minutes = (Int(interval) % 3600) / 60
+        let seconds = Int(interval) % 60
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
         }
+        return String(format: "%dm %02ds", minutes, seconds)
+    }
+
+    private func turnProgressColor(used: Int, max: Int) -> Color {
+        let ratio = Double(used) / Double(max)
+        if ratio >= 0.9 { return .red }
+        if ratio >= 0.7 { return .orange }
+        return .accentColor
+    }
+
+    private func modelShortName(_ model: String) -> String {
+        if model.contains("sonnet") { return "Sonnet 4.6" }
+        if model.contains("opus") { return "Opus 4.6" }
+        if model.contains("haiku") { return "Haiku 4.6" }
+        return model
     }
 
     private func policyLabel(_ policy: InstancePolicy) -> String {
@@ -253,51 +297,20 @@ struct InspectorView: View {
         return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
-    // MARK: - Actions
-
-    private func commitTopicRename() {
-        let name = editedTopic.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !name.isEmpty, let convo = conversation {
-            convo.topic = name
-            try? modelContext.save()
+    private func abbreviatePath(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path.hasPrefix(home) {
+            return "~" + path.dropFirst(home.count)
         }
-        isEditingTopic = false
+        return path
     }
 
-    private func closeConversation(_ convo: Conversation) {
-        convo.status = .closed
-        convo.closedAt = Date()
-        if let session = convo.session {
-            appState.sendToSidecar(.sessionPause(sessionId: convo.id.uuidString))
-            session.status = .paused
+    private func openInTerminal(_ path: String) {
+        let script = "tell application \"Terminal\" to do script \"cd \(path.replacingOccurrences(of: "\"", with: "\\\""))\""
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
         }
-        try? modelContext.save()
-    }
-
-    private func pauseCurrentSession() {
-        guard let convo = conversation else { return }
-        appState.sendToSidecar(.sessionPause(sessionId: convo.id.uuidString))
-        convo.session?.status = .paused
-        try? modelContext.save()
-    }
-
-    private func resumeCurrentSession() {
-        guard let convo = conversation,
-              let session = convo.session,
-              let claudeSessionId = session.claudeSessionId else { return }
-        appState.sendToSidecar(.sessionResume(sessionId: convo.id.uuidString, claudeSessionId: claudeSessionId))
-        session.status = .active
-        convo.status = .active
-        try? modelContext.save()
-    }
-
-    private func stopCurrentSession() {
-        guard let convo = conversation, let session = convo.session else { return }
-        appState.sendToSidecar(.sessionPause(sessionId: convo.id.uuidString))
-        session.status = .completed
-        convo.status = .closed
-        convo.closedAt = Date()
-        try? modelContext.save()
     }
 }
 

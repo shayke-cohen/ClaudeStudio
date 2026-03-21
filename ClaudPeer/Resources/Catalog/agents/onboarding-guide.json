@@ -8,9 +8,11 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
     "onboarding-guide",
-    "workspace-collaboration",
-    "agent-identity"
+    "workspace-collaboration"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

@@ -10,7 +10,8 @@
   "requiredSkills": [
     "peer-collaboration",
     "delegation-patterns",
-    "blackboard-patterns"
+    "blackboard-patterns",
+    "agent-identity"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "coordinator",

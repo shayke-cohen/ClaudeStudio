@@ -12,70 +12,31 @@ struct SidebarView: View {
     @State private var conversationToDelete: Conversation?
     @State private var showDeleteConfirmation = false
     @State private var showCatalog = false
-    @State private var showSkillLibrary = false
-    @State private var showMCPLibrary = false
 
     var body: some View {
-        List(selection: $appState.selectedConversationId) {
-            if conversations.isEmpty {
-                emptyState
-            } else {
-                pinnedSection
-                activeSection
-                recentSection
+        VStack(spacing: 0) {
+            List(selection: $appState.selectedConversationId) {
+                if conversations.isEmpty {
+                    emptyState
+                } else {
+                    pinnedSection
+                    activeSection
+                    recentSection
+                }
+                agentsSection
             }
-            agentsSection
+            .listStyle(.sidebar)
+            .searchable(text: $searchText, prompt: "Search conversations...")
+            .accessibilityIdentifier("sidebar.conversationList")
+
+            Divider()
+
+            sidebarBottomBar
         }
-        .listStyle(.sidebar)
-        .searchable(text: $searchText, prompt: "Search conversations...")
-        .accessibilityIdentifier("sidebar.conversationList")
         .frame(minWidth: 220)
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    showCatalog = true
-                } label: {
-                    Label("Browse Catalog", systemImage: "square.grid.2x2")
-                }
-                .help("Browse catalog")
-                .accessibilityIdentifier("sidebar.catalogButton")
-
-                Button {
-                    showSkillLibrary = true
-                } label: {
-                    Label("Installed Skills", systemImage: "book.fill")
-                }
-                .help("Installed skills")
-                .accessibilityIdentifier("sidebar.skillsButton")
-
-                Button {
-                    showMCPLibrary = true
-                } label: {
-                    Label("Installed MCPs", systemImage: "server.rack")
-                }
-                .help("Installed MCPs")
-                .accessibilityIdentifier("sidebar.mcpsButton")
-
-                Button {
-                    appState.showAgentLibrary = true
-                } label: {
-                    Label("Manage Agents", systemImage: "slider.horizontal.3")
-                }
-                .help("Manage agents")
-                .accessibilityIdentifier("sidebar.manageAgentsButton")
-            }
-        }
         .sheet(isPresented: $showCatalog) {
             CatalogBrowserView()
                 .frame(minWidth: 700, minHeight: 550)
-        }
-        .sheet(isPresented: $showSkillLibrary) {
-            SkillLibraryView()
-                .frame(minWidth: 600, minHeight: 450)
-        }
-        .sheet(isPresented: $showMCPLibrary) {
-            MCPLibraryView()
-                .frame(minWidth: 600, minHeight: 450)
         }
         .alert("Rename Conversation", isPresented: Binding(
             get: { renamingConversation != nil },
@@ -106,6 +67,54 @@ struct SidebarView: View {
         } message: {
             Text("This conversation and all its messages will be permanently deleted.")
         }
+    }
+
+    // MARK: - Bottom Bar
+
+    private var sidebarBottomBar: some View {
+        HStack(spacing: 0) {
+            Button {
+                showCatalog = true
+            } label: {
+                Label("Catalog", systemImage: "square.grid.2x2")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .help("Browse catalog")
+            .accessibilityIdentifier("sidebar.catalogButton")
+
+            Divider()
+                .frame(height: 16)
+
+            Button {
+                appState.showAgentLibrary = true
+            } label: {
+                Label("Agents", systemImage: "cpu")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .help("Agent library")
+            .accessibilityIdentifier("sidebar.agentsButton")
+
+            Divider()
+                .frame(height: 16)
+
+            Button {
+                appState.showNewSessionSheet = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .help("New session")
+            .accessibilityIdentifier("sidebar.newSessionButton")
+        }
+        .padding(.vertical, 6)
+        .background(.bar)
+        .accessibilityIdentifier("sidebar.bottomBar")
     }
 
     // MARK: - Empty State
@@ -143,23 +152,11 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var pinnedSection: some View {
-        let pinned = conversations.filter { $0.isPinned }
+        let pinned = rootConversations.filter { $0.isPinned }
         if !pinned.isEmpty {
             Section("Pinned") {
                 ForEach(filteredConversations(pinned)) { convo in
-                    conversationRow(convo)
-                        .tag(convo.id)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) { promptDelete(convo) } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { togglePin(convo) } label: {
-                                Label("Unpin", systemImage: "pin.slash")
-                            }
-                            .tint(.yellow)
-                        }
+                    conversationTreeNode(convo, pinAction: "Unpin")
                 }
             }
         }
@@ -169,23 +166,11 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var activeSection: some View {
-        let active = conversations.filter { $0.status == .active && !$0.isPinned }
+        let active = rootConversations.filter { $0.status == .active && !$0.isPinned }
         if !active.isEmpty {
             Section("Active") {
                 ForEach(filteredConversations(active)) { convo in
-                    conversationRow(convo)
-                        .tag(convo.id)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) { promptDelete(convo) } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { togglePin(convo) } label: {
-                                Label("Pin", systemImage: "pin")
-                            }
-                            .tint(.yellow)
-                        }
+                    conversationTreeNode(convo, pinAction: "Pin")
                 }
             }
         }
@@ -195,26 +180,78 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var recentSection: some View {
-        let closed = conversations.filter { $0.status == .closed && !$0.isPinned }
+        let closed = rootConversations.filter { $0.status == .closed && !$0.isPinned }
         if !closed.isEmpty {
             Section("Recent") {
                 ForEach(filteredConversations(Array(closed.prefix(20)))) { convo in
-                    conversationRow(convo)
-                        .tag(convo.id)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) { promptDelete(convo) } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { togglePin(convo) } label: {
-                                Label("Pin", systemImage: "pin")
-                            }
-                            .tint(.yellow)
-                        }
+                    conversationTreeNode(convo, pinAction: "Pin")
                 }
             }
         }
+    }
+
+    // MARK: - Tree helpers
+
+    private var rootConversations: [Conversation] {
+        conversations.filter { $0.parentConversationId == nil }
+    }
+
+    private func childConversations(of parent: Conversation) -> [Conversation] {
+        conversations
+            .filter { $0.parentConversationId == parent.id }
+            .sorted { $0.startedAt < $1.startedAt }
+    }
+
+    @ViewBuilder
+    private func conversationTreeNode(_ convo: Conversation, pinAction: String) -> some View {
+        let children = childConversations(of: convo)
+        if children.isEmpty {
+            conversationRow(convo)
+                .tag(convo.id)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { promptDelete(convo) } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button { togglePin(convo) } label: {
+                        Label(pinAction, systemImage: convo.isPinned ? "pin.slash" : "pin")
+                    }
+                    .tint(.yellow)
+                }
+        } else {
+            DisclosureGroup {
+                ForEach(children) { child in
+                    childConversationRow(child)
+                }
+            } label: {
+                conversationRow(convo)
+                    .tag(convo.id)
+            }
+            .tag(convo.id)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) { promptDelete(convo) } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button { togglePin(convo) } label: {
+                    Label(pinAction, systemImage: convo.isPinned ? "pin.slash" : "pin")
+                }
+                .tint(.yellow)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func childConversationRow(_ convo: Conversation) -> some View {
+        conversationRow(convo)
+            .tag(convo.id)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) { promptDelete(convo) } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
     }
 
     // MARK: - Agents Section
@@ -316,30 +353,42 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func conversationIcon(_ convo: Conversation) -> some View {
-        if let agent = convo.session?.agent {
+        let hasUser = convo.participants.contains { $0.type == .user }
+        let agentCount = convo.participants.filter {
+            if case .agentSession = $0.type { return true }
+            return false
+        }.count
+        let isChild = convo.parentConversationId != nil
+        let isDelegation = convo.messages.contains { $0.type == .delegation }
+
+        if let agent = convo.session?.agent, hasUser {
             Image(systemName: agent.icon)
                 .foregroundStyle(agentColor(agent.color))
                 .font(.caption)
+        } else if isDelegation {
+            Image(systemName: "arrow.triangle.branch")
+                .foregroundStyle(.orange)
+                .font(.caption)
+        } else if !hasUser && agentCount >= 2 {
+            Image(systemName: "arrow.left.arrow.right")
+                .foregroundStyle(.purple)
+                .font(.caption)
+        } else if !hasUser && isChild {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .foregroundStyle(.purple)
+                .font(.caption)
+        } else if hasUser && agentCount > 1 {
+            Image(systemName: "person.3.fill")
+                .foregroundStyle(.blue)
+                .font(.caption)
+        } else if hasUser {
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .foregroundStyle(.blue)
+                .font(.caption)
         } else {
-            let hasUser = convo.participants.contains { $0.type == .user }
-            let agentCount = convo.participants.filter {
-                if case .agentSession = $0.type { return true }
-                return false
-            }.count
-
-            if hasUser && agentCount > 1 {
-                Image(systemName: "person.3.fill")
-                    .foregroundStyle(.blue)
-                    .font(.caption)
-            } else if hasUser {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .foregroundStyle(.blue)
-                    .font(.caption)
-            } else {
-                Image(systemName: "arrow.left.arrow.right")
-                    .foregroundStyle(.purple)
-                    .font(.caption)
-            }
+            Image(systemName: "bubble.left.and.bubble.right")
+                .foregroundStyle(.secondary)
+                .font(.caption)
         }
     }
 

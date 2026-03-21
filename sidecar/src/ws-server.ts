@@ -1,14 +1,17 @@
 import type { ServerWebSocket } from "bun";
 import type { SidecarCommand, SidecarEvent } from "./types.js";
-import { SessionManager } from "./session-manager.js";
+import type { SessionManager } from "./session-manager.js";
+import type { ToolContext } from "./tools/tool-context.js";
 
 export class WsServer {
   private clients = new Set<ServerWebSocket<unknown>>();
   private sessionManager: SessionManager;
+  private ctx: ToolContext;
   private server: ReturnType<typeof Bun.serve> | null = null;
 
-  constructor(port: number) {
-    this.sessionManager = new SessionManager((event) => this.broadcast(event));
+  constructor(port: number, sessionManager: SessionManager, ctx: ToolContext) {
+    this.sessionManager = sessionManager;
+    this.ctx = ctx;
 
     this.server = Bun.serve({
       port,
@@ -23,7 +26,7 @@ export class WsServer {
           const ready: SidecarEvent = {
             type: "sidecar.ready",
             port,
-            version: "0.1.0",
+            version: "0.2.0",
           };
           ws.send(JSON.stringify(ready));
         },
@@ -54,16 +57,20 @@ export class WsServer {
       case "session.create":
         await this.sessionManager.createSession(
           command.conversationId,
-          command.agentConfig
+          command.agentConfig,
         );
         break;
       case "session.message":
-        await this.sessionManager.sendMessage(command.sessionId, command.text, command.attachments);
+        await this.sessionManager.sendMessage(
+          command.sessionId,
+          command.text,
+          command.attachments,
+        );
         break;
       case "session.resume":
         await this.sessionManager.resumeSession(
           command.sessionId,
-          command.claudeSessionId
+          command.claudeSessionId,
         );
         break;
       case "session.fork":
@@ -71,6 +78,12 @@ export class WsServer {
         break;
       case "session.pause":
         await this.sessionManager.pauseSession(command.sessionId);
+        break;
+      case "agent.register":
+        for (const def of command.agents) {
+          this.ctx.agentDefinitions.set(def.name, def.config);
+          console.log(`[ws] Registered agent definition: ${def.name}`);
+        }
         break;
     }
   }

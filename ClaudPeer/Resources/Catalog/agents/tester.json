@@ -8,6 +8,10 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "workspace-collaboration",
+    "agent-identity",
     "web-testing",
     "unit-testing",
     "e2e-testing",

@@ -8,6 +8,9 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
     "requirements-writing",
     "user-stories",
     "roadmap-creation",

@@ -15,11 +15,11 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings.tab.connection")
 
-            AdvancedSettingsTab()
+            DeveloperSettingsTab()
                 .tabItem {
-                    Label("Advanced", systemImage: "gearshape.2")
+                    Label("Developer", systemImage: "wrench.and.screwdriver")
                 }
-                .accessibilityIdentifier("settings.tab.advanced")
+                .accessibilityIdentifier("settings.tab.developer")
         }
         .frame(width: 480)
         .accessibilityIdentifier("settings.tabView")
@@ -33,7 +33,6 @@ private struct GeneralSettingsTab: View {
     @AppStorage(AppSettings.defaultModelKey, store: AppSettings.store) private var defaultModel = AppSettings.defaultModel
     @AppStorage(AppSettings.defaultMaxTurnsKey, store: AppSettings.store) private var defaultMaxTurns = AppSettings.defaultMaxTurns
     @AppStorage(AppSettings.defaultMaxBudgetKey, store: AppSettings.store) private var defaultMaxBudget = AppSettings.defaultMaxBudget
-    @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
 
     private var selectedAppearance: Binding<AppAppearance> {
         Binding(
@@ -83,11 +82,6 @@ private struct GeneralSettingsTab: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
-
-            Divider()
-
-            Toggle("Auto-connect Sidecar on Launch", isOn: $autoConnectSidecar)
-                .accessibilityIdentifier("settings.general.autoConnectSidecarToggle")
         }
         .formStyle(.grouped)
         .padding()
@@ -97,13 +91,37 @@ private struct GeneralSettingsTab: View {
 // MARK: - Connection
 
 private struct ConnectionSettingsTab: View {
+    @EnvironmentObject private var appState: AppState
+    @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
     @AppStorage(AppSettings.wsPortKey, store: AppSettings.store) private var wsPort = AppSettings.defaultWsPort
     @AppStorage(AppSettings.httpPortKey, store: AppSettings.store) private var httpPort = AppSettings.defaultHttpPort
-    @AppStorage(AppSettings.bunPathOverrideKey, store: AppSettings.store) private var bunPathOverride = ""
-    @AppStorage(AppSettings.sidecarPathKey, store: AppSettings.store) private var sidecarPath = ""
 
     var body: some View {
         Form {
+            Section("Sidecar Status") {
+                HStack(spacing: 8) {
+                    statusDot
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(statusLabel)
+                            .font(.body)
+                        if appState.sidecarStatus == .connected {
+                            Text("ws://localhost:\(appState.allocatedWsPort)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("settings.connection.statusURL")
+                        }
+                    }
+                    Spacer()
+                    statusActions
+                }
+                .accessibilityIdentifier("settings.connection.statusRow")
+            }
+
+            Section("Preferences") {
+                Toggle("Auto-connect on Launch", isOn: $autoConnectSidecar)
+                    .accessibilityIdentifier("settings.connection.autoConnectToggle")
+            }
+
             Section("Ports") {
                 HStack {
                     Text("WebSocket Port")
@@ -129,18 +147,97 @@ private struct ConnectionSettingsTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
 
+    @ViewBuilder
+    private var statusDot: some View {
+        switch appState.sidecarStatus {
+        case .connected:
+            Circle().fill(.green).frame(width: 10, height: 10)
+        case .connecting:
+            ProgressView().controlSize(.small)
+        case .disconnected:
+            Circle().fill(.gray).frame(width: 10, height: 10)
+        case .error:
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.red)
+                .font(.caption)
+        }
+    }
+
+    private var statusLabel: String {
+        switch appState.sidecarStatus {
+        case .connected: "Connected"
+        case .connecting: "Connecting..."
+        case .disconnected: "Disconnected"
+        case .error(let msg): "Error: \(msg)"
+        }
+    }
+
+    @ViewBuilder
+    private var statusActions: some View {
+        switch appState.sidecarStatus {
+        case .connected:
+            Button("Reconnect") {
+                appState.disconnectSidecar()
+                appState.connectSidecar()
+            }
+            .controlSize(.small)
+            .accessibilityIdentifier("settings.connection.reconnectButton")
+
+            Button("Stop") {
+                appState.disconnectSidecar()
+            }
+            .controlSize(.small)
+            .foregroundStyle(.red)
+            .accessibilityIdentifier("settings.connection.stopButton")
+
+        case .disconnected, .error:
+            Button("Connect") {
+                appState.connectSidecar()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .accessibilityIdentifier("settings.connection.connectButton")
+
+        case .connecting:
+            EmptyView()
+        }
+    }
+}
+
+// MARK: - Developer
+
+private struct DeveloperSettingsTab: View {
+    @AppStorage(AppSettings.bunPathOverrideKey, store: AppSettings.store) private var bunPathOverride = ""
+    @AppStorage(AppSettings.sidecarPathKey, store: AppSettings.store) private var sidecarPath = ""
+    @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
+    @AppStorage(AppSettings.logLevelKey, store: AppSettings.store) private var logLevel = AppSettings.defaultLogLevel
+    @State private var showResetConfirmation = false
+
+    private var selectedLogLevel: Binding<LogLevel> {
+        Binding(
+            get: { LogLevel(rawValue: logLevel) ?? .info },
+            set: { logLevel = $0.rawValue }
+        )
+    }
+
+    var body: some View {
+        Form {
             Section("Paths") {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bun Path Override")
                     HStack {
                         TextField("Auto-detect", text: $bunPathOverride)
                             .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("settings.connection.bunPathField")
+                            .accessibilityIdentifier("settings.developer.bunPathField")
                         Button("Browse...") {
                             browseBunPath()
                         }
-                        .accessibilityIdentifier("settings.connection.bunPathBrowseButton")
+                        .accessibilityIdentifier("settings.developer.bunPathBrowseButton")
                     }
                     if bunPathOverride.isEmpty {
                         Text("Will search: /opt/homebrew/bin/bun, /usr/local/bin/bun, ~/.bun/bin/bun")
@@ -154,15 +251,70 @@ private struct ConnectionSettingsTab: View {
                     HStack {
                         TextField("Auto-detect", text: $sidecarPath)
                             .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("settings.connection.sidecarPathField")
+                            .accessibilityIdentifier("settings.developer.sidecarPathField")
                         Button("Browse...") {
                             browseProjectPath()
                         }
-                        .accessibilityIdentifier("settings.connection.sidecarPathBrowseButton")
+                        .accessibilityIdentifier("settings.developer.sidecarPathBrowseButton")
                     }
                     Text("Root directory containing the sidecar/ folder.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Data") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Data Directory")
+                    HStack {
+                        TextField("~/.claudpeer", text: $dataDirectory)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("settings.developer.dataDirectoryField")
+                        Button("Browse...") {
+                            browseDataDirectory()
+                        }
+                        .accessibilityIdentifier("settings.developer.dataDirectoryBrowseButton")
+                    }
+                    Text("Stores logs, blackboard data, repos, and sandboxes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Logging") {
+                Picker("Log Level", selection: selectedLogLevel) {
+                    ForEach(LogLevel.allCases) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                .accessibilityIdentifier("settings.developer.logLevelPicker")
+            }
+
+            Section {
+                HStack {
+                    Button("Open Data Directory in Finder") {
+                        openDataDirectory()
+                    }
+                    .accessibilityIdentifier("settings.developer.openDataDirectoryButton")
+
+                    Spacer()
+
+                    Button("Reset All Settings", role: .destructive) {
+                        showResetConfirmation = true
+                    }
+                    .accessibilityIdentifier("settings.developer.resetSettingsButton")
+                    .confirmationDialog(
+                        "Reset all settings to defaults?",
+                        isPresented: $showResetConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Reset", role: .destructive) {
+                            AppSettings.resetAll()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will revert all preferences to their default values. The sidecar will need to be restarted.")
+                    }
                 }
             }
         }
@@ -192,82 +344,6 @@ private struct ConnectionSettingsTab: View {
         if panel.runModal() == .OK, let url = panel.url {
             sidecarPath = url.path
         }
-    }
-}
-
-// MARK: - Advanced
-
-private struct AdvancedSettingsTab: View {
-    @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
-    @AppStorage(AppSettings.logLevelKey, store: AppSettings.store) private var logLevel = AppSettings.defaultLogLevel
-    @State private var showResetConfirmation = false
-
-    private var selectedLogLevel: Binding<LogLevel> {
-        Binding(
-            get: { LogLevel(rawValue: logLevel) ?? .info },
-            set: { logLevel = $0.rawValue }
-        )
-    }
-
-    var body: some View {
-        Form {
-            Section("Data") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Data Directory")
-                    HStack {
-                        TextField("~/.claudpeer", text: $dataDirectory)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("settings.advanced.dataDirectoryField")
-                        Button("Browse...") {
-                            browseDataDirectory()
-                        }
-                        .accessibilityIdentifier("settings.advanced.dataDirectoryBrowseButton")
-                    }
-                    Text("Stores logs, blackboard data, repos, and sandboxes.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Logging") {
-                Picker("Log Level", selection: selectedLogLevel) {
-                    ForEach(LogLevel.allCases) { level in
-                        Text(level.label).tag(level)
-                    }
-                }
-                .accessibilityIdentifier("settings.advanced.logLevelPicker")
-            }
-
-            Section {
-                HStack {
-                    Button("Open Data Directory in Finder") {
-                        openDataDirectory()
-                    }
-                    .accessibilityIdentifier("settings.advanced.openDataDirectoryButton")
-
-                    Spacer()
-
-                    Button("Reset All Settings", role: .destructive) {
-                        showResetConfirmation = true
-                    }
-                    .accessibilityIdentifier("settings.advanced.resetSettingsButton")
-                    .confirmationDialog(
-                        "Reset all settings to defaults?",
-                        isPresented: $showResetConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Reset", role: .destructive) {
-                            AppSettings.resetAll()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will revert all preferences to their default values. The sidecar will need to be restarted.")
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .padding()
     }
 
     private func browseDataDirectory() {

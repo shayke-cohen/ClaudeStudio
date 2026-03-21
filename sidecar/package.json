@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun --watch run src/index.ts"
+    "dev": "bun --watch run src/index.ts",
+    "test": "CLAUDPEER_DATA_DIR=/tmp/claudpeer-test-$(date +%s) bun test",
+    "test:unit": "CLAUDPEER_DATA_DIR=/tmp/claudpeer-test-$(date +%s) bun test test/unit/",
+    "test:integration": "CLAUDPEER_DATA_DIR=/tmp/claudpeer-test-$(date +%s) bun test test/integration/",
+    "test:api": "CLAUDPEER_DATA_DIR=/tmp/claudpeer-test-$(date +%s) bun test test/api/",
+    "test:e2e": "bun test test/e2e/"
   },
   "type": "module",
   "dependencies": {

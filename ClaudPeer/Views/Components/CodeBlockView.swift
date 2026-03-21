@@ -55,12 +55,13 @@ struct CodeBlockView: View {
 
     @ViewBuilder
     private var codeContent: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            Text(configuration.content.trimmingCharacters(in: .whitespacesAndNewlines))
-                .font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(10)
-        }
+        let trimmed = configuration.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        HighlightedCodeView(
+            code: trimmed,
+            language: configuration.language,
+            showLineNumbers: false
+        )
+        .frame(minHeight: 40, maxHeight: 400)
         .accessibilityIdentifier("codeBlock.codeScrollView")
     }
 

@@ -8,6 +8,9 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
     "incident-response",
     "log-analysis",
     "monitoring-setup"

@@ -8,6 +8,9 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
     "ios-swift",
     "android-kotlin",
     "react-native",

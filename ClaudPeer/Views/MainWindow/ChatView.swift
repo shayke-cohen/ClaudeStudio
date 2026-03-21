@@ -9,8 +9,8 @@ struct ChatView: View {
     @EnvironmentObject private var appState: AppState
     @State private var inputText = ""
     @State private var isProcessing = false
-    @State private var sessionCreated = false
     @State private var lastTokenTime: Date?
+    @State private var processingStartTime: Date?
     @State private var isEditingTopic = false
     @State private var editedTopic = ""
     @State private var showClearConfirmation = false
@@ -68,6 +68,19 @@ struct ChatView: View {
         .onReceive(appState.$sidecarStatus) { status in
             if status != .connected && isProcessing {
                 isProcessing = false
+                processingStartTime = nil
+            }
+        }
+        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+            guard isProcessing, let start = processingStartTime else { return }
+            let elapsed = Date().timeIntervalSince(start)
+            let sessionId = conversationId.uuidString
+            let hasStreamingText = !(appState.streamingText[sessionId]?.isEmpty ?? true)
+            if elapsed > 120 && !hasStreamingText {
+                print("[ChatView] Timeout: no response after \(Int(elapsed))s for \(sessionId)")
+                isProcessing = false
+                processingStartTime = nil
+                appState.lastSessionEvent[sessionId] = .error("No response received (timeout)")
             }
         }
         .onChange(of: sortedMessages.count) { oldCount, newCount in
@@ -119,8 +132,10 @@ struct ChatView: View {
 
     @ViewBuilder
     private var chatHeader: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 4) {
             HStack(alignment: .center, spacing: 8) {
+                agentIconButton
+
                 if isEditingTopic {
                     TextField("Conversation name", text: $editedTopic)
                         .textFieldStyle(.roundedBorder)
@@ -135,19 +150,6 @@ struct ChatView: View {
                         .font(.headline)
                         .lineLimit(1)
                         .accessibilityIdentifier("chat.topicTitle")
-                    Button {
-                        editedTopic = conversation?.topic ?? ""
-                        isEditingTopic = true
-                        topicFieldFocused = true
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Rename conversation")
-                    .accessibilityIdentifier("chat.editTopicButton")
-                    .accessibilityLabel("Rename conversation")
                 }
 
                 Spacer()
@@ -170,17 +172,21 @@ struct ChatView: View {
                         .monospacedDigit()
                         .accessibilityIdentifier("chat.liveCostLabel")
                 }
-            }
-
-            HStack(spacing: 4) {
-                Text(participantSummary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("chat.participantSummary")
-                Spacer()
 
                 if let convo = conversation {
                     headerActions(convo)
+                }
+            }
+
+            if let mission = conversation?.session?.mission, !mission.isEmpty {
+                HStack {
+                    Text(mission)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .accessibilityIdentifier("chat.missionPreview")
+                    Spacer()
                 }
             }
         }
@@ -190,15 +196,30 @@ struct ChatView: View {
     }
 
     @ViewBuilder
+    private var agentIconButton: some View {
+        if let agent = conversation?.session?.agent {
+            Button {
+                appState.showAgentLibrary = true
+            } label: {
+                Image(systemName: agent.icon)
+                    .foregroundStyle(Color.fromAgentColor(agent.color))
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help("Open agent: \(agent.name)")
+            .accessibilityIdentifier("chat.agentIconButton")
+            .accessibilityLabel("Open agent \(agent.name)")
+        } else {
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .foregroundStyle(.blue)
+                .font(.title3)
+                .accessibilityIdentifier("chat.chatIcon")
+        }
+    }
+
+    @ViewBuilder
     private func headerActions(_ convo: Conversation) -> some View {
         HStack(spacing: 6) {
-            Button { forkConversation() } label: {
-                Image(systemName: "arrow.branch")
-            }
-            .help("Fork conversation")
-            .accessibilityIdentifier("chat.forkButton")
-            .accessibilityLabel("Fork conversation")
-
             if convo.status == .active {
                 Button { pauseSession() } label: {
                     Image(systemName: "pause.fill")
@@ -223,14 +244,29 @@ struct ChatView: View {
             }
 
             Menu {
-                Button { showClearConfirmation = true } label: {
-                    Label("Clear Messages", systemImage: "trash")
+                if convo.session != nil {
+                    Button { forkConversation() } label: {
+                        Label("Fork Conversation", systemImage: "arrow.branch")
+                    }
+                    .accessibilityIdentifier("chat.moreOptions.fork")
                 }
-                .accessibilityIdentifier("chat.moreOptions.clearMessages")
+                Button {
+                    editedTopic = convo.topic ?? ""
+                    isEditingTopic = true
+                    topicFieldFocused = true
+                } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                .accessibilityIdentifier("chat.moreOptions.rename")
                 Button { duplicateConversation(convo) } label: {
                     Label("Duplicate", systemImage: "doc.on.doc")
                 }
                 .accessibilityIdentifier("chat.moreOptions.duplicate")
+                Divider()
+                Button { showClearConfirmation = true } label: {
+                    Label("Clear Messages", systemImage: "trash")
+                }
+                .accessibilityIdentifier("chat.moreOptions.clearMessages")
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -569,7 +605,11 @@ struct ChatView: View {
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = pendingAttachments
-        guard !text.isEmpty || !attachments.isEmpty, let convo = conversation else { return }
+        guard !text.isEmpty || !attachments.isEmpty, let convo = conversation else {
+            print("[ChatView] sendMessage guard failed: text='\(inputText)' attachments=\(pendingAttachments.count) convo=\(conversation != nil)")
+            return
+        }
+        print("[ChatView] sendMessage: text='\(text)' convo=\(convo.id) sidecar=\(appState.sidecarStatus)")
         inputText = ""
         pendingAttachments = []
 
@@ -612,18 +652,21 @@ struct ChatView: View {
         try? modelContext.save()
 
         isProcessing = true
+        processingStartTime = Date()
 
         let sessionId = convo.id.uuidString
         guard appState.sidecarStatus == .connected,
               let manager = appState.sidecarManager else {
+            print("[ChatView] sidecar not connected: status=\(appState.sidecarStatus)")
             isProcessing = false
             return
         }
+        print("[ChatView] sidecar connected, sessionId=\(sessionId), alreadyCreated=\(appState.createdSessions.contains(sessionId))")
 
         _ = ensureAgentParticipant(in: convo)
 
         var createConfig: AgentConfig?
-        if !sessionCreated {
+        if !appState.createdSessions.contains(sessionId) {
             if let session = convo.session, let agent = session.agent {
                 let provisioner = AgentProvisioner(modelContext: modelContext)
                 let (provConfig, _) = provisioner.provision(agent: agent, mission: session.mission)
@@ -637,7 +680,7 @@ struct ChatView: View {
                     model: "claude-sonnet-4-6",
                     maxTurns: 1,
                     maxBudget: nil,
-                    workingDirectory: NSHomeDirectory(),
+                    workingDirectory: appState.instanceWorkingDirectory ?? NSHomeDirectory(),
                     skills: []
                 )
             }
@@ -647,18 +690,29 @@ struct ChatView: View {
         appState.lastSessionEvent.removeValue(forKey: sessionId)
 
         Task {
-            if let config = createConfig {
-                try? await manager.send(.sessionCreate(
-                    conversationId: sessionId,
-                    agentConfig: config
+            do {
+                if let config = createConfig {
+                    print("[ChatView] Sending session.create for \(sessionId) agent=\(config.name)")
+                    try await manager.send(.sessionCreate(
+                        conversationId: sessionId,
+                        agentConfig: config
+                    ))
+                    await MainActor.run { appState.createdSessions.insert(sessionId) }
+                }
+                print("[ChatView] Sending session.message for \(sessionId): '\(text)'")
+                try await manager.send(.sessionMessage(
+                    sessionId: sessionId,
+                    text: text,
+                    attachments: wireAttachments
                 ))
-                await MainActor.run { sessionCreated = true }
+                print("[ChatView] Message sent successfully for \(sessionId)")
+            } catch {
+                print("[ChatView] Send failed for \(sessionId): \(error)")
+                await MainActor.run {
+                    isProcessing = false
+                    appState.lastSessionEvent[sessionId] = .error("Failed to send: \(error.localizedDescription)")
+                }
             }
-            try? await manager.send(.sessionMessage(
-                sessionId: sessionId,
-                text: text,
-                attachments: wireAttachments
-            ))
         }
     }
 

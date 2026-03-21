@@ -18,6 +18,7 @@ final class SidecarManager: ObservableObject, Sendable {
     private var eventContinuation: AsyncStream<SidecarEvent>.Continuation?
     private var isRunning = false
     private var isReconnecting = false
+    private var pingTask: Task<Void, Never>?
     private let config: Config
 
     var events: AsyncStream<SidecarEvent> {
@@ -49,6 +50,8 @@ final class SidecarManager: ObservableObject, Sendable {
 
     func stop() {
         isRunning = false
+        pingTask?.cancel()
+        pingTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         process?.terminate()
@@ -57,10 +60,27 @@ final class SidecarManager: ObservableObject, Sendable {
         eventContinuation?.finish()
     }
 
+    enum SidecarError: Error, LocalizedError {
+        case notConnected
+        case encodingFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .notConnected: return "Sidecar not connected"
+            case .encodingFailed: return "Failed to encode command"
+            }
+        }
+    }
+
     func send(_ command: SidecarCommand) async throws {
         let data = try command.encodeToJSON()
-        guard let text = String(data: data, encoding: .utf8) else { return }
-        try await webSocketTask?.send(.string(text))
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw SidecarError.encodingFailed
+        }
+        guard let task = webSocketTask else {
+            throw SidecarError.notConnected
+        }
+        try await task.send(.string(text))
     }
 
     private func launchSidecar() throws {
@@ -101,13 +121,31 @@ final class SidecarManager: ObservableObject, Sendable {
 
     private func connectWebSocket() async throws {
         let url = URL(string: "ws://localhost:\(config.wsPort)")!
-        let session = URLSession(configuration: .default)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 300
+        let session = URLSession(configuration: config)
         self.urlSession = session
         let task = session.webSocketTask(with: url)
         self.webSocketTask = task
         task.resume()
         eventContinuation?.yield(.connected)
         receiveMessages()
+        startPingPong()
+    }
+
+    private func startPingPong() {
+        pingTask?.cancel()
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                guard !Task.isCancelled else { break }
+                self?.webSocketTask?.sendPing { error in
+                    if let error {
+                        print("[SidecarManager] Ping failed: \(error)")
+                    }
+                }
+            }
+        }
     }
 
     private func receiveMessages() {

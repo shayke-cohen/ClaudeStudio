@@ -4,7 +4,14 @@ export type SidecarCommand =
   | { type: "session.message"; sessionId: string; text: string; attachments?: FileAttachment[] }
   | { type: "session.resume"; sessionId: string; claudeSessionId: string }
   | { type: "session.fork"; sessionId: string }
-  | { type: "session.pause"; sessionId: string };
+  | { type: "session.pause"; sessionId: string }
+  | { type: "agent.register"; agents: AgentDefinition[] };
+
+export interface AgentDefinition {
+  name: string;
+  config: AgentConfig;
+  instancePolicy: "spawn" | "singleton" | { pool: number };
+}
 
 export interface AgentConfig {
   name: string;

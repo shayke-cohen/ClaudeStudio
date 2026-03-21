@@ -28,6 +28,11 @@ struct AgentEditorView: View {
     @State private var selectedMCPIds: Set<UUID>
     @State private var selectedPermissionId: UUID?
     @State private var systemPrompt: String
+    @State private var showSkillLibrary = false
+    @State private var showMCPLibrary = false
+    @State private var skillsExpanded = true
+    @State private var mcpsExpanded = true
+    @State private var permissionsExpanded = false
 
     init(agent: Agent?, onSave: @escaping (Agent) -> Void) {
         self.agent = agent
@@ -66,7 +71,7 @@ struct AgentEditorView: View {
         }
     }
 
-    private let steps = ["Identity", "Skills", "MCPs", "Permissions", "System Prompt"]
+    private let steps = ["Identity", "Capabilities", "System Prompt"]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -78,10 +83,8 @@ struct AgentEditorView: View {
             Group {
                 switch currentStep {
                 case 0: identityStep
-                case 1: skillsStep
-                case 2: mcpsStep
-                case 3: permissionsStep
-                case 4: systemPromptStep
+                case 1: capabilitiesStep
+                case 2: systemPromptStep
                 default: EmptyView()
                 }
             }
@@ -91,6 +94,8 @@ struct AgentEditorView: View {
             navigationButtons
         }
     }
+
+    // MARK: - Header
 
     @ViewBuilder
     private var editorHeader: some View {
@@ -111,6 +116,8 @@ struct AgentEditorView: View {
         }
         .padding()
     }
+
+    // MARK: - Step Indicator
 
     @ViewBuilder
     private var stepIndicator: some View {
@@ -136,6 +143,8 @@ struct AgentEditorView: View {
         }
         .padding(.horizontal)
     }
+
+    // MARK: - Step 1: Identity
 
     @ViewBuilder
     private var identityStep: some View {
@@ -195,11 +204,37 @@ struct AgentEditorView: View {
         .formStyle(.grouped)
     }
 
-    @State private var showSkillLibrary = false
+    // MARK: - Step 2: Capabilities (Skills + MCPs + Permissions)
+
+    private var inheritedMCPIds: Set<UUID> {
+        let selectedSkills = allSkills.filter { selectedSkillIds.contains($0.id) }
+        return Set(selectedSkills.flatMap(\.mcpServerIds))
+    }
 
     @ViewBuilder
-    private var skillsStep: some View {
-        VStack(spacing: 0) {
+    private var capabilitiesStep: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                skillsSection
+                Divider().padding(.horizontal)
+                mcpsSection
+                Divider().padding(.horizontal)
+                permissionsSection
+            }
+        }
+        .sheet(isPresented: $showSkillLibrary) {
+            SkillLibraryView()
+                .frame(minWidth: 560, minHeight: 420)
+        }
+        .sheet(isPresented: $showMCPLibrary) {
+            MCPLibraryView()
+                .frame(minWidth: 560, minHeight: 420)
+        }
+    }
+
+    @ViewBuilder
+    private var skillsSection: some View {
+        DisclosureGroup(isExpanded: $skillsExpanded) {
             HStack(spacing: 0) {
                 VStack(alignment: .leading) {
                     Text("Selected (\(selectedSkillIds.count))")
@@ -228,6 +263,7 @@ struct AgentEditorView: View {
                         }
                     }
                     .accessibilityIdentifier("agentEditor.skills.selectedList")
+                    .frame(minHeight: 120)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -260,70 +296,61 @@ struct AgentEditorView: View {
                         }
                     }
                     .accessibilityIdentifier("agentEditor.skills.availableList")
+                    .frame(minHeight: 120)
                 }
                 .frame(maxWidth: .infinity)
             }
+            .frame(height: 180)
 
             HStack {
                 Spacer()
                 Button {
                     showSkillLibrary = true
                 } label: {
-                    Label("Manage Skills…", systemImage: "book.fill")
+                    Label("Manage Skills...", systemImage: "book.fill")
                 }
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("agentEditor.manageSkills")
             }
             .padding(.horizontal)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
+        } label: {
+            Label("Skills (\(selectedSkillIds.count) selected)", systemImage: "book")
+                .font(.headline)
         }
-        .sheet(isPresented: $showSkillLibrary) {
-            SkillLibraryView()
-                .frame(minWidth: 560, minHeight: 420)
-        }
+        .padding()
+        .accessibilityIdentifier("agentEditor.skillsDisclosure")
     }
-
-    private var inheritedMCPIds: Set<UUID> {
-        let selectedSkills = allSkills.filter { selectedSkillIds.contains($0.id) }
-        return Set(selectedSkills.flatMap(\.mcpServerIds))
-    }
-
-    @State private var showMCPLibrary = false
 
     @ViewBuilder
-    private var mcpsStep: some View {
-        VStack(spacing: 0) {
+    private var mcpsSection: some View {
+        DisclosureGroup(isExpanded: $mcpsExpanded) {
             if !inheritedMCPIds.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("From Skills (inherited)")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Inherited from Skills")
                         .font(.caption)
-                        .fontWeight(.medium)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
-                    List {
-                        ForEach(allMCPs.filter { inheritedMCPIds.contains($0.id) }) { mcp in
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(mcp.name).font(.callout)
-                                    let fromSkills = allSkills
-                                        .filter { selectedSkillIds.contains($0.id) && $0.mcpServerIds.contains(mcp.id) }
-                                        .map(\.name)
-                                        .joined(separator: ", ")
-                                    Text("from: \(fromSkills)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                Spacer()
-                                Image(systemName: "lock.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
+                    ForEach(allMCPs.filter { inheritedMCPIds.contains($0.id) }) { mcp in
+                        HStack {
+                            Image(systemName: "lock.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text(mcp.name)
+                                .font(.callout)
+                            Spacer()
+                            let fromSkills = allSkills
+                                .filter { selectedSkillIds.contains($0.id) && $0.mcpServerIds.contains(mcp.id) }
+                                .map(\.name)
+                                .joined(separator: ", ")
+                            Text("from: \(fromSkills)")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
                         }
+                        .padding(.horizontal)
                     }
-                    .accessibilityIdentifier("agentEditor.mcps.inheritedList")
                 }
-                .frame(maxHeight: 160)
-                Divider()
+                .padding(.bottom, 8)
             }
 
             HStack(spacing: 0) {
@@ -355,6 +382,7 @@ struct AgentEditorView: View {
                         }
                     }
                     .accessibilityIdentifier("agentEditor.mcps.selectedList")
+                    .frame(minHeight: 80)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -387,33 +415,37 @@ struct AgentEditorView: View {
                         }
                     }
                     .accessibilityIdentifier("agentEditor.mcps.availableList")
+                    .frame(minHeight: 80)
                 }
                 .frame(maxWidth: .infinity)
             }
+            .frame(height: 140)
 
             HStack {
                 Spacer()
                 Button {
                     showMCPLibrary = true
                 } label: {
-                    Label("Manage MCPs…", systemImage: "server.rack")
+                    Label("Manage MCPs...", systemImage: "server.rack")
                 }
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("agentEditor.manageMCPs")
             }
             .padding(.horizontal)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
+        } label: {
+            let totalMCPs = selectedMCPIds.count + inheritedMCPIds.count
+            Label("MCP Servers (\(totalMCPs) active)", systemImage: "server.rack")
+                .font(.headline)
         }
-        .sheet(isPresented: $showMCPLibrary) {
-            MCPLibraryView()
-                .frame(minWidth: 560, minHeight: 420)
-        }
+        .padding()
+        .accessibilityIdentifier("agentEditor.mcpsDisclosure")
     }
 
     @ViewBuilder
-    private var permissionsStep: some View {
-        Form {
-            Section("Permission Preset") {
+    private var permissionsSection: some View {
+        DisclosureGroup(isExpanded: $permissionsExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
                 Picker("Preset", selection: $selectedPermissionId) {
                     Text("None").tag(Optional<UUID>.none)
                     ForEach(allPermissions) { perm in
@@ -421,24 +453,45 @@ struct AgentEditorView: View {
                     }
                 }
                 .accessibilityIdentifier("agentEditor.permissionPresetPicker")
-            }
 
-            if let permId = selectedPermissionId,
-               let perm = allPermissions.first(where: { $0.id == permId }) {
-                Section("Allow Rules") {
-                    ForEach(perm.allowRules, id: \.self) { rule in
-                        Text(rule).font(.system(.caption, design: .monospaced))
+                if let permId = selectedPermissionId,
+                   let perm = allPermissions.first(where: { $0.id == permId }) {
+                    if !perm.allowRules.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Allow Rules")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(perm.allowRules, id: \.self) { rule in
+                                Text(rule)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .padding(.leading, 8)
+                            }
+                        }
                     }
-                }
-                Section("Deny Rules") {
-                    ForEach(perm.denyRules, id: \.self) { rule in
-                        Text(rule).font(.system(.caption, design: .monospaced))
+                    if !perm.denyRules.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Deny Rules")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(perm.denyRules, id: \.self) { rule in
+                                Text(rule)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .padding(.leading, 8)
+                            }
+                        }
                     }
                 }
             }
+            .padding(.top, 4)
+        } label: {
+            Label("Permissions", systemImage: "lock.shield")
+                .font(.headline)
         }
-        .formStyle(.grouped)
+        .padding()
+        .accessibilityIdentifier("agentEditor.permissionsDisclosure")
     }
+
+    // MARK: - Step 3: System Prompt
 
     @ViewBuilder
     private var systemPromptStep: some View {
@@ -470,6 +523,8 @@ struct AgentEditorView: View {
         .padding(.vertical)
     }
 
+    // MARK: - Navigation
+
     @ViewBuilder
     private var navigationButtons: some View {
         HStack {
@@ -499,6 +554,8 @@ struct AgentEditorView: View {
         }
         .padding()
     }
+
+    // MARK: - Save
 
     private func saveAgent() {
         let target: Agent

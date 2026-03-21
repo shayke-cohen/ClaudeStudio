@@ -2,8 +2,8 @@
 
 Living specification tracking implemented features, user flows, and requirements.
 
-**Version:** 0.2.0
-**Status:** Early development (Phase 1-2 of roadmap)
+**Version:** 0.6.0
+**Status:** Phase 6 complete (UX Redesign + Inspector Toggle)
 
 ---
 
@@ -76,7 +76,7 @@ Users create and manage reusable agent templates.
 
 **Status:** Implemented
 
-Sessions are running instances of agents. The sidecar routes sessions to one of two backends based on config complexity.
+All sessions use the Claude Agent SDK. Every session gets PeerBus tools injected automatically.
 
 | Requirement | Status |
 |---|---|
@@ -93,14 +93,15 @@ Sessions are running instances of agents. The sidecar routes sessions to one of 
 | FR-3.11: Fork sessions (branch conversation) | Done |
 | FR-3.12: Pause/abort running sessions | Done |
 | FR-3.13: Track session status (active/paused/completed/failed) | Done |
-| FR-3.14: Instance policy enforcement (singleton/pool routing) | Not started |
-| FR-3.15: Simple chat via `claude --print` for sessions with no tools/MCPs/skills | Done |
-| FR-3.16: Auto-route to ChatHandler (lightweight) vs Agent SDK (full) based on config | Done |
+| FR-3.14: Instance policy enforcement (delegation respects definitions) | Partial |
+| FR-3.15: All sessions use Agent SDK with PeerBus MCP server injected | Done |
+| FR-3.16: Agent definitions registered with sidecar on connect (agent.register) | Done |
 | FR-3.17: Response polling in Swift to capture agent replies and save to SwiftData | Done |
+| FR-3.18: Autonomous session spawning for delegation (spawnAutonomous) | Done |
 
 ### FR-4: Conversation Model
 
-**Status:** Implemented (user↔agent only)
+**Status:** Implemented
 
 Unified conversation model supporting user-to-agent and agent-to-agent communication.
 
@@ -108,12 +109,12 @@ Unified conversation model supporting user-to-agent and agent-to-agent communica
 |---|---|
 | FR-4.1: Create conversation with participants | Done |
 | FR-4.2: Persist messages in SwiftData | Done |
-| FR-4.3: Message types: text, toolCall, toolResult, delegation, blackboard | Done (model) |
+| FR-4.3: Message types: text, toolCall, toolResult, delegation, blackboard | Done |
 | FR-4.4: Participant types: user, agentSession | Done |
 | FR-4.5: Participant roles: active, observer | Done (model) |
-| FR-4.6: Parent-child conversation tree (spawned conversations) | Done (model) |
+| FR-4.6: Parent-child conversation tree (spawned conversations) | Done |
 | FR-4.7: Conversation status (active/closed) | Done |
-| FR-4.8: Agent-to-agent conversations | Not started |
+| FR-4.8: Agent-to-agent conversations (created from peer.chat/peer.delegate events) | Done |
 | FR-4.9: Group conversations (user + multiple agents) | Not started |
 
 ### FR-5: Chat UI
@@ -154,19 +155,27 @@ Unified conversation model supporting user-to-agent and agent-to-agent communica
 
 | Requirement | Status |
 |---|---|
-| FR-6.1: Three-panel NavigationSplitView | Done |
+| FR-6.1: Two-column NavigationSplitView (sidebar + detail HStack with chat + optional inspector) | Done |
 | FR-6.2: Sidebar with conversation list | Done |
 | FR-6.3: Sidebar with agent list section | Done |
-| FR-6.4: Detail area showing ChatView | Done |
-| FR-6.5: Inspector panel with session metadata | Done |
-| FR-6.6: Toolbar: new session, quick chat, agent library, peer network | Done |
+| FR-6.4: Detail area showing ChatView (expands to full width when inspector hidden) | Done |
+| FR-6.5: Inspector panel with session metadata (toggleable) | Done |
+| FR-6.6: Toolbar: new session, quick chat, sidecar status pill, inspector toggle | Done |
 | FR-6.7: Default window size 1200x800 | Done |
 | FR-6.8: Sidebar rows show relative timestamps, message preview, and agent icon | Done |
 | FR-6.9: Sidebar has Pinned section above Active | Done |
 | FR-6.10: Sidebar conversation context menu (rename, pin, close, delete, duplicate) | Done |
 | FR-6.11: Sidebar empty state when no conversations exist | Done |
-| FR-6.12: Inspector panel with session action buttons (resume/pause/stop) | Done |
+| FR-6.12: Inspector with usage section (tokens, cost, turns progress bar) and workspace section | Done |
 | FR-6.13: Agent card Start button launches session and dismisses library | Done |
+| FR-6.14: Inspector toggle button in toolbar (sidebar.trailing icon, ⌘⌥0) | Done |
+| FR-6.15: Chat area expands to fill inspector space when inspector is hidden | Done |
+| FR-6.16: Sidecar status pill in toolbar center with popover (status, URL, connect/stop/reconnect) | Done |
+| FR-6.17: Sidebar bottom bar with Catalog, Agents, and New Session buttons | Done |
+| FR-6.18: Chat header with tappable agent icon, mission preview, Fork/Rename in overflow menu | Done |
+| FR-6.19: Settings reorganized: General / Connection (with live sidecar status) / Developer tabs | Done |
+| FR-6.20: New Session sheet with recent agents row, collapsible options, mode tooltips | Done |
+| FR-6.21: Agent Editor consolidated from 5 steps to 3 (Identity, Capabilities, System Prompt) | Done |
 
 ### FR-7: Blackboard
 
@@ -182,9 +191,9 @@ Unified conversation model supporting user-to-agent and agent-to-agent communica
 | FR-7.6: HTTP GET /blackboard/keys | Done |
 | FR-7.7: HTTP GET /blackboard/health | Done |
 | FR-7.8: CORS headers for localhost | Done |
-| FR-7.9: Blackboard as custom SDK tools for agents | Not started |
-| FR-7.10: WebSocket subscription for live updates | Not started |
-| FR-7.11: Blackboard events forwarded to Swift UI | Not started |
+| FR-7.9: Blackboard as custom SDK tools for agents (blackboard_read/write/query/subscribe) | Done |
+| FR-7.10: blackboard.update events broadcast to Swift via WebSocket | Done |
+| FR-7.11: Blackboard events persisted to SwiftData (BlackboardEntry upsert) | Done |
 
 ### FR-8: Agent Provisioning
 
@@ -213,7 +222,7 @@ Configurable application preferences accessible via Cmd+, (standard macOS Settin
 
 | Requirement | Status |
 |---|---|
-| FR-9.1: Three-tab settings window (General, Connection, Advanced) | Done |
+| FR-9.1: Three-tab settings window (General, Connection, Developer) | Done |
 | FR-9.2: Appearance picker (System/Light/Dark) applied app-wide via preferredColorScheme | Done |
 | FR-9.3: Default model picker (sonnet/opus/haiku) | Done |
 | FR-9.4: Default max turns stepper (1-100) | Done |
@@ -339,6 +348,130 @@ XCTest-based unit test target for verifying catalog system integrity, service lo
 | FR-13.11: CatalogServiceTests — data integrity (unique IDs, valid cross-references, required fields) | Done |
 | FR-13.12: InstanceConfigTests — directory structure, UserDefaults suite, port allocation | Done |
 | FR-13.13: 61 tests passing with 0 failures | Done |
+
+### FR-14: Inter-Agent Communication (PeerBus)
+
+**Status:** Implemented
+
+Full suite of PeerBus tools injected as in-process MCP server into every Agent SDK session.
+
+| Requirement | Status |
+|---|---|
+| FR-14.1: ToolContext shared across all stores, broadcast, and spawnSession | Done |
+| FR-14.2: PeerBus MCP server factory (createSdkMcpServer) injected into every session | Done |
+| FR-14.3: blackboard_read — read entry by key | Done |
+| FR-14.4: blackboard_write — write entry, emit blackboard.update event | Done |
+| FR-14.5: blackboard_query — glob-pattern search | Done |
+| FR-14.6: blackboard_subscribe — return current matches, note subscription | Done |
+| FR-14.7: peer_send_message — async direct message to agent by name or session ID | Done |
+| FR-14.8: peer_broadcast — broadcast to all active sessions on a named channel | Done |
+| FR-14.9: peer_receive_messages — drain inbox for calling session | Done |
+| FR-14.10: peer_list_agents — list all active sessions and registered definitions | Done |
+| FR-14.11: peer_delegate_task — spawn/route task to target agent, optional blocking | Done |
+| FR-14.12: peer_chat_start — create blocking conversation channel, wait for reply | Done |
+| FR-14.13: peer_chat_reply — reply to channel, wait for next message | Done |
+| FR-14.14: peer_chat_listen — block until incoming chat request | Done |
+| FR-14.15: peer_chat_close — close channel, unblock all waiters | Done |
+| FR-14.16: peer_chat_invite — add participant to existing channel | Done |
+| FR-14.17: workspace_create — create shared directory under ~/.claudpeer/workspaces/ | Done |
+| FR-14.18: workspace_join — join existing workspace, get path | Done |
+| FR-14.19: workspace_list — list all workspaces with participant counts | Done |
+| FR-14.20: ChatChannelStore with deadlock detection (circular wait prevention) | Done |
+| FR-14.21: MessageStore with per-session inboxes and drain/peek | Done |
+| FR-14.22: agent.register command — Swift sends agent definitions to sidecar on connect | Done |
+
+### FR-15: Agent Comms View
+
+**Status:** Implemented
+
+Unified timeline UI for observing all inter-agent communication.
+
+| Requirement | Status |
+|---|---|
+| FR-15.1: AgentCommsView with filter tabs (All/Chats/Delegations/Blackboard) | Done |
+| FR-15.2: CommsTimelineEntry with event-specific icons, headers, and body | Done |
+| FR-15.3: Agent Comms accessible from toolbar button | Done |
+| FR-15.4: Events sourced from AppState.commsEvents (populated by sidecar events) | Done |
+| FR-15.5: Sidebar conversation tree with parent-child nesting (DisclosureGroup) | Done |
+| FR-15.6: Type-specific conversation icons (delegation, agent-to-agent, user+agent, group) | Done |
+| FR-15.7: Root conversations filtered to exclude children from top-level lists | Done |
+
+### FR-16: Built-in Ecosystem Seeding
+
+**Status:** Implemented
+
+First-launch seeding of default agents, skills, MCP servers, permission presets, and system prompt templates into SwiftData.
+
+| Requirement | Status |
+|---|---|
+| FR-16.1: DefaultsSeeder seeds 5 permission presets from DefaultPermissionPresets.json | Done |
+| FR-16.2: DefaultsSeeder seeds 4 MCP servers from DefaultMCPs.json (Argus, AppXray, GitHub, Sentry) | Done |
+| FR-16.3: DefaultsSeeder seeds 5 ClaudPeer skills from DefaultSkills/*/SKILL.md with frontmatter parsing | Done |
+| FR-16.4: DefaultsSeeder seeds 7 built-in agents from DefaultAgents/*.json | Done |
+| FR-16.5: Agent seeding resolves skill references by name → UUID linking | Done |
+| FR-16.6: Agent seeding resolves MCP server references by name → UUID linking | Done |
+| FR-16.7: Agent seeding resolves permission preset by name → UUID linking | Done |
+| FR-16.8: System prompt templates loaded from SystemPromptTemplates/*.md (specialist, worker, coordinator) | Done |
+| FR-16.9: Template variable resolution ({{role}}, {{domain}}, {{constraints}}, {{team_description}}, {{pipeline_style}}) | Done |
+| FR-16.10: Seeded agents marked with origin: .builtin | Done |
+| FR-16.11: Seeded skills marked with source: .builtin | Done |
+| FR-16.12: Seeding is idempotent (UserDefaults flag + permission count check) | Done |
+| FR-16.13: All 30 catalog agents include PeerBus system skills in requiredSkills | Done |
+| FR-16.14: Catalog agent install cascades PeerBus skills alongside domain skills | Done |
+
+### FR-17: Inspector File Explorer
+
+**Status:** Implemented
+
+File tree browser in the Inspector pane showing the agent's working directory with syntax-highlighted source viewing, markdown preview, and git diff support.
+
+| Requirement | Status |
+|---|---|
+| FR-17.1: Inspector tab picker (Info / Files) when session has a working directory | Done |
+| FR-17.2: File tree with lazy-loaded directory expansion (DisclosureGroup) | Done |
+| FR-17.3: Sorted listing (directories first, then alphabetical) | Done |
+| FR-17.4: Common directories excluded by default (.git, node_modules, DerivedData, etc.) | Done |
+| FR-17.5: Show/hide hidden files toggle | Done |
+| FR-17.6: "Changes Only" filter to show only git-modified files | Done |
+| FR-17.7: Git status badges on files (colored dots: modified/added/deleted/renamed/untracked) | Done |
+| FR-17.8: Directory change indicators (dim dot when any descendant has changes) | Done |
+| FR-17.9: File icons by extension (SF Symbols for swift, ts, py, json, md, etc.) | Done |
+| FR-17.10: File content viewer with back navigation | Done |
+| FR-17.11: Syntax highlighting via Highlightr (highlight.js) with github/github-dark themes | Done |
+| FR-17.12: Line numbers in source view (gutter with separator) | Done |
+| FR-17.13: Markdown preview mode for .md files (rendered via MarkdownUI) | Done |
+| FR-17.14: Git diff view with colored +/- lines (green added, red removed, blue hunk headers) | Done |
+| FR-17.15: Diff summary showing +added/-removed line counts | Done |
+| FR-17.16: Mode picker (Preview/Source/Diff) with context-aware available modes | Done |
+| FR-17.17: Binary file detection with "Open in Default App" fallback | Done |
+| FR-17.18: File metadata display (size, extension, modification date) | Done |
+| FR-17.19: Action bar (Open in Editor, Copy Path) | Done |
+| FR-17.20: Auto-refresh on agent file-modifying tool calls (fileTreeRefreshTrigger) | Done |
+| FR-17.21: Manual refresh button in toolbar | Done |
+| FR-17.22: Abbreviated path display in toolbar with full path tooltip | Done |
+| FR-17.23: Settings menu (show hidden, changes only, Reveal in Finder, Open in Terminal) | Done |
+| FR-17.24: Git path resolved dynamically (/usr/bin, /opt/homebrew, /usr/local) | Done |
+| FR-17.25: Async I/O — git operations run off main thread via Task.detached | Done |
+| FR-17.26: Highlightr cached in coordinator, skips re-highlight when inputs unchanged | Done |
+| FR-17.27: DiffTextView uses NSTextView for scalable rendering of large diffs | Done |
+| FR-17.28: FileNode @MainActor with nonisolated init for Swift 6 concurrency safety | Done |
+| FR-17.29: FileContentView reloads on file change (.onChange of node.id) | Done |
+| FR-17.30: Code blocks in chat upgraded to use Highlightr syntax highlighting | Done |
+
+### FR-18: File Explorer Services
+
+**Status:** Implemented
+
+Backend services supporting the file explorer.
+
+| Requirement | Status |
+|---|---|
+| FR-18.1: FileSystemService — directory listing, file reading (512KB cap), binary detection | Done |
+| FR-18.2: GitService — git status parsing (porcelain), diff, diffCached, diffSummary | Done |
+| FR-18.3: GitService — rename detection, quoted path unescaping | Done |
+| FR-18.4: FileNode model — ObservableObject with lazy children, @Published gitStatus | Done |
+| FR-18.5: FileNode.applyGitStatus — recursive status propagation from root | Done |
+| FR-18.6: FileNode.hasChanges — computed property traversing children | Done |
 
 ---
 
@@ -467,7 +600,58 @@ XCTest-based unit test target for verifying catalog system integrity, service lo
 - [x] Installing a skill cascades to install its required MCPs
 - [x] Install/uninstall status updates immediately in the catalog browser
 
-### US-12: Read Rich Markdown Responses
+### US-12: Agent-to-Agent Collaboration
+**As a** developer, **I want** my agents to communicate with each other, share findings on a blackboard, and delegate tasks, **so that** complex multi-step workflows can be handled by a team of specialist agents.
+
+**Acceptance criteria:**
+- [x] Every agent session has PeerBus tools available (blackboard, messaging, chat, delegation, workspace)
+- [x] Agents can send async messages to each other (peer_send_message, peer_broadcast)
+- [x] Agents can start blocking back-and-forth conversations (peer_chat_start/reply/close)
+- [x] Agents can delegate tasks to other agents by name (peer_delegate_task)
+- [x] Agents can read/write structured data on the blackboard (blackboard_read/write/query)
+- [x] Agents can create and join shared workspaces (workspace_create/join/list)
+- [x] Deadlock detection prevents circular blocking waits between agents
+- [x] Agent definitions are registered with the sidecar on connect for delegation lookup
+
+### US-13: View Inter-Agent Communication
+**As a** developer, **I want** to see all inter-agent messages, delegations, and blackboard updates in a unified timeline, **so that** I can observe how agents collaborate and debug their interactions.
+
+**Acceptance criteria:**
+- [x] Agent Comms view accessible from toolbar
+- [x] Filter tabs: All, Chats, Delegations, Blackboard
+- [x] Each event shows icon, participants, message/task text, and timestamp
+- [x] Peer chat events, delegation events, and blackboard updates all appear in timeline
+- [x] Sidebar shows parent-child conversation nesting (delegated conversations nested under parents)
+- [x] Type-specific icons distinguish user+agent, agent-to-agent, delegation, and group conversations
+
+### US-15: Ready-to-Use Agent Team on First Launch
+**As a** developer, **I want** ClaudPeer to come with a pre-configured team of agents (Orchestrator, Coder, Reviewer, Researcher, Tester, DevOps, Writer) with PeerBus skills and permission presets already wired, **so that** I can start multi-agent workflows immediately without manual setup.
+
+**Acceptance criteria:**
+- [x] First launch seeds 7 agents, 5 skills, 4 MCP servers, 5 permission presets
+- [x] Agents are pre-linked to their skills, MCPs, and permissions
+- [x] System prompts are generated from templates with role-specific variables
+- [x] Seeded agents have PeerBus tools available via their skills
+- [x] Users can modify or delete any seeded content
+- [x] All 30 catalog agents include PeerBus system skills for install-time linking
+
+### US-16: Browse Agent Working Directory Files
+**As a** developer, **I want to** browse the files in my agent's working directory, view source code with syntax highlighting, preview markdown files, and see git diffs, **so that** I can understand what the agent is working on without leaving ClaudPeer.
+
+**Acceptance criteria:**
+- [x] Inspector pane has Info / Files tabs when session has a working directory
+- [x] File tree shows directories and files with appropriate icons
+- [x] Expanding a directory lazily loads its children
+- [x] Git-modified files show colored status badges (orange=modified, green=added, red=deleted)
+- [x] Can filter to show only changed files
+- [x] Clicking a file shows its content with syntax highlighting
+- [x] Markdown files have a rendered preview mode
+- [x] Git-changed files have a diff view with colored +/- lines
+- [x] File tree auto-refreshes when agent modifies files (tool calls)
+- [x] Can open files in default editor or copy path to clipboard
+- [x] Can reveal working directory in Finder or open in Terminal
+
+### US-14: Read Rich Markdown Responses
 **As a** developer, **I want to** see Claude's responses rendered with proper markdown formatting, **so that** code blocks, links, headers, and lists are easy to read and interact with.
 
 **Acceptance criteria:**
@@ -537,9 +721,9 @@ flowchart TD
 flowchart TD
     Open([User presses Cmd+,]) --> Settings["Settings window opens"]
     Settings --> Tabs{"Select tab"}
-    Tabs -->|General| General["Appearance picker\nDefault model/turns/budget\nAuto-connect toggle"]
-    Tabs -->|Connection| Connection["WS/HTTP port fields\nBun path override + Browse\nSidecar path override + Browse"]
-    Tabs -->|Advanced| Advanced["Data directory + Browse\nLog level picker\nReset All / Open Data Dir"]
+    Tabs -->|General| General["Appearance picker\nDefault model/turns/budget"]
+    Tabs -->|Connection| Connection["Live sidecar status + actions\nAuto-connect toggle\nWS/HTTP port fields"]
+    Tabs -->|Developer| Developer["Bun path + Sidecar path overrides\nData directory + Browse\nLog level picker\nReset All / Open Data Dir"]
     General --> Apply["Changes saved to UserDefaults\nApplied immediately"]
     Connection --> Apply
     Advanced --> Apply
@@ -564,23 +748,26 @@ flowchart TD
     Interact -->|Copy message| CopyAll["Full message text\ncopied to clipboard"]
 ```
 
-### Flow 6: Simple Chat vs Agent SDK Routing
+### Flow 6: Agent-to-Agent Delegation
 
 ```mermaid
 flowchart TD
-    Create([session.create received]) --> Check{"Config has tools,\nMCPs, or skills?"}
-    Check -->|No| Simple["ChatHandler registered\n(lightweight path)"]
-    Check -->|Yes| Agent["SessionManager uses\nAgent SDK query()"]
-    Simple --> Msg["session.message received"]
-    Agent --> Msg2["session.message received"]
-    Msg --> Claude["Spawn claude --print\nStdin: prompt\nStdout: stream tokens"]
-    Msg2 --> SDK["Agent SDK query()\nFull tool/MCP support"]
-    Claude --> Tokens["stream.token events\nback to Swift"]
-    SDK --> Tokens2["stream.token + toolCall\nevents back to Swift"]
-    Tokens --> Result["session.result\n(no cost tracking)"]
-    Tokens2 --> Result2["session.result\n(with cost from SDK)"]
-    Result --> Save["Swift polls lastSessionEvent\nSaves response to SwiftData"]
-    Result2 --> Save
+    Trigger([Agent A calls\npeer_delegate_task]) --> Lookup["PeerBus looks up target\nagent definition by name"]
+    Lookup --> Found{"Agent definition\nregistered?"}
+    Found -->|No| Inbox["Route to existing session's\ninbox as urgent message"]
+    Found -->|Yes| Policy{"Instance policy?"}
+    Policy -->|spawn| Spawn["spawnAutonomous()\nnew session + config"]
+    Policy -->|singleton| Queue["Push to existing\nsingleton's inbox"]
+    Policy -->|pool| Pool["Find idle or spawn\n(up to max)"]
+    Spawn --> Wait{"wait_for_result?"}
+    Wait -->|true| Block["Block tool call until\ndelegate session.result"]
+    Wait -->|false| Return["Return immediately\nwith sessionId"]
+    Block --> Result["Return delegate's\nresult text"]
+    Inbox --> Done([Delegation complete])
+    Queue --> Done
+    Pool --> Wait
+    Result --> Done
+    Return --> Done
 ```
 
 ### Flow 7: Launch Named Instance
@@ -653,6 +840,30 @@ flowchart TD
     Skill --> Done["Skill available for\nassignment to agents"]
 ```
 
+### Flow 11: Browse Agent Files in Inspector
+
+```mermaid
+flowchart TD
+    Select([User selects conversation\nwith working directory]) --> Tab["Inspector shows\nInfo / Files tabs"]
+    Tab --> Click["User clicks Files tab"]
+    Click --> Tree["File tree loads from\nworking directory"]
+    Tree --> Git{"Is git repo?"}
+    Git -->|Yes| Status["git status --porcelain\nGit badges shown on files"]
+    Git -->|No| NoGit["Plain file tree\nno badges"]
+    Status --> Browse["User browses tree\nexpands directories"]
+    NoGit --> Browse
+    Browse --> SelectFile["User clicks a file"]
+    SelectFile --> Type{"File type?"}
+    Type -->|Markdown| Preview["Markdown preview rendered\nvia MarkdownUI"]
+    Type -->|Source code| Highlight["Syntax-highlighted source\nwith line numbers"]
+    Type -->|Binary| Binary["Binary placeholder\n'Open in Default App' button"]
+    Preview --> Mode["Mode picker: Preview / Source / Diff"]
+    Highlight --> Mode
+    Mode -->|Switch to Diff| Diff["Colored unified diff\n+added / -removed lines"]
+    Mode -->|Back| Browse
+    Diff --> Back["Back button returns\nto file tree"]
+```
+
 ---
 
 ## 5. Non-Functional Requirements
@@ -667,7 +878,7 @@ flowchart TD
 | Memory | Graceful with 10+ concurrent sessions | Untested |
 | Security | Hardened runtime, localhost-only sidecar | Met |
 | Multi-instance | Fully isolated data, ports, settings | Met |
-| Test coverage | Unit tests for catalog, config, data integrity | Met (61 tests) |
+| Test coverage | Unit tests for catalog, config, data integrity, file explorer | Met (131 Swift + 96 sidecar) |
 | Catalog size | 30 agents + 101 skills + 100 MCPs bundled | Met |
 
 ---
@@ -684,3 +895,7 @@ flowchart TD
 | 2026-03-21 | Catalog system: directory-based catalog with 30 agents, 101 skills, 100 MCPs. CatalogService with loading, find, install/uninstall, cascading dependency resolution. CatalogBrowserView with tabs, search, category filter. CatalogDetailView with full item information, collapsible system prompt, FlowLayout triggers, install/uninstall actions. Per-agent .md system prompts. Agent → Skill → MCP hierarchy. | FR-2.15-2.18, FR-12, US-11, Flow 9, Flow 10 |
 | 2026-03-21 | Test infrastructure: ClaudPeerTests XCTest target with 61 tests covering catalog model decoding, service operations (install/uninstall/cascading/idempotent/dependency resolution), data integrity (unique IDs, valid cross-references), InstanceConfig (directories, UserDefaults, ports). Fixed catalog skill ID case mismatches across 20 agent files. Added InstanceConfig.swift to project, fixed Swift 6 concurrency warning in AppSettings. | FR-13, NFR |
 | 2026-03-21 | Initial spec created from implemented codebase | All sections |
+| 2026-03-21 | Phase 4: Inter-Agent Communication. Full PeerBus tool suite (17 tools) implemented as in-process MCP server injected into every Agent SDK session. Tools: blackboard_read/write/query/subscribe, peer_send_message/broadcast/receive_messages/list_agents/delegate_task, peer_chat_start/reply/listen/close/invite, workspace_create/join/list. New stores: MessageStore, ChatChannelStore (with deadlock detection), WorkspaceStore. Refactored sidecar: shared ToolContext, SessionManager accepts injected registry and context, WsServer accepts injected dependencies, agent.register command. Swift: AppState handles all peer/blackboard events, persists to SwiftData, registers agent definitions on connect. New AgentCommsView with filter tabs. Sidebar enhanced with parent-child conversation nesting and type-specific icons. Removed stale ChatHandler references from FR-3 and Flow 6. | FR-3.15-3.18, FR-4.8, FR-7.9-7.11, FR-14, FR-15, US-12, US-13, Flow 6 |
+| 2026-03-22 | Phase 4.5: Built-in Ecosystem. Full first-launch seeding: DefaultsSeeder expanded from permissions-only to 5 categories (permissions, MCPs, skills, agents, templates). Created 3 system prompt templates (specialist.md, worker.md, coordinator.md) with variable resolution. Agent seeding resolves cross-entity references by name (skills, MCPs, permissions). All 30 catalog agents updated with PeerBus system skills (peer-collaboration, blackboard-patterns, agent-identity) in requiredSkills — every agent in ClaudPeer knows how to collaborate via PeerBus. 131 Swift tests + 96 sidecar tests passing. | FR-16, US-15 |
+| 2026-03-22 | Phase 6: UX Redesign + Inspector Toggle. Comprehensive UX overhaul: Settings reorganized into General/Connection (with live sidecar status and action buttons)/Developer tabs. Sidebar toolbar replaced with bottom bar (Catalog, Agents, + buttons). Main toolbar simplified to New Session + Quick Chat + status pill + inspector toggle. Chat header: tappable agent icon opens library, mission preview, Fork/Rename moved to overflow menu. Inspector transformed into monitoring dashboard with usage section (tokens, cost, turns progress bar), workspace section with Open in Terminal, and removed duplicate controls. New Session sheet: recent agents row, collapsible options DisclosureGroup, "Inherit from Agent" model default, mode tooltips. Agent Editor consolidated from 5 steps to 3 (Identity, Capabilities with Skills/MCPs/Permissions DisclosureGroups, System Prompt). Inspector toggle: toolbar button (sidebar.trailing, ⌘⌥0) shows/hides right inspector pane; chat expands to fill freed space via 2-column NavigationSplitView + HStack layout. Fixed macOS state restoration crash (WorkingDirectoryPicker environment object). Fixed FileNode Swift 6 concurrency (nonisolated init, @unchecked Sendable). | FR-6.14-6.21, FR-9.1, US-7, US-8, Flow 4 |
+| 2026-03-22 | Phase 5: Inspector File Explorer. Tabbed Inspector (Info/Files) with file tree browser for agent working directories. FileSystemService, GitService, FileNode model. FileTreeView with DisclosureGroup, git badges, changes-only filter. FileContentView with three modes: Markdown preview, syntax-highlighted source (Highlightr), git diff (NSTextView). Async I/O, auto-refresh on tool calls, HighlightedCodeView for chat code blocks, dynamic git path, full a11y identifiers. | FR-17, FR-18, US-16, Flow 11 |

@@ -61,12 +61,21 @@ struct ClaudPeerApp: App {
                 .environmentObject(appState)
                 .preferredColorScheme(resolvedColorScheme)
                 .onAppear {
+                    appState.modelContext = modelContainer.mainContext
+                    appState.loadInstanceWorkingDirectory()
                     if autoConnectSidecar {
                         appState.connectSidecar()
                     }
                     #if DEBUG
                     AppXray.shared.registerObservableObject(appState, name: "appState")
                     #endif
+                }
+                .sheet(isPresented: $appState.showDirectoryPicker) {
+                    WorkingDirectoryPicker { path in
+                        RecentDirectories.add(path)
+                        appState.setInstanceWorkingDirectory(path)
+                        appState.showDirectoryPicker = false
+                    }
                 }
         }
         .modelContainer(modelContainer)
@@ -83,6 +92,7 @@ struct ClaudPeerApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(appState)
                 .preferredColorScheme(resolvedColorScheme)
         }
     }
@@ -130,7 +140,7 @@ struct ClaudPeerApp: App {
             model: "claude-sonnet-4-6",
             maxTurns: 1,
             maxBudget: nil,
-            workingDirectory: NSHomeDirectory(),
+            workingDirectory: appState.instanceWorkingDirectory ?? NSHomeDirectory(),
             skills: []
         )
 

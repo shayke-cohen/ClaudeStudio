@@ -113,6 +113,7 @@ The WebSocket protocol uses JSON messages:
 - `{ type: "session.resume", sessionId: "...", claudeSessionId: "..." }` -- resume a previous session
 - `{ type: "session.fork", sessionId: "..." }` -- fork a conversation
 - `{ type: "session.pause", sessionId: "..." }` -- pause/kill a session
+- `{ type: "agent.register", agents: [...] }` -- register agent definitions for delegation lookup
 - `{ type: "peer.registry.update", peers: [...] }` -- update remote peer info (v2)
 
 **Sidecar -> Swift (events):**
@@ -1298,9 +1299,7 @@ ClaudPeer/
         SkillPoolView.swift           -- Browse/manage skills
         MCPPoolView.swift             -- Browse/manage MCPs
       AgentComms/
-        AgentCommsView.swift          -- Unified inter-agent communication timeline
-        ConversationThreadView.swift  -- Reusable conversation display
-        DelegationCard.swift          -- Delegation event display with session link
+        AgentCommsView.swift          -- Unified inter-agent communication timeline (filter tabs: All/Chats/Delegations/Blackboard)
       Network/
         PeerNetworkView.swift         -- P2P panel
         PeerBrowserView.swift         -- Browse peer's shared agents
@@ -1339,25 +1338,24 @@ ClaudPeer/
     package.json                      -- @anthropic-ai/claude-agent-sdk + ws
     tsconfig.json
     src/
-      index.ts                        -- Entry point: start WebSocket + HTTP servers
-      ws-server.ts                    -- WebSocket server (Swift <-> sidecar)
+      index.ts                        -- Entry point: create shared ToolContext, start WS + HTTP servers
+      ws-server.ts                    -- WebSocket server (Swift <-> sidecar), routes commands including agent.register
       http-server.ts                  -- HTTP REST API (external integration: blackboard, health)
-      session-manager.ts              -- ClaudeSDKClient lifecycle (create/resume/fork/pause)
-      agent-provisioner.ts            -- Build SDK options from AgentConfig
-      hooks/
-        ui-hooks.ts                   -- PreToolUse/PostToolUse -> WebSocket events to Swift
-        peer-hooks.ts                 -- Stop/SessionStart -> PeerBus notifications
+      session-manager.ts              -- SDK query() lifecycle, PeerBus MCP injection, autonomous spawn for delegation
       tools/
-        peer-messaging.ts             -- peer_send_message, peer_broadcast, peer_list_agents
-        peer-chat.ts                  -- peer_chat_start, peer_chat_reply, peer_chat_close, peer_chat_invite
-        peer-delegation.ts            -- peer_delegate_task (with instance policy routing)
-        blackboard.ts                 -- blackboard_read, blackboard_write, blackboard_query, blackboard_subscribe
-        workspace.ts                  -- workspace_create, workspace_join, workspace_list
+        tool-context.ts               -- Shared ToolContext interface (stores, broadcast, spawnSession, agentDefinitions)
+        peerbus-server.ts             -- createPeerBusServer() factory using createSdkMcpServer()
+        blackboard-tools.ts           -- blackboard_read, blackboard_write, blackboard_query, blackboard_subscribe
+        messaging-tools.ts            -- peer_send_message, peer_broadcast, peer_receive_messages, peer_list_agents, peer_delegate_task
+        chat-tools.ts                 -- peer_chat_start, peer_chat_reply, peer_chat_listen, peer_chat_close, peer_chat_invite
+        workspace-tools.ts            -- workspace_create, workspace_join, workspace_list
       stores/
-        blackboard-store.ts           -- In-memory + JSON disk persistence
-        chat-channel-store.ts         -- Active chat channels, deadlock detection
-        session-registry.ts           -- Track all active sessions + their agents
-      types.ts                        -- Shared types (AgentConfig, messages, etc.)
+        blackboard-store.ts           -- In-memory + JSON disk persistence, glob-pattern query
+        session-registry.ts           -- Track all active sessions + their agents + registered definitions
+        message-store.ts              -- Per-session inboxes for async messages
+        chat-channel-store.ts         -- Active chat channels, blocking wait, deadlock detection
+        workspace-store.ts            -- Shared workspace directories
+      types.ts                        -- Shared types (SidecarCommand, SidecarEvent, AgentConfig, AgentDefinition)
     bun.lockb
 ```
 
@@ -1583,7 +1581,7 @@ All seeded records have `origin: .builtin`. Users can modify them freely -- edit
 
 ## 12. Implementation Roadmap
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✅
 
 1. **Swift project scaffold** -- Xcode project, SwiftUI + SwiftData, basic window
 2. **SwiftData models** -- Agent, Session, Conversation, Participant, Skill, MCPServer, PermissionSet
@@ -1591,36 +1589,38 @@ All seeded records have `origin: .builtin`. Users can modify them freely -- edit
 4. **SidecarManager** -- Swift launches Bun, WebSocket client, reconnect on crash
 5. **Session lifecycle** -- Create/resume/fork/pause via SDK, streaming to Swift
 
-### Phase 2: Chat and UI
+### Phase 2: Chat and UI ✅
 
 6. **Main window** -- NavigationSplitView, sidebar tree, chat area, inspector
 7. **Chat view** -- Streaming messages, tool call blocks, input with slash commands
 8. **Hook engine** -- PreToolUse/PostToolUse -> real-time UI events
 
-### Phase 3: Agent Provisioning
+### Phase 3: Agent Provisioning ✅
 
 9. **Agent editor** -- 5-step wizard (identity, skills, MCPs, permissions, prompt)
 10. **Skill pool** -- Import from `~/.cursor/skills`, browse, categorize
 11. **MCP pool** -- Register servers, test connections, cache schemas
 12. **Agent provisioner** -- Compose AgentConfig, send to sidecar
 
-### Phase 4: Inter-Agent Communication
+### Phase 4: Inter-Agent Communication ✅
 
-13. **PeerBus messaging** -- send, broadcast, delegate, list agents
-14. **PeerBus chat** -- Blocking conversations, deadlock detection
-15. **Blackboard** -- In-memory + disk, SDK tools, HTTP API
-16. **Shared workspaces** -- Create/join directories
-17. **Agent Comms view** -- Unified timeline UI
+13. **PeerBus tool framework** -- ToolContext, PeerBus MCP server factory, shared context injection into all SDK sessions
+14. **PeerBus messaging** -- peer_send_message, peer_broadcast, peer_receive_messages, peer_list_agents, peer_delegate_task
+15. **PeerBus chat** -- Blocking conversations (peer_chat_start, peer_chat_reply, peer_chat_listen, peer_chat_close, peer_chat_invite), deadlock detection in ChatChannelStore
+16. **Blackboard SDK tools** -- blackboard_read, blackboard_write, blackboard_query, blackboard_subscribe as in-process SDK tools, emitting blackboard.update events
+17. **Shared workspaces** -- workspace_create, workspace_join, workspace_list with WorkspaceStore
+18. **Swift event handling** -- AppState handles peerChat, peerDelegate, blackboardUpdate events; persists to SwiftData (child conversations, BlackboardEntry upserts); agent.register command sends agent definitions to sidecar on connect
+19. **Agent Comms view** -- Unified timeline UI with filter tabs (All/Chats/Delegations/Blackboard)
+20. **Sidebar tree** -- Parent-child conversation nesting with DisclosureGroup, type-specific icons (delegation, agent-to-agent, user+agent, group)
 
-### Phase 4.5: Built-in Ecosystem
+### Phase 4.5: Built-in Ecosystem ✅
 
-After inter-agent communication is functional, populate the default ecosystem:
-
-18. **ClaudPeer-specific skills** -- Write 5 SKILL.md files (peer-collaboration, blackboard-patterns, delegation-patterns, workspace-collaboration, agent-identity) in `Resources/DefaultSkills/`
-19. **Built-in agent definitions** -- Create 7 agent JSON files (Orchestrator, Coder, Reviewer, Researcher, Tester, DevOps, Writer) in `Resources/DefaultAgents/`
-20. **Permission presets and MCP configs** -- Create `DefaultPermissionPresets.json` (5 presets) and `DefaultMCPs.json` in `Resources/`
-21. **System prompt templates** -- Write 3 template files (specialist.md, worker.md, coordinator.md) in `Resources/SystemPromptTemplates/`
-22. **First-launch seeding** -- Wire `ClaudPeerApp.swift` to detect empty SwiftData store and seed defaults on first run
+18. **ClaudPeer-specific skills** -- 5 SKILL.md files (peer-collaboration, blackboard-patterns, delegation-patterns, workspace-collaboration, agent-identity) in `Resources/DefaultSkills/`
+19. **Built-in agent definitions** -- 7 agent JSON files (Orchestrator, Coder, Reviewer, Researcher, Tester, DevOps, Writer) in `Resources/DefaultAgents/`
+20. **Permission presets and MCP configs** -- `DefaultPermissionPresets.json` (5 presets) and `DefaultMCPs.json` (4 servers) in `Resources/`
+21. **System prompt templates** -- 3 template files (specialist.md, worker.md, coordinator.md) in `Resources/SystemPromptTemplates/` with `{{variable}}` placeholder resolution
+22. **First-launch seeding** -- `DefaultsSeeder` seeds all 5 categories (permissions, MCPs, skills, agents, templates) into SwiftData on first launch, with cross-entity linking (agents reference seeded skills, MCPs, and permissions by name)
+23. **Catalog PeerBus alignment** -- All 30 catalog agents include PeerBus system skills (peer-collaboration, blackboard-patterns, agent-identity) in their `requiredSkills` -- every agent in ClaudPeer can collaborate via PeerBus out of the box
 
 ### Phase 5: Persistence and Polish
 

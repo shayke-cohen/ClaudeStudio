@@ -11,6 +11,9 @@ packages:
   MarkdownUI:
     url: https://github.com/gonzalezreal/swift-markdown-ui
     from: "2.4.1"
+  Highlightr:
+    url: https://github.com/raspu/Highlightr
+    from: "2.2.1"
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -33,6 +36,7 @@ targets:
     dependencies:
       - package: AppXray
       - package: MarkdownUI
+      - package: Highlightr
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudpeer.app

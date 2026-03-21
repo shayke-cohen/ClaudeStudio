@@ -4,20 +4,30 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import type { AgentConfig, FileAttachment, SidecarEvent } from "./types.js";
-import { SessionRegistry } from "./stores/session-registry.js";
+import type { SessionRegistry } from "./stores/session-registry.js";
+import type { ToolContext } from "./tools/tool-context.js";
+import { createPeerBusServer } from "./tools/peerbus-server.js";
 
 type EventEmitter = (event: SidecarEvent) => void;
 
 export class SessionManager {
-  private registry = new SessionRegistry();
+  private registry: SessionRegistry;
   private emit: EventEmitter;
   private activeAborts = new Map<string, AbortController>();
+  private toolCtx: ToolContext;
+  private autonomousResults = new Map<string, { resolve: (result: string) => void }>();
 
-  constructor(emit: EventEmitter) {
+  constructor(emit: EventEmitter, registry: SessionRegistry, toolCtx: ToolContext) {
     this.emit = emit;
+    this.registry = registry;
+    this.toolCtx = toolCtx;
   }
 
   async createSession(conversationId: string, config: AgentConfig): Promise<void> {
+    if (this.registry.get(conversationId)) {
+      console.log(`[session] Session ${conversationId} already exists, skipping create`);
+      return;
+    }
     this.registry.create(conversationId, config);
     console.log(`[session] Created session ${conversationId} for "${config.name}" (model: ${config.model})`);
   }
@@ -33,6 +43,12 @@ export class SessionManager {
     if (!state) {
       this.emit({ type: "session.error", sessionId, error: "Session state not found" });
       return;
+    }
+
+    const existingAbort = this.activeAborts.get(sessionId);
+    if (existingAbort) {
+      console.log(`[session] Aborting previous query for ${sessionId}`);
+      existingAbort.abort();
     }
 
     const abortController = new AbortController();
@@ -68,6 +84,12 @@ export class SessionManager {
         cost: sessionState?.cost ?? 0,
       });
       this.registry.update(sessionId, { status: "completed" });
+
+      const waiter = this.autonomousResults.get(sessionId);
+      if (waiter) {
+        waiter.resolve(resultText);
+        this.autonomousResults.delete(sessionId);
+      }
     } catch (err: any) {
       if (abortController.signal.aborted) {
         this.registry.update(sessionId, { status: "paused" });
@@ -81,10 +103,45 @@ export class SessionManager {
           error: errMsg,
         });
         this.registry.update(sessionId, { status: "failed" });
+
+        const waiter = this.autonomousResults.get(sessionId);
+        if (waiter) {
+          waiter.resolve(`Error: ${errMsg}`);
+          this.autonomousResults.delete(sessionId);
+        }
       }
     } finally {
       this.activeAborts.delete(sessionId);
     }
+  }
+
+  /**
+   * Spawn an autonomous session for delegation.
+   * If waitForResult is true, blocks until the session completes.
+   */
+  async spawnAutonomous(
+    sessionId: string,
+    config: AgentConfig,
+    initialPrompt: string,
+    waitForResult: boolean,
+  ): Promise<{ sessionId: string; result?: string }> {
+    await this.createSession(sessionId, config);
+
+    if (waitForResult) {
+      const resultPromise = new Promise<string>((resolve) => {
+        this.autonomousResults.set(sessionId, { resolve });
+      });
+      this.sendMessage(sessionId, initialPrompt).catch((err) => {
+        console.error(`[session:${sessionId}] Autonomous send error:`, err);
+      });
+      const result = await resultPromise;
+      return { sessionId, result };
+    }
+
+    this.sendMessage(sessionId, initialPrompt).catch((err) => {
+      console.error(`[session:${sessionId}] Autonomous send error:`, err);
+    });
+    return { sessionId };
   }
 
   async resumeSession(sessionId: string, claudeSessionId: string): Promise<void> {
@@ -129,7 +186,7 @@ export class SessionManager {
     abortController: AbortController,
     attachmentCount: number = 0,
   ): Record<string, any> {
-    let maxTurns = config.maxTurns ?? 30;
+    let maxTurns = config.maxTurns ?? 5;
     if (attachmentCount > 0 && maxTurns < 3) {
       maxTurns = 3;
     }
@@ -160,30 +217,27 @@ export class SessionManager {
       options.maxBudgetUsd = config.maxBudget;
     }
 
-    // MCP servers
-    if (config.mcpServers.length > 0) {
-      const mcpServers: Record<string, any> = {};
-      for (const mcp of config.mcpServers) {
-        if (mcp.command) {
-          mcpServers[mcp.name] = {
-            type: "stdio",
-            command: mcp.command,
-            args: mcp.args ?? [],
-            env: mcp.env ?? {},
-          };
-        } else if (mcp.url) {
-          mcpServers[mcp.name] = {
-            type: "sse",
-            url: mcp.url,
-          };
-        }
-      }
-      if (Object.keys(mcpServers).length > 0) {
-        options.mcpServers = mcpServers;
+    const mcpServers: Record<string, any> = {};
+
+    for (const mcp of config.mcpServers) {
+      if (mcp.command) {
+        mcpServers[mcp.name] = {
+          type: "stdio",
+          command: mcp.command,
+          args: mcp.args ?? [],
+          env: mcp.env ?? {},
+        };
+      } else if (mcp.url) {
+        mcpServers[mcp.name] = {
+          type: "sse",
+          url: mcp.url,
+        };
       }
     }
 
-    // Session management: resume or assign a stable SDK session ID (must be UUID)
+    mcpServers["peerbus"] = createPeerBusServer(this.toolCtx, sessionId);
+    options.mcpServers = mcpServers;
+
     if (claudeSessionId) {
       options.resume = claudeSessionId;
     } else {
@@ -327,7 +381,6 @@ export class SessionManager {
         break;
 
       default:
-        // Other message types (system, thinking, etc.) are not forwarded to UI for now
         break;
     }
   }

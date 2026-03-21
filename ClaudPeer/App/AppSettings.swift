@@ -14,6 +14,9 @@ enum AppSettings {
     static let bunPathOverrideKey = "claudpeer.bunPathOverride"
     static let sidecarPathKey = "claudpeer.projectPath"
 
+    // MARK: - Instance
+    static let instanceWorkingDirectoryKey = "claudpeer.instanceWorkingDirectory"
+
     // MARK: - Advanced
     static let dataDirectoryKey = "claudpeer.dataDirectory"
     static let logLevelKey = "claudpeer.logLevel"
@@ -34,6 +37,7 @@ enum AppSettings {
         [
             appearanceKey, defaultModelKey, defaultMaxTurnsKey,
             defaultMaxBudgetKey, autoConnectSidecarKey,
+            instanceWorkingDirectoryKey,
             wsPortKey, httpPortKey, bunPathOverrideKey, sidecarPathKey,
             dataDirectoryKey, logLevelKey,
         ]

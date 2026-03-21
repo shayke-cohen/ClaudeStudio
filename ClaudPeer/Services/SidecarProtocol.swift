@@ -6,6 +6,7 @@ enum SidecarCommand: Sendable {
     case sessionResume(sessionId: String, claudeSessionId: String)
     case sessionFork(sessionId: String)
     case sessionPause(sessionId: String)
+    case agentRegister(agents: [AgentDefinitionWire])
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -35,8 +36,23 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 SessionIdWire(type: "session.pause", sessionId: sessionId)
             )
+        case .agentRegister(let agents):
+            return try encoder.encode(
+                AgentRegisterWire(type: "agent.register", agents: agents)
+            )
         }
     }
+}
+
+struct AgentDefinitionWire: Codable, Sendable {
+    let name: String
+    let config: AgentConfig
+    let instancePolicy: String
+}
+
+private struct AgentRegisterWire: Encodable {
+    let type: String
+    let agents: [AgentDefinitionWire]
 }
 
 private struct SessionCreateWire: Encodable {
