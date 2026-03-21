@@ -21,8 +21,9 @@ final class Agent {
     var agentDescription: String
     var systemPrompt: String
     var skillIds: [UUID]
-    var mcpServerIds: [UUID]
+    var extraMCPServerIds: [UUID]
     var permissionSetId: UUID?
+    var catalogId: String?
     var model: String
     var maxTurns: Int?
     var maxBudget: Double?
@@ -116,8 +117,9 @@ final class Agent {
         self.agentDescription = agentDescription
         self.systemPrompt = systemPrompt
         self.skillIds = []
-        self.mcpServerIds = []
+        self.extraMCPServerIds = []
         self.model = model
+        self.catalogId = nil
         self.maxTurns = nil
         self.maxBudget = nil
         self.icon = icon

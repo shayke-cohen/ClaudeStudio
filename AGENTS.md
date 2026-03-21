@@ -67,6 +67,10 @@ All are SwiftData `@Model` classes. Relationships use UUID references (not Swift
 
 **AgentCardView** has a working Start button that creates a session and dismisses the library.
 
+#### Accessibility Identifiers
+
+All views have `.accessibilityIdentifier()` modifiers for AppXray UI testing (`@testId()` selector). The naming convention is `viewName.elementName` in dot-separated camelCase. Dynamic rows append `.\(item.id.uuidString)`. Icon-only buttons also have `.accessibilityLabel()`. See `CLAUDE.md` "Accessibility Identifiers" section for the full prefix map and rules. When adding new views, follow the same convention.
+
 ### TypeScript Sidecar (`sidecar/`)
 
 #### Entry Point

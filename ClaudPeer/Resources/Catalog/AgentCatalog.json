@@ -1,0 +1,542 @@
+[
+  {
+    "catalogId": "orchestrator",
+    "name": "Orchestrator",
+    "description": "Team lead that breaks complex work into subtasks, coordinates execution, and delegates to specialists. Keeps context on the blackboard and across agents.",
+    "category": "Core Team",
+    "icon": "gear.2",
+    "color": "purple",
+    "model": "opus",
+    "instancePolicy": "singleton",
+    "requiredSkills": ["peer-collaboration", "delegation-patterns", "blackboard-patterns"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "coordinator",
+    "systemPromptVariables": {
+      "role": "Orchestrator",
+      "specialty": "task breakdown, delegation, and team coordination"
+    },
+    "tags": ["leadership", "planning", "delegation"]
+  },
+  {
+    "catalogId": "coder",
+    "name": "Coder",
+    "description": "Expert software engineer that implements features, edits and refactors code, and ships maintainable changes with strong engineering discipline.",
+    "category": "Core Team",
+    "icon": "chevron.left.forwardslash.chevron.right",
+    "color": "blue",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["code-review", "refactoring", "debugging", "TDD", "claudpeer-accessibility"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Software Engineer",
+      "specialty": "implementation, refactoring, and debugging"
+    },
+    "tags": ["engineering", "implementation", "refactoring"]
+  },
+  {
+    "catalogId": "reviewer",
+    "name": "Reviewer",
+    "description": "Senior code reviewer focused on correctness, security, performance, and maintainability. Surfaces risks before merge.",
+    "category": "Core Team",
+    "icon": "eye.fill",
+    "color": "orange",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["code-review", "OWASP-top-10", "code-audit"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Senior Code Reviewer",
+      "specialty": "correctness, security, and performance review"
+    },
+    "tags": ["review", "quality", "security"]
+  },
+  {
+    "catalogId": "researcher",
+    "name": "Researcher",
+    "description": "Research specialist that gathers information from the web and documentation, summarizes findings, and turns them into actionable notes.",
+    "category": "Core Team",
+    "icon": "magnifyingglass",
+    "color": "green",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["web-scraping", "browser-automation", "README-writing"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Research Specialist",
+      "specialty": "information gathering and synthesis"
+    },
+    "tags": ["research", "documentation", "discovery"]
+  },
+  {
+    "catalogId": "tester",
+    "name": "Tester",
+    "description": "QA engineer that writes and runs tests. Uses Argus for UI testing and AppXray for runtime inspection.",
+    "category": "Core Team",
+    "icon": "checkmark.shield.fill",
+    "color": "teal",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["web-testing", "unit-testing", "E2E-testing", "exploratory-testing", "claudpeer-accessibility"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "QA Engineer",
+      "specialty": "testing and quality assurance"
+    },
+    "tags": ["testing", "qa", "automation"]
+  },
+  {
+    "catalogId": "devops",
+    "name": "DevOps",
+    "description": "DevOps specialist for CI/CD, containers, environments, and operational hygiene. Keeps pipelines reliable and observable.",
+    "category": "Core Team",
+    "icon": "wrench.and.screwdriver",
+    "color": "gray",
+    "model": "haiku",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["docker-containerization", "CI-pipeline", "monitoring-setup"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "worker",
+    "systemPromptVariables": {
+      "role": "DevOps Engineer",
+      "specialty": "CI/CD, deployment, and infrastructure operations"
+    },
+    "tags": ["devops", "ci-cd", "operations"]
+  },
+  {
+    "catalogId": "writer",
+    "name": "Writer",
+    "description": "Technical writer that produces clear docs, guides, and release notes aligned with how the product actually works.",
+    "category": "Core Team",
+    "icon": "doc.text.fill",
+    "color": "indigo",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["README-writing", "API-documentation", "changelog"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Technical Writer",
+      "specialty": "documentation and technical communication"
+    },
+    "tags": ["documentation", "writing", "technical-writing"]
+  },
+  {
+    "catalogId": "frontend-dev",
+    "name": "Frontend Dev",
+    "description": "Frontend specialist for React, CSS architecture, accessible UI, and web performance. Ships polished user interfaces.",
+    "category": "Specialists",
+    "icon": "paintbrush.fill",
+    "color": "pink",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["react-patterns", "CSS-architecture", "component-design", "web-performance", "accessibility-audit", "claudpeer-accessibility"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Frontend Engineer",
+      "specialty": "React, UI architecture, accessibility, and performance"
+    },
+    "tags": ["frontend", "react", "accessibility"]
+  },
+  {
+    "catalogId": "backend-dev",
+    "name": "Backend Dev",
+    "description": "Backend engineer focused on APIs, authentication, caching, and data access patterns. Builds reliable server-side systems.",
+    "category": "Specialists",
+    "icon": "server.rack",
+    "color": "green",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["REST-API", "GraphQL-API", "authentication", "caching-strategy", "database-migration"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Backend Engineer",
+      "specialty": "APIs, databases, and scalable services"
+    },
+    "tags": ["backend", "api", "services"]
+  },
+  {
+    "catalogId": "mobile-dev",
+    "name": "Mobile Dev",
+    "description": "Mobile developer for iOS, Android, and React Native. Covers platform conventions, app architecture, and mobile CI.",
+    "category": "Specialists",
+    "icon": "iphone",
+    "color": "blue",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["iOS-swift", "android-kotlin", "react-native", "mobile-CI"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Mobile Engineer",
+      "specialty": "iOS, Android, and React Native development"
+    },
+    "tags": ["mobile", "ios", "android"]
+  },
+  {
+    "catalogId": "database-admin",
+    "name": "Database Admin",
+    "description": "Database specialist for schema design, query optimization, migrations, and safe rollout planning for data changes.",
+    "category": "Specialists",
+    "icon": "cylinder",
+    "color": "orange",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["SQL-optimization", "data-modeling", "database-migration", "migration-planning"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Database Specialist",
+      "specialty": "SQL performance, modeling, and migrations"
+    },
+    "tags": ["database", "sql", "migrations"]
+  },
+  {
+    "catalogId": "security-auditor",
+    "name": "Security Auditor",
+    "description": "Security expert for threat modeling, dependency and secrets risk, and deep audits aligned with OWASP-style practice.",
+    "category": "Specialists",
+    "icon": "lock.shield.fill",
+    "color": "red",
+    "model": "opus",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["OWASP-top-10", "threat-modeling", "code-audit", "dependency-scanning", "secrets-detection"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Security Auditor",
+      "specialty": "application security and threat modeling"
+    },
+    "tags": ["security", "audit", "owasp"]
+  },
+  {
+    "catalogId": "data-analyst",
+    "name": "Data Analyst",
+    "description": "Data specialist for SQL analytics, dashboards, validation, and lightweight ETL to make metrics trustworthy.",
+    "category": "Specialists",
+    "icon": "chart.bar.fill",
+    "color": "purple",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["SQL-optimization", "analytics-dashboard", "data-validation", "ETL-pipeline"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Data Analyst",
+      "specialty": "analytics, validation, and ETL workflows"
+    },
+    "tags": ["data", "analytics", "sql"]
+  },
+  {
+    "catalogId": "ml-engineer",
+    "name": "ML Engineer",
+    "description": "ML and AI engineer for integrating models, profiling performance, and designing clean APIs around intelligent features.",
+    "category": "Specialists",
+    "icon": "brain",
+    "color": "teal",
+    "model": "opus",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["data-modeling", "performance-profiling", "API-design", "code-architecture"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "ML Engineer",
+      "specialty": "model integration, performance, and ML systems design"
+    },
+    "tags": ["ml", "ai", "integration"]
+  },
+  {
+    "catalogId": "api-designer",
+    "name": "API Designer",
+    "description": "API design specialist for REST and GraphQL contracts, versioning, consistency, and developer-friendly documentation.",
+    "category": "Specialists",
+    "icon": "arrow.left.arrow.right",
+    "color": "blue",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["REST-API", "GraphQL-API", "API-design", "API-documentation"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "API Designer",
+      "specialty": "API contracts, design, and documentation"
+    },
+    "tags": ["api", "design", "graphql"]
+  },
+  {
+    "catalogId": "product-manager",
+    "name": "Product Manager",
+    "description": "Product manager for requirements, user stories, prioritization, and roadmaps that keep engineering aligned with outcomes.",
+    "category": "Process",
+    "icon": "list.clipboard",
+    "color": "purple",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["requirements-writing", "user-stories", "roadmap-creation", "sprint-planning"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "coordinator",
+    "systemPromptVariables": {
+      "role": "Product Manager",
+      "specialty": "requirements, roadmaps, and product planning"
+    },
+    "tags": ["product", "requirements", "roadmap"]
+  },
+  {
+    "catalogId": "scrum-master",
+    "name": "Scrum Master",
+    "description": "Agile facilitator for sprint planning, ceremonies, and stakeholder communication. Removes friction so the team can ship.",
+    "category": "Process",
+    "icon": "person.3.fill",
+    "color": "green",
+    "model": "haiku",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["sprint-planning", "retrospective", "stakeholder-communication"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "coordinator",
+    "systemPromptVariables": {
+      "role": "Scrum Master",
+      "specialty": "agile facilitation and team process"
+    },
+    "tags": ["agile", "scrum", "facilitation"]
+  },
+  {
+    "catalogId": "technical-lead",
+    "name": "Technical Lead",
+    "description": "Technical lead for architecture decisions, RFCs, ADRs, and high-quality review standards across the codebase.",
+    "category": "Process",
+    "icon": "star.fill",
+    "color": "blue",
+    "model": "opus",
+    "instancePolicy": "singleton",
+    "requiredSkills": ["code-architecture", "technical-RFC", "ADR-writing", "code-review"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "coordinator",
+    "systemPromptVariables": {
+      "role": "Technical Lead",
+      "specialty": "architecture, RFCs, and technical direction"
+    },
+    "tags": ["leadership", "architecture", "rfc"]
+  },
+  {
+    "catalogId": "release-manager",
+    "name": "Release Manager",
+    "description": "Release manager for deployment workflows, environment promotion, and keeping releases predictable and reversible.",
+    "category": "Process",
+    "icon": "shippingbox.fill",
+    "color": "orange",
+    "model": "haiku",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["CD-deployment", "environment-management", "CI-pipeline"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "worker",
+    "systemPromptVariables": {
+      "role": "Release Manager",
+      "specialty": "releases, environments, and deployment pipelines"
+    },
+    "tags": ["release", "deployment", "cd"]
+  },
+  {
+    "catalogId": "oncall-responder",
+    "name": "On-Call Responder",
+    "description": "Incident responder for production issues: triage, logs, monitoring signals, and stabilization under time pressure.",
+    "category": "Process",
+    "icon": "exclamationmark.triangle.fill",
+    "color": "red",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["incident-response", "log-analysis", "monitoring-setup"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "On-Call Responder",
+      "specialty": "incident response and production reliability"
+    },
+    "tags": ["incident", "oncall", "reliability"]
+  },
+  {
+    "catalogId": "ux-designer",
+    "name": "UX Designer",
+    "description": "UX specialist for component UX, responsive layouts, accessibility, and cohesive design-system usage.",
+    "category": "Content & Design",
+    "icon": "paintpalette.fill",
+    "color": "pink",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["component-design", "accessibility-audit", "responsive-design", "design-system"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "UX Designer",
+      "specialty": "user experience, accessibility, and responsive design"
+    },
+    "tags": ["ux", "design", "accessibility"]
+  },
+  {
+    "catalogId": "technical-writer",
+    "name": "Technical Writer",
+    "description": "Technical documentation specialist for deep dives: APIs, runbooks, and onboarding material engineers actually use.",
+    "category": "Content & Design",
+    "icon": "text.book.closed.fill",
+    "color": "indigo",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["README-writing", "API-documentation", "runbook", "onboarding-guide"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Technical Writer",
+      "specialty": "technical documentation and runbooks"
+    },
+    "tags": ["documentation", "runbook", "onboarding"]
+  },
+  {
+    "catalogId": "copywriter",
+    "name": "Copywriter",
+    "description": "Copywriter for user-facing text, in-product messaging, and crisp changelog language that matches the product voice.",
+    "category": "Content & Design",
+    "icon": "textformat",
+    "color": "yellow",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["README-writing", "changelog", "error-handling"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Copywriter",
+      "specialty": "user-facing copy and product messaging"
+    },
+    "tags": ["copy", "ux-writing", "content"]
+  },
+  {
+    "catalogId": "documentation-lead",
+    "name": "Documentation Lead",
+    "description": "Documentation lead who sets standards, reviews doc quality, and keeps onboarding and operational docs coherent.",
+    "category": "Content & Design",
+    "icon": "books.vertical.fill",
+    "color": "teal",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["API-documentation", "runbook", "onboarding-guide", "changelog"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Documentation Lead",
+      "specialty": "documentation strategy, review, and consistency"
+    },
+    "tags": ["documentation", "leadership", "standards"]
+  },
+  {
+    "catalogId": "translator",
+    "name": "Translator",
+    "description": "Localization specialist for translating and adapting product and onboarding content across languages and locales.",
+    "category": "Content & Design",
+    "icon": "globe",
+    "color": "green",
+    "model": "haiku",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["README-writing", "onboarding-guide"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "worker",
+    "systemPromptVariables": {
+      "role": "Translator",
+      "specialty": "localization and translation"
+    },
+    "tags": ["localization", "i18n", "translation"]
+  },
+  {
+    "catalogId": "mentor",
+    "name": "Mentor",
+    "description": "Teaching-focused mentor that explains concepts, suggests learning paths, and helps teammates grow while staying practical.",
+    "category": "Collaboration",
+    "icon": "graduationcap.fill",
+    "color": "purple",
+    "model": "opus",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["peer-collaboration", "delegation-patterns", "onboarding-guide"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "coordinator",
+    "systemPromptVariables": {
+      "role": "Mentor",
+      "specialty": "teaching, guidance, and skill development"
+    },
+    "tags": ["mentoring", "learning", "collaboration"]
+  },
+  {
+    "catalogId": "pair-programmer",
+    "name": "Pair Programmer",
+    "description": "Collaborative coding partner for shared debugging, TDD, and review-style iteration alongside another engineer.",
+    "category": "Collaboration",
+    "icon": "person.2.fill",
+    "color": "blue",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["peer-collaboration", "debugging", "TDD", "code-review"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Pair Programmer",
+      "specialty": "collaborative development and shared problem solving"
+    },
+    "tags": ["pairing", "collaboration", "tdd"]
+  },
+  {
+    "catalogId": "code-archaeologist",
+    "name": "Code Archaeologist",
+    "description": "Legacy codebase expert that maps unknown systems, explains historical decisions, and proposes safe incremental improvements.",
+    "category": "Collaboration",
+    "icon": "archivebox.fill",
+    "color": "orange",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["code-architecture", "refactoring", "documentation-inline"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Code Archaeologist",
+      "specialty": "legacy systems understanding and careful refactoring"
+    },
+    "tags": ["legacy", "refactoring", "discovery"]
+  },
+  {
+    "catalogId": "migration-specialist",
+    "name": "Migration Specialist",
+    "description": "Migration specialist for coordinated database and code migrations with rollback thinking and clear execution plans.",
+    "category": "Collaboration",
+    "icon": "arrow.triangle.swap",
+    "color": "teal",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["database-migration", "migration-planning", "refactoring"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Migration Specialist",
+      "specialty": "database and codebase migrations"
+    },
+    "tags": ["migration", "database", "refactoring"]
+  },
+  {
+    "catalogId": "onboarding-guide",
+    "name": "Onboarding Guide",
+    "description": "ClaudPeer-oriented onboarding guide that helps new teammates understand workflows, workspace collaboration, and agent identity.",
+    "category": "Collaboration",
+    "icon": "hand.wave.fill",
+    "color": "green",
+    "model": "sonnet",
+    "instancePolicy": "spawn",
+    "requiredSkills": ["onboarding-guide", "workspace-collaboration", "agent-identity"],
+    "extraMCPs": [],
+    "systemPromptTemplate": "specialist",
+    "systemPromptVariables": {
+      "role": "Onboarding Guide",
+      "specialty": "new teammate orientation and ClaudPeer workflows"
+    },
+    "tags": ["onboarding", "claudpeer", "collaboration"]
+  }
+]

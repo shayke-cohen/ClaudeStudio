@@ -19,6 +19,8 @@ final class Skill {
     var version: String
     var createdAt: Date
     var updatedAt: Date
+    var mcpServerIds: [UUID]
+    var catalogId: String?
 
     // SkillSource flattened for SwiftData
     var sourceKind: String
@@ -62,6 +64,8 @@ final class Skill {
         self.version = "1.0"
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.mcpServerIds = []
+        self.catalogId = nil
         self.sourceKind = "custom"
         self.sourceValue = nil
     }

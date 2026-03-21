@@ -43,7 +43,7 @@ struct AgentEditorView: View {
         _githubRepo = State(initialValue: agent?.githubRepo ?? "")
         _githubBranch = State(initialValue: agent?.githubDefaultBranch ?? "main")
         _selectedSkillIds = State(initialValue: Set(agent?.skillIds ?? []))
-        _selectedMCPIds = State(initialValue: Set(agent?.mcpServerIds ?? []))
+        _selectedMCPIds = State(initialValue: Set(agent?.extraMCPServerIds ?? []))
         _selectedPermissionId = State(initialValue: agent?.permissionSetId)
         _systemPrompt = State(initialValue: agent?.systemPrompt ?? "")
 
@@ -98,6 +98,7 @@ struct AgentEditorView: View {
             Text(agent == nil ? "Create Agent" : "Edit Agent")
                 .font(.title3)
                 .fontWeight(.semibold)
+                .accessibilityIdentifier("agentEditor.title")
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -105,6 +106,8 @@ struct AgentEditorView: View {
             }
             .buttonStyle(.borderless)
             .help("Close")
+            .accessibilityIdentifier("agentEditor.closeButton")
+            .accessibilityLabel("Close")
         }
         .padding()
     }
@@ -125,6 +128,7 @@ struct AgentEditorView: View {
                         .background(currentStep == index ? Color.accentColor.opacity(0.1) : Color.clear)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("agentEditor.step.\(steps[index].lowercased().replacingOccurrences(of: " ", with: ""))")
                 if index < steps.count - 1 {
                     Divider().frame(height: 20)
                 }
@@ -138,10 +142,13 @@ struct AgentEditorView: View {
         Form {
             Section("Basic Info") {
                 TextField("Name", text: $name)
+                    .accessibilityIdentifier("agentEditor.nameField")
                 TextField("Description", text: $agentDescription, axis: .vertical)
                     .lineLimit(2...4)
+                    .accessibilityIdentifier("agentEditor.descriptionField")
                 HStack {
                     TextField("Icon (SF Symbol)", text: $icon)
+                        .accessibilityIdentifier("agentEditor.iconField")
                     Image(systemName: icon)
                         .foregroundStyle(.blue)
                 }
@@ -150,13 +157,17 @@ struct AgentEditorView: View {
                         Text(c.capitalized).tag(c)
                     }
                 }
+                .accessibilityIdentifier("agentEditor.colorPicker")
                 Picker("Model", selection: $model) {
                     Text("Sonnet").tag("sonnet")
                     Text("Opus").tag("opus")
                     Text("Haiku").tag("haiku")
                 }
+                .accessibilityIdentifier("agentEditor.modelPicker")
                 TextField("Max Turns", text: $maxTurns)
+                    .accessibilityIdentifier("agentEditor.maxTurnsField")
                 TextField("Max Budget ($)", text: $maxBudget)
+                    .accessibilityIdentifier("agentEditor.maxBudgetField")
             }
 
             Section("Instance Policy") {
@@ -165,140 +176,237 @@ struct AgentEditorView: View {
                     Text("Singleton (one instance)").tag(1)
                     Text("Pool (multiple instances)").tag(2)
                 }
+                .accessibilityIdentifier("agentEditor.instancePolicyPicker")
                 if instancePolicyType == 2 {
                     TextField("Max Instances", text: $poolMax)
+                        .accessibilityIdentifier("agentEditor.poolMaxField")
                 }
             }
 
             Section("Workspace") {
                 TextField("Working Directory", text: $workingDirectory)
+                    .accessibilityIdentifier("agentEditor.workingDirectoryField")
                 TextField("GitHub Repo URL", text: $githubRepo)
+                    .accessibilityIdentifier("agentEditor.githubRepoField")
                 TextField("Branch", text: $githubBranch)
+                    .accessibilityIdentifier("agentEditor.githubBranchField")
             }
         }
         .formStyle(.grouped)
     }
 
+    @State private var showSkillLibrary = false
+
     @ViewBuilder
     private var skillsStep: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading) {
-                Text("Selected (\(selectedSkillIds.count))")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal)
-                List {
-                    ForEach(allSkills.filter { selectedSkillIds.contains($0.id) }) { skill in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(skill.name).font(.callout)
-                                Text(skill.category).font(.caption2).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                VStack(alignment: .leading) {
+                    Text("Selected (\(selectedSkillIds.count))")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal)
+                    List {
+                        ForEach(allSkills.filter { selectedSkillIds.contains($0.id) }) { skill in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(skill.name).font(.callout)
+                                    Text(skill.category).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    selectedSkillIds.remove(skill.id)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Remove skill")
+                                .accessibilityIdentifier("agentEditor.skills.removeButton.\(skill.id.uuidString)")
+                                .accessibilityLabel("Remove \(skill.name)")
                             }
-                            Spacer()
-                            Button {
-                                selectedSkillIds.remove(skill.id)
-                            } label: {
-                                Image(systemName: "minus.circle.fill")
-                                    .foregroundStyle(.red)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Remove skill")
                         }
                     }
+                    .accessibilityIdentifier("agentEditor.skills.selectedList")
                 }
-            }
-            .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
 
-            Divider()
+                Divider()
 
-            VStack(alignment: .leading) {
-                Text("Available")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal)
-                List {
-                    ForEach(allSkills.filter { !selectedSkillIds.contains($0.id) }) { skill in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(skill.name).font(.callout)
-                                Text(skill.category).font(.caption2).foregroundStyle(.secondary)
+                VStack(alignment: .leading) {
+                    Text("Available")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal)
+                    List {
+                        ForEach(allSkills.filter { !selectedSkillIds.contains($0.id) }) { skill in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(skill.name).font(.callout)
+                                    Text(skill.category).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    selectedSkillIds.insert(skill.id)
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(.green)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Add skill")
+                                .accessibilityIdentifier("agentEditor.skills.addButton.\(skill.id.uuidString)")
+                                .accessibilityLabel("Add \(skill.name)")
                             }
-                            Spacer()
-                            Button {
-                                selectedSkillIds.insert(skill.id)
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(.green)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Add skill")
                         }
                     }
+                    .accessibilityIdentifier("agentEditor.skills.availableList")
                 }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+
+            HStack {
+                Spacer()
+                Button {
+                    showSkillLibrary = true
+                } label: {
+                    Label("Manage Skills…", systemImage: "book.fill")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("agentEditor.manageSkills")
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .sheet(isPresented: $showSkillLibrary) {
+            SkillLibraryView()
+                .frame(minWidth: 560, minHeight: 420)
         }
     }
 
+    private var inheritedMCPIds: Set<UUID> {
+        let selectedSkills = allSkills.filter { selectedSkillIds.contains($0.id) }
+        return Set(selectedSkills.flatMap(\.mcpServerIds))
+    }
+
+    @State private var showMCPLibrary = false
+
     @ViewBuilder
     private var mcpsStep: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading) {
-                Text("Selected (\(selectedMCPIds.count))")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal)
-                List {
-                    ForEach(allMCPs.filter { selectedMCPIds.contains($0.id) }) { mcp in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(mcp.name).font(.callout)
-                                Text(mcp.serverDescription).font(.caption2).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            if !inheritedMCPIds.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("From Skills (inherited)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                    List {
+                        ForEach(allMCPs.filter { inheritedMCPIds.contains($0.id) }) { mcp in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(mcp.name).font(.callout)
+                                    let fromSkills = allSkills
+                                        .filter { selectedSkillIds.contains($0.id) && $0.mcpServerIds.contains(mcp.id) }
+                                        .map(\.name)
+                                        .joined(separator: ", ")
+                                    Text("from: \(fromSkills)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
                             }
-                            Spacer()
-                            StatusBadge(status: mcp.status.rawValue.capitalized,
-                                       color: mcp.status == .connected ? .green : .gray)
-                            Button {
-                                selectedMCPIds.remove(mcp.id)
-                            } label: {
-                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Remove MCP server")
                         }
                     }
+                    .accessibilityIdentifier("agentEditor.mcps.inheritedList")
                 }
+                .frame(maxHeight: 160)
+                Divider()
             }
-            .frame(maxWidth: .infinity)
 
-            Divider()
-
-            VStack(alignment: .leading) {
-                Text("Available")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal)
-                List {
-                    ForEach(allMCPs.filter { !selectedMCPIds.contains($0.id) }) { mcp in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(mcp.name).font(.callout)
-                                Text(mcp.serverDescription).font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 0) {
+                VStack(alignment: .leading) {
+                    Text("Extra MCPs (\(selectedMCPIds.count))")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal)
+                    List {
+                        ForEach(allMCPs.filter { selectedMCPIds.contains($0.id) }) { mcp in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(mcp.name).font(.callout)
+                                    Text(mcp.serverDescription).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                StatusBadge(status: mcp.status.rawValue.capitalized,
+                                           color: mcp.status == .connected ? .green : .gray)
+                                Button {
+                                    selectedMCPIds.remove(mcp.id)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Remove MCP server")
+                                .accessibilityIdentifier("agentEditor.mcps.removeButton.\(mcp.id.uuidString)")
+                                .accessibilityLabel("Remove \(mcp.name)")
                             }
-                            Spacer()
-                            Button {
-                                selectedMCPIds.insert(mcp.id)
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(.green)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Add MCP server")
                         }
                     }
+                    .accessibilityIdentifier("agentEditor.mcps.selectedList")
                 }
+                .frame(maxWidth: .infinity)
+
+                Divider()
+
+                VStack(alignment: .leading) {
+                    Text("Available")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal)
+                    List {
+                        ForEach(allMCPs.filter { !selectedMCPIds.contains($0.id) && !inheritedMCPIds.contains($0.id) }) { mcp in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(mcp.name).font(.callout)
+                                    Text(mcp.serverDescription).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    selectedMCPIds.insert(mcp.id)
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(.green)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Add MCP server")
+                                .accessibilityIdentifier("agentEditor.mcps.addButton.\(mcp.id.uuidString)")
+                                .accessibilityLabel("Add \(mcp.name)")
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("agentEditor.mcps.availableList")
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+
+            HStack {
+                Spacer()
+                Button {
+                    showMCPLibrary = true
+                } label: {
+                    Label("Manage MCPs…", systemImage: "server.rack")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("agentEditor.manageMCPs")
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .sheet(isPresented: $showMCPLibrary) {
+            MCPLibraryView()
+                .frame(minWidth: 560, minHeight: 420)
         }
     }
 
@@ -312,6 +420,7 @@ struct AgentEditorView: View {
                         Text(perm.name).tag(Optional(perm.id))
                     }
                 }
+                .accessibilityIdentifier("agentEditor.permissionPresetPicker")
             }
 
             if let permId = selectedPermissionId,
@@ -342,6 +451,7 @@ struct AgentEditorView: View {
                 Text("\(systemPrompt.count) chars")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("agentEditor.systemPromptCharCount")
             }
             .padding(.horizontal)
 
@@ -355,6 +465,7 @@ struct AgentEditorView: View {
                         .stroke(.quaternary, lineWidth: 1)
                 )
                 .padding(.horizontal)
+                .accessibilityIdentifier("agentEditor.systemPromptEditor")
         }
         .padding(.vertical)
     }
@@ -366,20 +477,24 @@ struct AgentEditorView: View {
                 Button("Back") {
                     currentStep -= 1
                 }
+                .accessibilityIdentifier("agentEditor.backButton")
             }
             Spacer()
             Button("Cancel") { dismiss() }
+                .accessibilityIdentifier("agentEditor.cancelButton")
             if currentStep < steps.count - 1 {
                 Button("Next") {
                     currentStep += 1
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("agentEditor.nextButton")
             } else {
                 Button("Save") {
                     saveAgent()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(name.isEmpty)
+                .accessibilityIdentifier("agentEditor.saveButton")
             }
         }
         .padding()
@@ -402,7 +517,7 @@ struct AgentEditorView: View {
         target.maxTurns = Int(maxTurns)
         target.maxBudget = Double(maxBudget)
         target.skillIds = Array(selectedSkillIds)
-        target.mcpServerIds = Array(selectedMCPIds)
+        target.extraMCPServerIds = Array(selectedMCPIds)
         target.permissionSetId = selectedPermissionId
         target.systemPrompt = systemPrompt
         target.defaultWorkingDirectory = workingDirectory.isEmpty ? nil : workingDirectory

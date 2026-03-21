@@ -16,18 +16,21 @@ struct MessageBubble: View {
     }
 
     var body: some View {
-        switch message.type {
-        case .chat:
-            chatBubble
-        case .toolCall, .toolResult:
-            ToolCallView(message: message)
-        case .system:
-            systemMessage
-        case .delegation:
-            delegationMessage
-        case .blackboardUpdate:
-            blackboardMessage
+        Group {
+            switch message.type {
+            case .chat:
+                chatBubble
+            case .toolCall, .toolResult:
+                ToolCallView(message: message)
+            case .system:
+                systemMessage
+            case .delegation:
+                delegationMessage
+            case .blackboardUpdate:
+                blackboardMessage
+            }
         }
+        .accessibilityIdentifier("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")
     }
 
     @ViewBuilder
@@ -47,6 +50,7 @@ struct MessageBubble: View {
                     Text(sender?.displayName ?? "Unknown")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("messageBubble.senderLabel.\(message.id.uuidString)")
 
                     if isHovered {
                         Text(message.timestamp.formatted(.dateTime.hour().minute()))
@@ -74,6 +78,8 @@ struct MessageBubble: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Copy message")
+                        .accessibilityIdentifier("messageBubble.copyButton.\(message.id.uuidString)")
+                        .accessibilityLabel("Copy message")
                         .transition(.opacity)
                     }
                 }

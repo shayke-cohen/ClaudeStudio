@@ -28,6 +28,7 @@ struct CodeBlockView: View {
                     .fontWeight(.medium)
                     .foregroundStyle(.secondary)
                     .textCase(.lowercase)
+                    .accessibilityIdentifier("codeBlock.languageLabel")
             }
 
             Spacer()
@@ -45,6 +46,8 @@ struct CodeBlockView: View {
             }
             .buttonStyle(.borderless)
             .help("Copy code to clipboard")
+            .accessibilityIdentifier("codeBlock.copyButton")
+            .accessibilityLabel("Copy code")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -58,6 +61,7 @@ struct CodeBlockView: View {
                 .textSelection(.enabled)
                 .padding(10)
         }
+        .accessibilityIdentifier("codeBlock.codeScrollView")
     }
 
     private func copyToClipboard() {

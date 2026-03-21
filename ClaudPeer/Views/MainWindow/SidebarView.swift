@@ -11,6 +11,9 @@ struct SidebarView: View {
     @State private var renameText = ""
     @State private var conversationToDelete: Conversation?
     @State private var showDeleteConfirmation = false
+    @State private var showCatalog = false
+    @State private var showSkillLibrary = false
+    @State private var showMCPLibrary = false
 
     var body: some View {
         List(selection: $appState.selectedConversationId) {
@@ -25,16 +28,54 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, prompt: "Search conversations...")
+        .accessibilityIdentifier("sidebar.conversationList")
         .frame(minWidth: 220)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showCatalog = true
+                } label: {
+                    Label("Browse Catalog", systemImage: "square.grid.2x2")
+                }
+                .help("Browse catalog")
+                .accessibilityIdentifier("sidebar.catalogButton")
+
+                Button {
+                    showSkillLibrary = true
+                } label: {
+                    Label("Installed Skills", systemImage: "book.fill")
+                }
+                .help("Installed skills")
+                .accessibilityIdentifier("sidebar.skillsButton")
+
+                Button {
+                    showMCPLibrary = true
+                } label: {
+                    Label("Installed MCPs", systemImage: "server.rack")
+                }
+                .help("Installed MCPs")
+                .accessibilityIdentifier("sidebar.mcpsButton")
+
                 Button {
                     appState.showAgentLibrary = true
                 } label: {
                     Label("Manage Agents", systemImage: "slider.horizontal.3")
                 }
                 .help("Manage agents")
+                .accessibilityIdentifier("sidebar.manageAgentsButton")
             }
+        }
+        .sheet(isPresented: $showCatalog) {
+            CatalogBrowserView()
+                .frame(minWidth: 700, minHeight: 550)
+        }
+        .sheet(isPresented: $showSkillLibrary) {
+            SkillLibraryView()
+                .frame(minWidth: 600, minHeight: 450)
+        }
+        .sheet(isPresented: $showMCPLibrary) {
+            MCPLibraryView()
+                .frame(minWidth: 600, minHeight: 450)
         }
         .alert("Rename Conversation", isPresented: Binding(
             get: { renamingConversation != nil },
@@ -91,6 +132,7 @@ struct SidebarView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .help("Start a new session")
+                .accessibilityIdentifier("sidebar.emptyState.newSessionButton")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
@@ -195,10 +237,12 @@ struct SidebarView: View {
                             .clipShape(Capsule())
                     }
                 }
+                .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString)")
                 .contextMenu {
                     Button("Start Session") {
                         startSession(with: agent)
                     }
+                    .accessibilityIdentifier("sidebar.agentRow.startSession.\(agent.id.uuidString)")
                 }
             }
         }
@@ -233,8 +277,10 @@ struct SidebarView: View {
                 Circle()
                     .fill(.green)
                     .frame(width: 6, height: 6)
+                    .accessibilityLabel("Active")
             }
         }
+        .accessibilityIdentifier("sidebar.conversationRow.\(convo.id.uuidString)")
         .contextMenu {
             Button {
                 renameText = convo.topic ?? ""
@@ -320,17 +366,7 @@ struct SidebarView: View {
     }
 
     private func agentColor(_ color: String) -> Color {
-        switch color {
-        case "blue": return .blue
-        case "red": return .red
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "teal": return .teal
-        default: return .accentColor
-        }
+        Color.fromAgentColor(color)
     }
 
     private func policyBadge(_ policy: InstancePolicy) -> String {

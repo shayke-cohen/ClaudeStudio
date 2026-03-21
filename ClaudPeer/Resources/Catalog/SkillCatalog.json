@@ -1,0 +1,2034 @@
+[
+  {
+    "catalogId": "code-review",
+    "name": "Code Review",
+    "description": "Systematic code review focusing on correctness, security, performance, and style",
+    "category": "Development",
+    "icon": "eye.fill",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "review",
+      "code review",
+      "PR review"
+    ],
+    "content": "# Code Review\n\nStart from the diff and stated intent. Verify logic, invariants, and failure modes before nitpicks. Flag security (authz, injection, secrets), concurrency, and performance hotspots with evidence. Prefer actionable comments: what, why, and a concrete fix. Ensure tests/docs align with behavior changes.\n\nEnd with a short severity-sorted summary.",
+    "tags": [
+      "quality",
+      "review",
+      "pull-request"
+    ]
+  },
+  {
+    "catalogId": "refactoring",
+    "name": "Refactoring",
+    "description": "Safe structural improvements without changing observable behavior",
+    "category": "Development",
+    "icon": "arrow.triangle.branch",
+    "requiredMCPs": [],
+    "triggers": [
+      "refactor",
+      "cleanup",
+      "restructure"
+    ],
+    "content": "# Refactoring\n\nPreserve behavior: add characterization tests or narrow scopes first. Rename and extract in small steps; avoid mixing refactors with feature work. Watch for API breakage, serialization, and implicit contracts. After each step, compile and run targeted tests. Document notable design shifts only when they affect consumers.",
+    "tags": [
+      "maintainability",
+      "structure",
+      "clean-code"
+    ]
+  },
+  {
+    "catalogId": "debugging",
+    "name": "Debugging",
+    "description": "Systematic root-cause analysis from symptoms to minimal fix",
+    "category": "Development",
+    "icon": "ant.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "debug",
+      "bug",
+      "investigate"
+    ],
+    "content": "# Debugging\n\nReproduce reliably; capture inputs, versions, and timestamps. Form hypotheses and falsify them with logs or breakpoints. Bisect recent changes and isolate variables. Prefer fixes that address causes, not symptoms—then add a regression test. If blocked, document unknowns and the smallest safe mitigation.",
+    "tags": [
+      "diagnostics",
+      "root-cause",
+      "stability"
+    ]
+  },
+  {
+    "catalogId": "tdd",
+    "name": "Test-Driven Development",
+    "description": "Red-green-refactor cycles with tight feedback loops",
+    "category": "Development",
+    "icon": "flask.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "TDD",
+      "test first",
+      "red green refactor"
+    ],
+    "content": "# TDD\n\nWrite a failing test that expresses the desired behavior boundary. Implement the minimum to pass; refactor with green tests only. Keep tests fast, deterministic, and readable—avoid testing implementation details. When requirements shift, update tests first. Stop when coverage matches risk, not arbitrary percentages.",
+    "tags": [
+      "testing",
+      "workflow",
+      "quality"
+    ]
+  },
+  {
+    "catalogId": "code-generation",
+    "name": "Code Generation",
+    "description": "Produce idiomatic code from specs with review-ready output",
+    "category": "Development",
+    "icon": "hammer.fill",
+    "requiredMCPs": [
+      "openai"
+    ],
+    "triggers": [
+      "generate code",
+      "scaffold",
+      "boilerplate"
+    ],
+    "content": "# Code Generation\n\nTranslate requirements into interfaces and data shapes first. Generate small, reviewable chunks with consistent style and error handling. Never embed secrets; parameterize config. Cross-check against project conventions and existing patterns. After generation, run formatters, linters, and compile—then trim dead code.",
+    "tags": [
+      "productivity",
+      "scaffolding",
+      "ai"
+    ]
+  },
+  {
+    "catalogId": "pair-programming",
+    "name": "Pair Programming",
+    "description": "Driver/navigator rhythm for shared problem solving",
+    "category": "Development",
+    "icon": "person.2.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "pair",
+      "mob",
+      "collaborate code"
+    ],
+    "content": "# Pair Programming\n\nAgree on goal and constraints before typing. Driver narrates intent; navigator watches for design drift and edge cases. Swap roles on natural breakpoints. Prefer thin slices: make it work, then clear, then fast. Capture decisions briefly so the team can follow rationale later.",
+    "tags": [
+      "collaboration",
+      "workflow",
+      "team"
+    ]
+  },
+  {
+    "catalogId": "dependency-audit",
+    "name": "Dependency Audit",
+    "description": "Evaluate third-party packages for risk, licenses, and updates",
+    "category": "Development",
+    "icon": "shippingbox.fill",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "dependencies",
+      "supply chain",
+      "versions"
+    ],
+    "content": "# Dependency Audit\n\nInventory direct and transitive deps with pinned ranges where possible. Check CVEs, maintenance signals, and license compatibility. Prefer fewer, well-supported libraries. Plan upgrades in batches with rollback notes. Document exceptions and compensating controls when you must accept risk.",
+    "tags": [
+      "security",
+      "maintenance",
+      "licenses"
+    ]
+  },
+  {
+    "catalogId": "linting-standards",
+    "name": "Linting & Standards",
+    "description": "Enforce consistent style and static checks across the codebase",
+    "category": "Development",
+    "icon": "checkmark.seal.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "lint",
+      "format",
+      "style guide"
+    ],
+    "content": "# Linting & Standards\n\nAlign rules with team defaults; avoid noisy churn. Fix auto-fixables in dedicated commits. For new rules, migrate gradually with baselines or scoped paths. Explain non-obvious suppressions with tickets. Pair lint config changes with CI enforcement and editor integration so drift is caught early.",
+    "tags": [
+      "consistency",
+      "ci",
+      "quality"
+    ]
+  },
+  {
+    "catalogId": "api-design",
+    "name": "API Design",
+    "description": "Design clear, evolvable interfaces for humans and machines",
+    "category": "Development",
+    "icon": "link.circle.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "API design",
+      "contracts",
+      "schemas"
+    ],
+    "content": "# API Design\n\nStart from consumer journeys and failure cases. Prefer explicit types, pagination, and idempotency keys where needed. Version thoughtfully; avoid breaking changes without migration paths. Document error models and auth requirements. Validate designs with examples and compatibility checks before wide rollout.",
+    "tags": [
+      "contracts",
+      "evolution",
+      "dx"
+    ]
+  },
+  {
+    "catalogId": "error-handling",
+    "name": "Error Handling",
+    "description": "Predictable failures, observability, and user-safe messaging",
+    "category": "Development",
+    "icon": "exclamationmark.triangle.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "errors",
+      "exceptions",
+      "resilience"
+    ],
+    "content": "# Error Handling\n\nClassify errors: expected vs unexpected, retryable vs fatal. Propagate context without leaking secrets. Log structured fields (code, correlation id, cause chain). Translate to user-visible messages that are honest and actionable. Add tests for failure paths, not only happy paths.",
+    "tags": [
+      "reliability",
+      "observability",
+      "ux"
+    ]
+  },
+  {
+    "catalogId": "logging",
+    "name": "Logging Strategy",
+    "description": "Structured logs, levels, and correlation for operability",
+    "category": "Development",
+    "icon": "doc.text.magnifyingglass",
+    "requiredMCPs": [
+      "datadog"
+    ],
+    "triggers": [
+      "logging",
+      "structured logs",
+      "tracing"
+    ],
+    "content": "# Logging\n\nUse stable event names and consistent key names. Default to info for milestones; debug behind flags in prod. Include correlation/request ids across services. Avoid logging PII or secrets—redact aggressively. Define retention and sampling for high-volume paths. Verify queries/dashboards match on-call needs.",
+    "tags": [
+      "observability",
+      "operations",
+      "debugging"
+    ]
+  },
+  {
+    "catalogId": "performance-profiling",
+    "name": "Performance Profiling",
+    "description": "Measure first, optimize hotspots with evidence",
+    "category": "Development",
+    "icon": "gauge.with.dots.needle.67percent",
+    "requiredMCPs": [
+      "appxray"
+    ],
+    "triggers": [
+      "profile",
+      "slow",
+      "optimize"
+    ],
+    "content": "# Performance Profiling\n\nEstablish a reproducible scenario and baseline metrics (p50/p95, CPU, memory). Profile before micro-optimizing; attribute time to functions/IO. Fix dominant costs; re-measure after each change. Watch for regressions in cold start and memory churn. Document benchmarks and test conditions.",
+    "tags": [
+      "performance",
+      "measurement",
+      "latency"
+    ]
+  },
+  {
+    "catalogId": "type-safety",
+    "name": "Type Safety",
+    "description": "Leverage static types to prevent entire bug classes",
+    "category": "Development",
+    "icon": "square.stack.3d.up.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "types",
+      "typescript",
+      "swift"
+    ],
+    "content": "# Type Safety\n\nModel invalid states as unrepresentable when practical. Prefer explicit unions over booleans plus conventions. Narrow at boundaries (IO, JSON) and trust types internally. Avoid unsafe casts; encode invariants in types or validators. Use generics to remove duplication without erasing intent.",
+    "tags": [
+      "correctness",
+      "static-analysis",
+      "safety"
+    ]
+  },
+  {
+    "catalogId": "documentation-inline",
+    "name": "Inline Documentation",
+    "description": "Comments and docstrings that explain why, not what",
+    "category": "Development",
+    "icon": "text.book.closed.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "comments",
+      "docstrings",
+      "explain why"
+    ],
+    "content": "# Inline Documentation\n\nDocument non-obvious rationale, tradeoffs, and invariants—not obvious code. Keep comments near decisions they justify; delete stale notes. For public APIs, summarize behavior, errors, and threading contracts. Prefer examples for complex usage. Treat docs as code: review and test snippets.",
+    "tags": [
+      "readability",
+      "knowledge",
+      "api"
+    ]
+  },
+  {
+    "catalogId": "code-architecture",
+    "name": "Code Architecture",
+    "description": "Module boundaries, coupling, and long-term maintainability",
+    "category": "Development",
+    "icon": "building.columns.fill",
+    "requiredMCPs": [
+      "sequential-thinking"
+    ],
+    "triggers": [
+      "architecture",
+      "modules",
+      "boundaries"
+    ],
+    "content": "# Code Architecture\n\nDefine responsibilities per module; minimize cyclic dependencies. Prefer explicit interfaces over shared globals. Isolate IO and side effects behind adapters. Evolve in small steps with migration paths. Validate designs against change scenarios (new feature, new client, scaling). Keep diagrams lightweight and current.",
+    "tags": [
+      "design",
+      "maintainability",
+      "systems"
+    ]
+  },
+  {
+    "catalogId": "unit-testing",
+    "name": "Unit Testing",
+    "description": "Fast, isolated tests for pure logic and small components",
+    "category": "Testing & QA",
+    "icon": "testtube.2",
+    "requiredMCPs": [],
+    "triggers": [
+      "unit test",
+      "jest",
+      "xctest"
+    ],
+    "content": "# Unit Testing\n\nTest behavior via public APIs; mock only slow or non-deterministic edges. One logical assertion theme per test name. Use factories/fixtures to reduce duplication without hiding intent. Keep tests deterministic—control time, randomness, and filesystem. Failures should pinpoint the broken rule in one glance.",
+    "tags": [
+      "fast",
+      "isolation",
+      "regression"
+    ]
+  },
+  {
+    "catalogId": "integration-testing",
+    "name": "Integration Testing",
+    "description": "Verify components together with realistic boundaries",
+    "category": "Testing & QA",
+    "icon": "link",
+    "requiredMCPs": [
+      "postgresql"
+    ],
+    "triggers": [
+      "integration test",
+      "service test",
+      "db test"
+    ],
+    "content": "# Integration Testing\n\nChoose real dependencies that matter (DB, queue) and fake the rest. Seed minimal data per test; clean up reliably. Assert on externally visible outcomes, not internal calls. Run in CI with containers where possible. Keep suites parallel-friendly and time-bounded to avoid flakes.",
+    "tags": [
+      "systems",
+      "ci",
+      "contracts"
+    ]
+  },
+  {
+    "catalogId": "e2e-testing",
+    "name": "End-to-End Testing",
+    "description": "User journeys across the full stack in realistic environments",
+    "category": "Testing & QA",
+    "icon": "map.fill",
+    "requiredMCPs": [
+      "playwright"
+    ],
+    "triggers": [
+      "e2e",
+      "end to end",
+      "smoke test"
+    ],
+    "content": "# E2E Testing\n\nPick critical user paths and stable selectors. Stabilize with waits on state, not arbitrary sleeps. Isolate test accounts and data to prevent collisions. Capture artifacts on failure (video, trace, logs). Keep the suite lean—push fast checks downward to unit/integration layers.",
+    "tags": [
+      "ui",
+      "journey",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "web-testing",
+    "name": "Web Testing",
+    "description": "Cross-browser checks for functional and visual quality",
+    "category": "Testing & QA",
+    "icon": "globe",
+    "requiredMCPs": [
+      "playwright",
+      "argus"
+    ],
+    "triggers": [
+      "web test",
+      "browser",
+      "playwright"
+    ],
+    "content": "# Web Testing\n\nDefine environment (base URL, auth) up front. Cover navigation, forms, and critical API-backed views. Validate accessibility basics alongside function. Use network mocking sparingly—prefer contract tests for APIs. Parallelize safely with isolated sessions. Investigate flakes with traces, not retries alone.",
+    "tags": [
+      "frontend",
+      "quality",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "mobile-testing",
+    "name": "Mobile Testing",
+    "description": "Simulator and device validation for native mobile apps",
+    "category": "Testing & QA",
+    "icon": "iphone",
+    "requiredMCPs": [
+      "appxray",
+      "argus"
+    ],
+    "triggers": [
+      "ios test",
+      "android test",
+      "mobile qa"
+    ],
+    "content": "# Mobile Testing\n\nTest on representative OS versions and screen sizes. Exercise permissions, backgrounding, and offline modes where relevant. Validate deep links, push handling, and upgrades. Capture screenshots/logs for failures. Automate happy paths; keep exploratory passes for UX edge cases.",
+    "tags": [
+      "mobile",
+      "qa",
+      "devices"
+    ]
+  },
+  {
+    "catalogId": "api-testing",
+    "name": "API Testing",
+    "description": "Contract, negative, and performance checks for HTTP APIs",
+    "category": "Testing & QA",
+    "icon": "arrow.left.arrow.right.circle.fill",
+    "requiredMCPs": [
+      "fetch"
+    ],
+    "triggers": [
+      "API test",
+      "REST test",
+      "postman"
+    ],
+    "content": "# API Testing\n\nCover authn/authz matrix: valid, missing, and wrong tokens. Assert status, headers, and schema shape. Include pagination, filtering, and idempotency behaviors. Test rate limits and error models. Version-sensitive clients deserve compatibility suites. Store fixtures as data, not copy-paste.",
+    "tags": [
+      "http",
+      "contracts",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "load-testing",
+    "name": "Load Testing",
+    "description": "Stress and capacity validation under realistic traffic",
+    "category": "Testing & QA",
+    "icon": "chart.line.uptrend.xyaxis",
+    "requiredMCPs": [],
+    "triggers": [
+      "load test",
+      "stress",
+      "capacity"
+    ],
+    "content": "# Load Testing\n\nModel user workflows, think time, and payload distributions. Ramp gradually; watch p95/p99 and error rates. Identify bottlenecks (DB, CPU, locks) with profiling. Run from an environment that mirrors prod topology enough to matter. Document SLOs tested and breaking points observed.",
+    "tags": [
+      "performance",
+      "scalability",
+      "reliability"
+    ]
+  },
+  {
+    "catalogId": "visual-regression",
+    "name": "Visual Regression",
+    "description": "Pixel and perceptual diffs to catch unintended UI drift",
+    "category": "Testing & QA",
+    "icon": "camera.viewfinder",
+    "requiredMCPs": [
+      "playwright"
+    ],
+    "triggers": [
+      "visual diff",
+      "screenshot",
+      "percy"
+    ],
+    "content": "# Visual Regression\n\nStabilize fonts, animations, and timestamps in snapshots. Use consistent viewport and theme states. Review intentional changes by updating baselines with scrutiny. Scope snapshots to components when possible to reduce noise. Pair with accessibility checks for text contrast regressions.",
+    "tags": [
+      "ui",
+      "snapshots",
+      "quality"
+    ]
+  },
+  {
+    "catalogId": "accessibility-audit",
+    "name": "Accessibility Audit",
+    "description": "WCAG-oriented checks for inclusive interfaces",
+    "category": "Testing & QA",
+    "icon": "accessibility",
+    "requiredMCPs": [],
+    "triggers": [
+      "a11y",
+      "WCAG",
+      "screen reader"
+    ],
+    "content": "# Accessibility Audit\n\nKeyboard-navigate every flow; focus order must make sense. Verify labels, roles, and live regions for dynamic content. Check color contrast and text scaling. Test with a screen reader on primary tasks. Prefer semantic HTML/native controls over custom widgets. Log issues with severity and repro steps.",
+    "tags": [
+      "inclusion",
+      "ux",
+      "compliance"
+    ]
+  },
+  {
+    "catalogId": "test-planning",
+    "name": "Test Planning",
+    "description": "Risk-based coverage planning before implementation spikes",
+    "category": "Testing & QA",
+    "icon": "list.clipboard.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "test plan",
+      "coverage",
+      "qa plan"
+    ],
+    "content": "# Test Planning\n\nIdentify risks by impact and likelihood. Map requirements to test types (unit/integration/e2e). Define entry/exit criteria and environments. Estimate data, tools, and automation feasibility. Align with release cadence and hotfix paths. Revisit plan when scope shifts materially.",
+    "tags": [
+      "strategy",
+      "risk",
+      "release"
+    ]
+  },
+  {
+    "catalogId": "exploratory-testing",
+    "name": "Exploratory Testing",
+    "description": "Chartered sessions to find unknown-unknowns quickly",
+    "category": "Testing & QA",
+    "icon": "binoculars.fill",
+    "requiredMCPs": [
+      "argus"
+    ],
+    "triggers": [
+      "explore",
+      "ad hoc",
+      "bug hunt"
+    ],
+    "content": "# Exploratory Testing\n\nTime-box missions with clear charters and notes. Vary inputs, orderings, and state combinations. Watch for error handling, recovery, and data integrity. Capture minimal repros with evidence. Debrief findings into tickets with severity and suspected component. Complement—don’t replace—automation.",
+    "tags": [
+      "discovery",
+      "quality",
+      "risk"
+    ]
+  },
+  {
+    "catalogId": "regression-suite",
+    "name": "Regression Suite",
+    "description": "Curate automated checks that protect core user value",
+    "category": "Testing & QA",
+    "icon": "arrow.counterclockwise.circle.fill",
+    "requiredMCPs": [
+      "playwright"
+    ],
+    "triggers": [
+      "regression",
+      "nightly",
+      "smoke suite"
+    ],
+    "content": "# Regression Suite\n\nPrioritize tests that catch frequent breakages and costly failures. Remove redundant cases that don’t increase signal. Keep runtime within CI budgets via sharding and tagging. Fail fast on main branch protections. Review flaky tests weekly; fix or quarantine with owners.",
+    "tags": [
+      "ci",
+      "stability",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "docker-containerization",
+    "name": "Docker Containerization",
+    "description": "Reproducible images, layers, and local dev parity",
+    "category": "DevOps & CI/CD",
+    "icon": "cube.fill",
+    "requiredMCPs": [
+      "docker"
+    ],
+    "triggers": [
+      "dockerfile",
+      "container",
+      "image"
+    ],
+    "content": "# Docker Containerization\n\nMulti-stage builds to keep images small; pin base digests for supply-chain stability. Run as non-root; avoid baking secrets into layers. Use healthchecks and explicit exposed ports. Document build args and runtime env vars. Validate locally and in CI with the same compose file when possible.",
+    "tags": [
+      "containers",
+      "devops",
+      "reproducibility"
+    ]
+  },
+  {
+    "catalogId": "kubernetes-deployment",
+    "name": "Kubernetes Deployment",
+    "description": "Rollouts, resources, and cluster-safe configuration",
+    "category": "DevOps & CI/CD",
+    "icon": "k.circle.fill",
+    "requiredMCPs": [
+      "kubernetes"
+    ],
+    "triggers": [
+      "k8s",
+      "helm",
+      "deployment"
+    ],
+    "content": "# Kubernetes Deployment\n\nDeclare desired state; avoid imperative drift. Set requests/limits from measured usage. Use readiness/liveness probes thoughtfully. Manage secrets via external stores, not plain manifests in git. Plan rollbacks and progressive delivery. Test changes in a staging cluster matching prod networking policies.",
+    "tags": [
+      "orchestration",
+      "cloud",
+      "reliability"
+    ]
+  },
+  {
+    "catalogId": "ci-pipeline",
+    "name": "CI Pipeline",
+    "description": "Fast feedback loops for build, test, and artifact promotion",
+    "category": "DevOps & CI/CD",
+    "icon": "arrow.triangle.merge",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "CI",
+      "github actions",
+      "pipeline"
+    ],
+    "content": "# CI Pipeline\n\nSplit fast checks from slow suites; fail early on lint/type/test. Cache dependencies deterministically. Sign artifacts and store provenance. Gate merges on required checks; keep flakes at zero tolerance. Document how to reproduce CI locally. Monitor queue times and optimize bottlenecks.",
+    "tags": [
+      "automation",
+      "quality",
+      "delivery"
+    ]
+  },
+  {
+    "catalogId": "cd-deployment",
+    "name": "CD Deployment",
+    "description": "Safe promotion from staging to production with observability",
+    "category": "DevOps & CI/CD",
+    "icon": "airplane.departure",
+    "requiredMCPs": [
+      "vercel"
+    ],
+    "triggers": [
+      "CD",
+      "deploy",
+      "release"
+    ],
+    "content": "# CD Deployment\n\nAutomate promotion with human gates only where policy demands. Use feature flags for risky changes. Verify migrations backward-compatible or paired with code. Watch error budgets and canary metrics post-deploy. Keep rollback one command away. Document customer-facing changes in release notes.",
+    "tags": [
+      "release",
+      "production",
+      "delivery"
+    ]
+  },
+  {
+    "catalogId": "infrastructure-as-code",
+    "name": "Infrastructure as Code",
+    "description": "Declarative environments with reviewable changes",
+    "category": "DevOps & CI/CD",
+    "icon": "server.rack",
+    "requiredMCPs": [],
+    "triggers": [
+      "terraform",
+      "IaC",
+      "cloudformation"
+    ],
+    "content": "# Infrastructure as Code\n\nTreat infra changes like application PRs: plan, review, apply. Modularize to reduce blast radius. Pin providers/modules and document assumptions. Separate environments with clear variable layers. Run drift detection periodically. Backup state carefully and restrict access.",
+    "tags": [
+      "cloud",
+      "governance",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "monitoring-setup",
+    "name": "Monitoring Setup",
+    "description": "Dashboards, alerts, and SLOs that match on-call reality",
+    "category": "DevOps & CI/CD",
+    "icon": "chart.bar.fill",
+    "requiredMCPs": [
+      "datadog",
+      "sentry"
+    ],
+    "triggers": [
+      "monitoring",
+      "metrics",
+      "alerts"
+    ],
+    "content": "# Monitoring Setup\n\nInstrument golden signals: latency, traffic, errors, saturation. Alert on user-impacting symptoms, not every threshold twitch. Use SLOs and burn rates for paging policy. Dashboards should answer: what broke, for whom, since when. Tag consistently across services for correlation.",
+    "tags": [
+      "observability",
+      "sre",
+      "on-call"
+    ]
+  },
+  {
+    "catalogId": "log-analysis",
+    "name": "Log Analysis",
+    "description": "Search, correlate, and explain incidents from log evidence",
+    "category": "DevOps & CI/CD",
+    "icon": "doc.text.magnifyingglass",
+    "requiredMCPs": [
+      "datadog"
+    ],
+    "triggers": [
+      "logs",
+      "Loki",
+      "splunk"
+    ],
+    "content": "# Log Analysis\n\nStart from a time window and correlation id. Filter progressively; avoid overly broad queries in prod. Compare canary vs baseline when applicable. Extract patterns: new error fingerprints, dependency failures, auth anomalies. Summarize timeline, blast radius, and likely root cause with citations.",
+    "tags": [
+      "incident",
+      "debugging",
+      "operations"
+    ]
+  },
+  {
+    "catalogId": "incident-response",
+    "name": "Incident Response",
+    "description": "Coordinate mitigation, communication, and postmortems",
+    "category": "DevOps & CI/CD",
+    "icon": "cross.case.fill",
+    "requiredMCPs": [
+      "pagerduty",
+      "slack"
+    ],
+    "triggers": [
+      "incident",
+      "outage",
+      "SEV"
+    ],
+    "content": "# Incident Response\n\nDeclare severity and assign roles (incident lead, comms). Stabilize first—rollback, scale, or feature-disable. Communicate status on a predictable cadence. Capture timestamps, actions, and decisions. After resolution, run a blameless postmortem with action items and owners.",
+    "tags": [
+      "reliability",
+      "communication",
+      "process"
+    ]
+  },
+  {
+    "catalogId": "environment-management",
+    "name": "Environment Management",
+    "description": "Dev/stage/prod parity and configuration discipline",
+    "category": "DevOps & CI/CD",
+    "icon": "slider.horizontal.3",
+    "requiredMCPs": [],
+    "triggers": [
+      "environments",
+      "staging",
+      "config"
+    ],
+    "content": "# Environment Management\n\nMinimize special-case behavior between envs; prefer feature flags over forks. Document required secrets and their rotation. Keep data policies explicit (PII in prod only). Validate migrations across env order. Automate provisioning to reduce snowflake machines. Test disaster recovery periodically.",
+    "tags": [
+      "parity",
+      "config",
+      "operations"
+    ]
+  },
+  {
+    "catalogId": "secrets-management",
+    "name": "Secrets Management",
+    "description": "Secure storage, rotation, and least-privilege access",
+    "category": "DevOps & CI/CD",
+    "icon": "key.fill",
+    "requiredMCPs": [
+      "filesystem"
+    ],
+    "triggers": [
+      "secrets",
+      "vault",
+      "rotation"
+    ],
+    "content": "# Secrets Management\n\nNever commit secrets; scan repos and pre-commit hooks help. Store in a vault/KMS with audit logs. Rotate on compromise and on schedule for long-lived creds. Scope tokens narrowly (read-only where possible). Inject at runtime; avoid printing in logs. Document break-glass procedures.",
+    "tags": [
+      "security",
+      "compliance",
+      "operations"
+    ]
+  },
+  {
+    "catalogId": "react-patterns",
+    "name": "React Patterns",
+    "description": "Hooks, composition, and performance-minded component design",
+    "category": "Frontend",
+    "icon": "atom",
+    "requiredMCPs": [],
+    "triggers": [
+      "react",
+      "hooks",
+      "jsx"
+    ],
+    "content": "# React Patterns\n\nPrefer composition over inheritance; keep components small and focused. Memoize only when profiling shows benefit—avoid premature useMemo/useCallback. Lift state minimally; colocate state that changes together. Handle effects with correct dependencies and cleanup. Suspense/error boundaries for resilience.",
+    "tags": [
+      "react",
+      "ui",
+      "performance"
+    ]
+  },
+  {
+    "catalogId": "vue-patterns",
+    "name": "Vue Patterns",
+    "description": "Reactivity, composition API, and scalable SFC structure",
+    "category": "Frontend",
+    "icon": "leaf.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "vue",
+      "composition api",
+      "sfc"
+    ],
+    "content": "# Vue Patterns\n\nModel state close to usage; derive computed values instead of duplicating. Extract composables for cross-cutting concerns. Keep components dumb where possible via props/events. Type your props and emits in TS. Watch for unnecessary deep reactivity on large objects. Test logic in composables independently.",
+    "tags": [
+      "vue",
+      "ui",
+      "reactivity"
+    ]
+  },
+  {
+    "catalogId": "css-architecture",
+    "name": "CSS Architecture",
+    "description": "Scalable styling with predictable specificity and tokens",
+    "category": "Frontend",
+    "icon": "paintbrush.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "css",
+      "scss",
+      "design tokens"
+    ],
+    "content": "# CSS Architecture\n\nPrefer design tokens for color/type/spacing. Avoid deep selector chains; use class conventions (BEM/CSS modules). Co-locate styles with components when it aids locality. Document theming and dark mode rules. Keep global CSS minimal and intentional. Audit unused rules periodically.",
+    "tags": [
+      "styling",
+      "maintainability",
+      "design"
+    ]
+  },
+  {
+    "catalogId": "responsive-design",
+    "name": "Responsive Design",
+    "description": "Layouts that adapt across breakpoints and input modes",
+    "category": "Frontend",
+    "icon": "rectangle.split.2x1.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "responsive",
+      "breakpoints",
+      "mobile web"
+    ],
+    "content": "# Responsive Design\n\nDesign mobile-first; add complexity as width grows. Test touch targets and hover-less interactions. Prefer fluid type/spacing with sensible clamps. Handle safe areas and keyboard overlap on mobile web. Validate reading order independent of visual layout. Check performance on low-end devices.",
+    "tags": [
+      "layout",
+      "accessibility",
+      "mobile"
+    ]
+  },
+  {
+    "catalogId": "component-design",
+    "name": "Component Design",
+    "description": "Reusable UI primitives with clear APIs and states",
+    "category": "Frontend",
+    "icon": "square.grid.3x3.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "component",
+      "design system",
+      "ui kit"
+    ],
+    "content": "# Component Design\n\nDefine props for variants, size, and disabled/loading/error states. Document examples and a11y expectations. Avoid leaking internal DOM unless necessary. Keep side effects explicit and testable. Version breaking API changes carefully. Prefer tokens over magic numbers for spacing and color.",
+    "tags": [
+      "ui",
+      "reuse",
+      "design-system"
+    ]
+  },
+  {
+    "catalogId": "state-management",
+    "name": "State Management",
+    "description": "Predictable data flow for complex client applications",
+    "category": "Frontend",
+    "icon": "arrow.triangle.swap",
+    "requiredMCPs": [],
+    "triggers": [
+      "redux",
+      "zustand",
+      "state"
+    ],
+    "content": "# State Management\n\nChoose local state by default; lift only when multiple consumers need it. Normalize remote data to prevent duplication. Model async with explicit status fields, not implicit coupling. Avoid storing derived values unless caching is measured. Debuggability beats cleverness—keep actions named and traceable.",
+    "tags": [
+      "frontend",
+      "architecture",
+      "data-flow"
+    ]
+  },
+  {
+    "catalogId": "web-performance",
+    "name": "Web Performance",
+    "description": "Core Web Vitals and bundle discipline for fast sites",
+    "category": "Frontend",
+    "icon": "hare.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "LCP",
+      "CLS",
+      "web perf"
+    ],
+    "content": "# Web Performance\n\nMeasure real user metrics, not just lab scores once. Optimize critical path: fonts, images, JS budget. Code-split routes and heavy widgets. Preload only what’s high-confidence. Fix layout shifts by reserving space. Cache aggressively but validate invalidation on deploy.",
+    "tags": [
+      "vitals",
+      "frontend",
+      "optimization"
+    ]
+  },
+  {
+    "catalogId": "pwa-development",
+    "name": "PWA Development",
+    "description": "Installable web apps with offline and update strategies",
+    "category": "Frontend",
+    "icon": "app.badge.checkmark.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "PWA",
+      "service worker",
+      "offline"
+    ],
+    "content": "# PWA Development\n\nService workers should be versioned and safe to update; avoid stale caches. Define offline fallbacks for key routes. Request permissions contextually. Test install prompts and deep links across browsers. Keep security headers strict—HTTPS only. Audit storage quotas and cleanup policies.",
+    "tags": [
+      "offline",
+      "web",
+      "mobile"
+    ]
+  },
+  {
+    "catalogId": "design-system",
+    "name": "Design System",
+    "description": "Tokens, documentation, and governance for UI consistency",
+    "category": "Frontend",
+    "icon": "square.stack.3d.forward.dottedline.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "design system",
+      "tokens",
+      "storybook"
+    ],
+    "content": "# Design System\n\nCodify tokens and components with clear contribution rules. Provide usage guidance and do/don’t examples. Deprecate with migration paths, not silent breaks. Measure adoption and drift in product repos. Pair design and engineering reviews for new primitives. Test a11y and themes systematically.",
+    "tags": [
+      "consistency",
+      "ux",
+      "governance"
+    ]
+  },
+  {
+    "catalogId": "animation",
+    "name": "UI Animation",
+    "description": "Motion that aids comprehension without harming performance",
+    "category": "Frontend",
+    "icon": "wind",
+    "requiredMCPs": [],
+    "triggers": [
+      "animation",
+      "motion",
+      "transitions"
+    ],
+    "content": "# UI Animation\n\nAnimate purpose: orientation, feedback, or delight—not decoration alone. Respect reduced-motion preferences. Prefer transform/opacity; avoid layout-thrashing properties. Keep durations and easing consistent with system patterns. Profile on low-end hardware. Provide skip or instant modes where appropriate.",
+    "tags": [
+      "motion",
+      "ux",
+      "performance"
+    ]
+  },
+  {
+    "catalogId": "rest-api",
+    "name": "REST API Implementation",
+    "description": "Resource-oriented HTTP APIs with consistent semantics",
+    "category": "Backend",
+    "icon": "network",
+    "requiredMCPs": [],
+    "triggers": [
+      "REST",
+      "HTTP API",
+      "CRUD"
+    ],
+    "content": "# REST API Implementation\n\nUse nouns for resources; verbs live in HTTP methods. Return correct status codes and problem details for errors. Support pagination, filtering, and stable sorting contracts. Validate input at the boundary. Version when compatibility promises require it. Document examples and auth scopes.",
+    "tags": [
+      "http",
+      "api",
+      "server"
+    ]
+  },
+  {
+    "catalogId": "graphql-api",
+    "name": "GraphQL API",
+    "description": "Schema design, resolvers, and operational safeguards",
+    "category": "Backend",
+    "icon": "point.3.connected.trianglepath.dotted",
+    "requiredMCPs": [],
+    "triggers": [
+      "GraphQL",
+      "schema",
+      "resolver"
+    ],
+    "content": "# GraphQL API\n\nDesign schema for evolution: nullable fields and additive changes. Prevent N+1 with batching/dataloaders. Enforce depth/complexity limits and timeouts. Authz must be field-aware, not only route-level. Instrument slow resolvers. Provide persisted queries or codegen for clients when scale demands.",
+    "tags": [
+      "api",
+      "schema",
+      "performance"
+    ]
+  },
+  {
+    "catalogId": "authentication",
+    "name": "Authentication",
+    "description": "Identity flows, sessions, tokens, and threat modeling",
+    "category": "Backend",
+    "icon": "lock.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "auth",
+      "oauth",
+      "JWT"
+    ],
+    "content": "# Authentication\n\nPrefer standard protocols (OAuth2/OIDC) over bespoke crypto. Hash passwords with modern algorithms and unique salts. Rotate signing keys and handle clock skew. Bind tokens to audience and issuer. Add MFA where risk warrants. Log auth failures without storing secrets. Test revocation paths.",
+    "tags": [
+      "security",
+      "identity",
+      "sessions"
+    ]
+  },
+  {
+    "catalogId": "caching-strategy",
+    "name": "Caching Strategy",
+    "description": "Correctness-first caching across CDN, app, and data layers",
+    "category": "Backend",
+    "icon": "externaldrive.fill",
+    "requiredMCPs": [
+      "redis"
+    ],
+    "triggers": [
+      "cache",
+      "redis",
+      "CDN"
+    ],
+    "content": "# Caching Strategy\n\nName keys and TTL policies explicitly; avoid implicit defaults. Invalidate on writes or use versioned keys. Protect against stampedes with locking or probabilistic early expiry. Measure hit rates and p95 improvements. Never cache user-specific data without strict key scoping and auth checks.",
+    "tags": [
+      "performance",
+      "scalability",
+      "correctness"
+    ]
+  },
+  {
+    "catalogId": "database-migration",
+    "name": "Database Migration",
+    "description": "Safe, reversible schema and data changes at scale",
+    "category": "Backend",
+    "icon": "cylinder.split.1x2.fill",
+    "requiredMCPs": [
+      "postgresql"
+    ],
+    "triggers": [
+      "migration",
+      "schema",
+      "flyway"
+    ],
+    "content": "# Database Migration\n\nExpand-contract for zero-downtime: add new columns/tables, dual-write/read, then remove old. Backfill in batches with throttling. Test rollback on copies of prod-sized data. Lock risks: prefer online schema tools. Document operational runbook and expected duration. Verify indexes concurrently where supported.",
+    "tags": [
+      "sql",
+      "operations",
+      "reliability"
+    ]
+  },
+  {
+    "catalogId": "queue-processing",
+    "name": "Queue Processing",
+    "description": "Reliable async work with retries, idempotency, and DLQs",
+    "category": "Backend",
+    "icon": "tray.full.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "queue",
+      "worker",
+      "async"
+    ],
+    "content": "# Queue Processing\n\nMake consumers idempotent; dedupe with keys where needed. Define retry policy with jitter and max attempts. Dead-letter queues require triage playbooks. Monitor age-of-oldest message and processing rates. Keep payloads small; store blobs externally. Test failure injection regularly.",
+    "tags": [
+      "async",
+      "reliability",
+      "scaling"
+    ]
+  },
+  {
+    "catalogId": "microservices",
+    "name": "Microservices",
+    "description": "Service boundaries, contracts, and operational tradeoffs",
+    "category": "Backend",
+    "icon": "square.grid.4x3.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "microservices",
+      "soa",
+      "bounded context"
+    ],
+    "content": "# Microservices\n\nSplit only when independent scaling/teams justify overhead. Define APIs and failure modes explicitly. Avoid synchronous chains; prefer async where possible. Standardize observability: tracing across services. Data ownership per service—no shared DB as integration point. Practice graceful degradation.",
+    "tags": [
+      "architecture",
+      "distributed",
+      "reliability"
+    ]
+  },
+  {
+    "catalogId": "serverless",
+    "name": "Serverless",
+    "description": "Functions and managed platforms with cold starts in mind",
+    "category": "Backend",
+    "icon": "cloud.fill",
+    "requiredMCPs": [
+      "vercel"
+    ],
+    "triggers": [
+      "serverless",
+      "lambda",
+      "functions"
+    ],
+    "content": "# Serverless\n\nKeep handlers small; externalize config via env. Mind cold starts—trim dependencies and initialization. Set timeouts and concurrency limits deliberately. Use idempotency for retried invocations. Centralize logging/metrics with correlation ids. Test IAM least privilege and secret injection paths.",
+    "tags": [
+      "cloud",
+      "scaling",
+      "ops"
+    ]
+  },
+  {
+    "catalogId": "websocket",
+    "name": "WebSocket Services",
+    "description": "Real-time channels, backpressure, and auth at connection time",
+    "category": "Backend",
+    "icon": "dot.radiowaves.left.and.right",
+    "requiredMCPs": [],
+    "triggers": [
+      "websocket",
+      "realtime",
+      "socket"
+    ],
+    "content": "# WebSocket Services\n\nAuthenticate during handshake; re-auth on token refresh if long-lived. Handle ping/pong and idle disconnects. Apply backpressure; drop or sample under load. Namespace channels carefully; authorize per subscription. Test reconnect storms and ordering guarantees. Log connection lifecycle metrics.",
+    "tags": [
+      "realtime",
+      "networking",
+      "scale"
+    ]
+  },
+  {
+    "catalogId": "rate-limiting",
+    "name": "Rate Limiting",
+    "description": "Fair usage, abuse protection, and client-visible errors",
+    "category": "Backend",
+    "icon": "speedometer",
+    "requiredMCPs": [
+      "redis"
+    ],
+    "triggers": [
+      "rate limit",
+      "throttle",
+      "quota"
+    ],
+    "content": "# Rate Limiting\n\nChoose algorithm to match fairness (token bucket vs fixed window). Key by user, tenant, and IP as appropriate. Return 429 with Retry-After and stable error codes. Protect shared dependencies (DB, partners) first. Monitor false positives and adjust. Document limits in API docs.",
+    "tags": [
+      "security",
+      "reliability",
+      "api"
+    ]
+  },
+  {
+    "catalogId": "ios-swift",
+    "name": "iOS (Swift)",
+    "description": "SwiftUI/UIKit patterns, concurrency, and App Store readiness",
+    "category": "Mobile",
+    "icon": "applelogo",
+    "requiredMCPs": [
+      "appxray"
+    ],
+    "triggers": [
+      "swift",
+      "swiftui",
+      "ios"
+    ],
+    "content": "# iOS (Swift)\n\nPrefer Swift 6 concurrency rules; isolate UI on MainActor. Model navigation state clearly; avoid massive view bodies—extract subviews. Handle permissions and background modes explicitly. Test on multiple OS versions and Dynamic Type. Profile memory and launch time early. Follow HIG for platform expectations.",
+    "tags": [
+      "ios",
+      "swift",
+      "mobile"
+    ]
+  },
+  {
+    "catalogId": "android-kotlin",
+    "name": "Android (Kotlin)",
+    "description": "Compose/material guidance, lifecycle, and device fragmentation",
+    "category": "Mobile",
+    "icon": "a.circle.fill",
+    "requiredMCPs": [
+      "appxray"
+    ],
+    "triggers": [
+      "kotlin",
+      "jetpack compose",
+      "android"
+    ],
+    "content": "# Android (Kotlin)\n\nUse lifecycle-aware collectors; avoid leaking Composition. Model UI state in a single source of truth. Handle configuration changes and process death. Test across OEM quirks and API levels. Minimize main-thread IO; prefer structured concurrency. Secure storage for tokens; follow backup rules.",
+    "tags": [
+      "android",
+      "kotlin",
+      "mobile"
+    ]
+  },
+  {
+    "catalogId": "react-native",
+    "name": "React Native",
+    "description": "Bridge boundaries, native modules, and release hardening",
+    "category": "Mobile",
+    "icon": "rectangle.stack.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "react native",
+      "expo",
+      "mobile js"
+    ],
+    "content": "# React Native\n\nProfile JS thread vs native; watch for unnecessary re-renders. Prefer platform files when UX diverges. Version native dependencies carefully; rebuild pods/gradle lockfiles. Test deep links, push, and OTA update policies if used. Add error reporting with symbolicated stacks. Validate performance on low-end Android.",
+    "tags": [
+      "mobile",
+      "javascript",
+      "cross-platform"
+    ]
+  },
+  {
+    "catalogId": "flutter",
+    "name": "Flutter",
+    "description": "Widgets, platform channels, and build/release pipelines",
+    "category": "Mobile",
+    "icon": "wind.snow",
+    "requiredMCPs": [],
+    "triggers": [
+      "flutter",
+      "dart",
+      "material"
+    ],
+    "content": "# Flutter\n\nKeep widgets pure; lift ephemeral state appropriately. Use keys when lists reorder. Isolate platform channels behind small APIs. Test on iOS and Android typography/semantics differences. Watch build size and shader warmup issues. Integrate crash reporting with symbolicated symbols for both stores.",
+    "tags": [
+      "dart",
+      "ui",
+      "cross-platform"
+    ]
+  },
+  {
+    "catalogId": "mobile-ci",
+    "name": "Mobile CI",
+    "description": "Build, sign, and test mobile apps in automated pipelines",
+    "category": "Mobile",
+    "icon": "gearshape.2.fill",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "mobile ci",
+      "fastlane",
+      "signing"
+    ],
+    "content": "# Mobile CI\n\nCache dependencies deterministically; pin Xcode/NDK images. Secure signing material via secret stores and ephemeral keychains. Run unit/UI tests on simulators with flake controls. Produce artifacts with metadata: commit, version, mapping files. Gate releases on smoke tests and lint rules.",
+    "tags": [
+      "ci",
+      "signing",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "app-store-submission",
+    "name": "App Store Submission",
+    "description": "Compliance, metadata, and release checklist for stores",
+    "category": "Mobile",
+    "icon": "bag.fill",
+    "requiredMCPs": [
+      "jira"
+    ],
+    "triggers": [
+      "app store",
+      "play store",
+      "release"
+    ],
+    "content": "# App Store Submission\n\nVerify privacy nutrition labels and permission strings match behavior. Prepare screenshots and review notes for complex flows. Test IAP/receipt validation paths. Monitor rejection patterns; fix policy issues at root. Coordinate phased rollout and crash dashboards post-launch.",
+    "tags": [
+      "release",
+      "compliance",
+      "distribution"
+    ]
+  },
+  {
+    "catalogId": "owasp-top-10",
+    "name": "OWASP Top 10",
+    "description": "Practical mitigation patterns for common web vulnerabilities",
+    "category": "Security",
+    "icon": "shield.lefthalf.filled",
+    "requiredMCPs": [],
+    "triggers": [
+      "OWASP",
+      "injection",
+      "XSS"
+    ],
+    "content": "# OWASP Top 10\n\nValidate and encode data at trust boundaries. Use parameterized queries; never concatenate SQL. Enforce authz on every endpoint, not just UI hiding. Protect against SSRF with egress controls. Secure headers, cookies (HttpOnly/SameSite), and CSRF where cookies authenticate. Threat-test file uploads and deserialization.",
+    "tags": [
+      "web-security",
+      "hardening",
+      "basics"
+    ]
+  },
+  {
+    "catalogId": "threat-modeling",
+    "name": "Threat Modeling",
+    "description": "STRIDE-style analysis to prioritize security work",
+    "category": "Security",
+    "icon": "scope",
+    "requiredMCPs": [],
+    "triggers": [
+      "threat model",
+      "STRIDE",
+      "risk"
+    ],
+    "content": "# Threat Modeling\n\nDiagram trust boundaries and data flows. Identify assets and adversaries realistic to your product. Score risks by exploitability and impact; track mitigations with owners. Revisit on major architecture changes. Prefer eliminating attack surface over adding controls. Document assumptions explicitly.",
+    "tags": [
+      "risk",
+      "architecture",
+      "process"
+    ]
+  },
+  {
+    "catalogId": "penetration-testing",
+    "name": "Penetration Testing",
+    "description": "Goal-oriented offensive testing with safe scope",
+    "category": "Security",
+    "icon": "bolt.shield.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "pentest",
+      "exploit",
+      "red team"
+    ],
+    "content": "# Penetration Testing\n\nDefine scope, rules of engagement, and emergency contacts. Focus on high-impact chains: cred theft, privilege escalation, data exfil. Record repro steps and evidence clearly. Differentiate findings by severity with remediation guidance. Retest fixes; watch for variant bypasses.",
+    "tags": [
+      "offense",
+      "assessment",
+      "hardening"
+    ]
+  },
+  {
+    "catalogId": "code-audit",
+    "name": "Security Code Audit",
+    "description": "Line-by-line review for dangerous patterns and misuse",
+    "category": "Security",
+    "icon": "doc.plaintext.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "security review",
+      "audit code",
+      "dangerous api"
+    ],
+    "content": "# Security Code Audit\n\nHunt for injection, unsafe deserialization, weak crypto, and authz gaps. Check secret handling, logging redaction, and error verbosity. Review dependency usage of risky APIs. Validate file/path operations and SSRF-prone HTTP clients. Pair findings with tests that prevent regressions.",
+    "tags": [
+      "review",
+      "secure-coding",
+      "quality"
+    ]
+  },
+  {
+    "catalogId": "api-security",
+    "name": "API Security",
+    "description": "Hardening HTTP/GraphQL endpoints against abuse and data leaks",
+    "category": "Security",
+    "icon": "lock.shield.fill",
+    "requiredMCPs": [
+      "fetch"
+    ],
+    "triggers": [
+      "API security",
+      "authz",
+      "abuse"
+    ],
+    "content": "# API Security\n\nAuthenticate consistently; authorize per resource instance. Rate limit and detect credential stuffing patterns. Validate content types and payload sizes. Prevent IDOR by scoping queries to tenant/user. Log security events with correlation, not sensitive payloads. Fuzz inputs for parser edge cases.",
+    "tags": [
+      "authz",
+      "abuse",
+      "web"
+    ]
+  },
+  {
+    "catalogId": "dependency-scanning",
+    "name": "Dependency Scanning",
+    "description": "Automated SBOM and vulnerability management in CI",
+    "category": "Security",
+    "icon": "ladybug.fill",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "CVE",
+      "SBOM",
+      "dependabot"
+    ],
+    "content": "# Dependency Scanning\n\nFail builds on criticals with known fixes; triage others on SLA. Review transitive risks, not only direct deps. Combine version upgrades with test coverage. Maintain an SBOM export for compliance asks. Track license obligations. Escalate repeated suppressions for architectural fixes.",
+    "tags": [
+      "supply-chain",
+      "compliance",
+      "ci"
+    ]
+  },
+  {
+    "catalogId": "secrets-detection",
+    "name": "Secrets Detection",
+    "description": "Prevent credential leaks in repos, logs, and artifacts",
+    "category": "Security",
+    "icon": "key.horizontal.fill",
+    "requiredMCPs": [
+      "github"
+    ],
+    "triggers": [
+      "secret scan",
+      "tokens",
+      "leak"
+    ],
+    "content": "# Secrets Detection\n\nRun pre-commit and CI scanners; block merges on high confidence. Rotate any leaked credential immediately—assume compromise. Reduce false positives with allowlists tied to owners. Audit build logs and crash reports for accidental dumps. Educate on .env hygiene and local tooling defaults.",
+    "tags": [
+      "credentials",
+      "prevention",
+      "compliance"
+    ]
+  },
+  {
+    "catalogId": "compliance-review",
+    "name": "Compliance Review",
+    "description": "Map controls to frameworks and evidence for audits",
+    "category": "Security",
+    "icon": "checklist",
+    "requiredMCPs": [
+      "notion",
+      "stripe"
+    ],
+    "triggers": [
+      "SOC2",
+      "GDPR",
+      "compliance"
+    ],
+    "content": "# Compliance Review\n\nTranslate legal/policy requirements into concrete controls. Collect evidence: policies, tickets, access reviews, logs. Identify gaps with owners and timelines. Avoid checkbox theater—tie controls to real risks. Prepare auditor-friendly narratives and diagrams. Reassess after major product changes.",
+    "tags": [
+      "governance",
+      "audit",
+      "privacy"
+    ]
+  },
+  {
+    "catalogId": "sql-optimization",
+    "name": "SQL Optimization",
+    "description": "Query plans, indexes, and workload-aware tuning",
+    "category": "Data",
+    "icon": "function",
+    "requiredMCPs": [
+      "postgresql"
+    ],
+    "triggers": [
+      "SQL",
+      "explain",
+      "index"
+    ],
+    "content": "# SQL Optimization\n\nMeasure with EXPLAIN (ANALYZE) on production-like data sizes. Add indexes for selective predicates; avoid over-indexing writes. Rewrite N+1 patterns into joins or batching. Update statistics and validate planner assumptions. Cache only when correctness is preserved. Document hot queries and SLO targets.",
+    "tags": [
+      "database",
+      "performance",
+      "tuning"
+    ]
+  },
+  {
+    "catalogId": "data-modeling",
+    "name": "Data Modeling",
+    "description": "Entities, relationships, and integrity constraints that age well",
+    "category": "Data",
+    "icon": "point.3.connected.trianglepath.dotted",
+    "requiredMCPs": [
+      "mongodb",
+      "postgresql"
+    ],
+    "triggers": [
+      "ERD",
+      "schema design",
+      "normalization"
+    ],
+    "content": "# Data Modeling\n\nStart from access patterns, not diagrams alone. Normalize to reduce anomalies; denormalize deliberately with invariants. Choose keys that stabilize across systems. Document cardinality and lifecycle rules. Plan migrations for evolving requirements. Validate with realistic fixtures and constraint tests.",
+    "tags": [
+      "schema",
+      "integrity",
+      "design"
+    ]
+  },
+  {
+    "catalogId": "etl-pipeline",
+    "name": "ETL Pipeline",
+    "description": "Extract, transform, load with idempotency and data quality gates",
+    "category": "Data",
+    "icon": "arrow.left.arrow.right.circle",
+    "requiredMCPs": [],
+    "triggers": [
+      "ETL",
+      "data pipeline",
+      "batch"
+    ],
+    "content": "# ETL Pipeline\n\nDefine SLAs and freshness; track lag metrics. Make stages idempotent to survive retries. Validate schemas and row counts between steps. Handle late-arriving data explicitly. Partition for scale; avoid full-table rescans. Document lineage from source to consumption for debugging.",
+    "tags": [
+      "data-engineering",
+      "quality",
+      "scale"
+    ]
+  },
+  {
+    "catalogId": "analytics-dashboard",
+    "name": "Analytics Dashboard",
+    "description": "Metrics that drive decisions without misleading aggregates",
+    "category": "Data",
+    "icon": "chart.xyaxis.line",
+    "requiredMCPs": [
+      "notion"
+    ],
+    "triggers": [
+      "dashboard",
+      "BI",
+      "metrics"
+    ],
+    "content": "# Analytics Dashboard\n\nClarify the question each chart answers. Prefer cohorts and denominators to vanity totals. Document definitions and data freshness. Guard against survivorship and Simpson’s paradox. Add drill-downs for investigations. Test filters and permissions for multi-tenant data.",
+    "tags": [
+      "bi",
+      "reporting",
+      "product"
+    ]
+  },
+  {
+    "catalogId": "data-validation",
+    "name": "Data Validation",
+    "description": "Constraints, checks, and monitoring for trustworthy datasets",
+    "category": "Data",
+    "icon": "checkmark.circle.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "validation",
+      "quality checks",
+      "great expectations"
+    ],
+    "content": "# Data Validation\n\nValidate at ingestion boundaries with explicit schemas. Monitor distributions for drift and anomalies. Quarantine bad batches instead of silent drops. Tie validations to ownership and alerting. Sample-audit periodically with human review for edge cases. Document expected ranges and null semantics.",
+    "tags": [
+      "quality",
+      "governance",
+      "pipelines"
+    ]
+  },
+  {
+    "catalogId": "migration-planning",
+    "name": "Migration Planning",
+    "description": "Cross-system moves with cutover, rollback, and parity checks",
+    "category": "Data",
+    "icon": "arrow.triangle.swap",
+    "requiredMCPs": [
+      "postgresql"
+    ],
+    "triggers": [
+      "data migration",
+      "cutover",
+      "rollback"
+    ],
+    "content": "# Migration Planning\n\nInventory sources, mappings, and transformation rules. Run parallel writes/reads with reconciliation reports. Practice cutover in staging with timers. Define rollback triggers and data repair steps. Communicate freeze windows and customer impact. Verify counts, sums, and spot-check samples post-migration.",
+    "tags": [
+      "operations",
+      "risk",
+      "integrity"
+    ]
+  },
+  {
+    "catalogId": "sprint-planning",
+    "name": "Sprint Planning",
+    "description": "Capacity-based commitments with clear definitions of done",
+    "category": "Project & Process",
+    "icon": "calendar.badge.clock",
+    "requiredMCPs": [
+      "jira"
+    ],
+    "triggers": [
+      "sprint",
+      "planning",
+      "backlog"
+    ],
+    "content": "# Sprint Planning\n\nGroom backlog to ready stories with acceptance criteria. Size using team history, not optimism. Protect capacity for tech debt and incidents. Align on sprint goal and explicit non-goals. Identify dependencies and risks early. Close with a testable plan and owner per item.",
+    "tags": [
+      "agile",
+      "delivery",
+      "team"
+    ]
+  },
+  {
+    "catalogId": "requirements-writing",
+    "name": "Requirements Writing",
+    "description": "Unambiguous specs that separate problem, constraints, and solution",
+    "category": "Project & Process",
+    "icon": "list.bullet.rectangle.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "requirements",
+      "spec",
+      "PRD"
+    ],
+    "content": "# Requirements Writing\n\nState user outcomes and measurable acceptance tests. Separate must/should/could; note assumptions explicitly. Capture edge cases, permissions, and failure behavior. Link to designs and analytics events when relevant. Iterate with engineering early to surface unknowns. Avoid solution dictation unless constrained.",
+    "tags": [
+      "product",
+      "clarity",
+      "scope"
+    ]
+  },
+  {
+    "catalogId": "user-stories",
+    "name": "User Stories",
+    "description": "Small vertical slices with personas and testable value",
+    "category": "Project & Process",
+    "icon": "person.text.rectangle.fill",
+    "requiredMCPs": [
+      "jira"
+    ],
+    "triggers": [
+      "user story",
+      "acceptance criteria",
+      "INVEST"
+    ],
+    "content": "# User Stories\n\nWrite as: role, need, benefit. Keep stories independently valuable where possible. Add acceptance criteria as checklists, not essays. Split spikes when uncertainty is high. Map non-functional needs (perf, security) explicitly. Review in backlog refinement before sprint start.",
+    "tags": [
+      "agile",
+      "backlog",
+      "value"
+    ]
+  },
+  {
+    "catalogId": "roadmap-creation",
+    "name": "Roadmap Creation",
+    "description": "Now/next/later planning aligned to strategy and dependencies",
+    "category": "Project & Process",
+    "icon": "map.circle.fill",
+    "requiredMCPs": [
+      "notion"
+    ],
+    "triggers": [
+      "roadmap",
+      "strategy",
+      "themes"
+    ],
+    "content": "# Roadmap Creation\n\nAnchor on outcomes and metrics, not feature lists alone. Sequence by dependencies, risk reduction, and learning milestones. Communicate uncertainty with time horizons, not false precision. Revisit quarterly; cut mercilessly when priorities shift. Connect roadmap items to customer evidence and support load.",
+    "tags": [
+      "planning",
+      "product",
+      "communication"
+    ]
+  },
+  {
+    "catalogId": "retrospective",
+    "name": "Retrospective",
+    "description": "Facilitated reflection that produces owned improvements",
+    "category": "Project & Process",
+    "icon": "bubble.left.and.bubble.right.fill",
+    "requiredMCPs": [
+      "slack"
+    ],
+    "triggers": [
+      "retro",
+      "continuous improvement",
+      "team health"
+    ],
+    "content": "# Retrospective\n\nCreate safety: focus on systems, not individuals. Gather data, then patterns—avoid solutioning too early. Pick 1–3 experiments with owners and dates. Track previous action items honestly. Rotate facilitation styles to reduce staleness. Close with appreciation and clarity on next steps.",
+    "tags": [
+      "culture",
+      "process",
+      "learning"
+    ]
+  },
+  {
+    "catalogId": "stakeholder-communication",
+    "name": "Stakeholder Communication",
+    "description": "Clear updates, tradeoffs, and decision records",
+    "category": "Project & Process",
+    "icon": "person.wave.2.fill",
+    "requiredMCPs": [
+      "slack"
+    ],
+    "triggers": [
+      "stakeholders",
+      "status update",
+      "exec summary"
+    ],
+    "content": "# Stakeholder Communication\n\nLead with decisions needed or outcomes achieved. Summarize risks with mitigations and dates. Use consistent formats: goal, progress, blockers, asks. Avoid jargon; define acronyms once. Document agreements after meetings. Follow up when timelines slip—early surprises beat late ones.",
+    "tags": [
+      "communication",
+      "leadership",
+      "alignment"
+    ]
+  },
+  {
+    "catalogId": "technical-rfc",
+    "name": "Technical RFC",
+    "description": "Design proposals with alternatives and rollout plans",
+    "category": "Project & Process",
+    "icon": "doc.richtext.fill",
+    "requiredMCPs": [
+      "notion"
+    ],
+    "triggers": [
+      "RFC",
+      "design doc",
+      "proposal"
+    ],
+    "content": "# Technical RFC\n\nState problem, constraints, and non-goals. Present options with tradeoffs; recommend one with rationale. Include migration, testing, and observability plans. Identify reviewers and security/privacy impacts. Set decision deadline and status (proposed/accepted/deprecated). Update doc as implementation learns.",
+    "tags": [
+      "design",
+      "engineering",
+      "governance"
+    ]
+  },
+  {
+    "catalogId": "adr-writing",
+    "name": "ADR Writing",
+    "description": "Lightweight architecture decision records for future context",
+    "category": "Project & Process",
+    "icon": "bookmark.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "ADR",
+      "decision record",
+      "architecture"
+    ],
+    "content": "# ADR Writing\n\nRecord context, decision, and consequences—keep it short. Number ADRs sequentially; supersede rather than edit history. Link to code, tickets, and metrics that motivated change. Note rejected alternatives briefly. Revisit when assumptions change. Store close to the codebase for discoverability.",
+    "tags": [
+      "documentation",
+      "architecture",
+      "history"
+    ]
+  },
+  {
+    "catalogId": "readme-writing",
+    "name": "README Writing",
+    "description": "Onboarding docs that get newcomers productive fast",
+    "category": "Documentation",
+    "icon": "book.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "README",
+      "onboarding",
+      "quickstart"
+    ],
+    "content": "# README Writing\n\nStart with what it is, who it’s for, and how to run locally in minutes. List prerequisites, env vars, and common commands. Link to deeper docs rather than duplicating policies. Include troubleshooting for known footguns. Keep badges accurate; update when scripts change.",
+    "tags": [
+      "docs",
+      "dx",
+      "open-source"
+    ]
+  },
+  {
+    "catalogId": "api-documentation",
+    "name": "API Documentation",
+    "description": "Accurate examples, errors, and versioning guidance",
+    "category": "Documentation",
+    "icon": "doc.text.fill",
+    "requiredMCPs": [
+      "fetch"
+    ],
+    "triggers": [
+      "OpenAPI",
+      "swagger",
+      "API docs"
+    ],
+    "content": "# API Documentation\n\nDocument auth, rate limits, and pagination patterns up front. Provide request/response examples for happy and common error paths. Keep schemas generated from source when possible. Version docs alongside API versions. Add changelog entries for breaking changes with migration notes.",
+    "tags": [
+      "reference",
+      "developer-experience",
+      "contracts"
+    ]
+  },
+  {
+    "catalogId": "changelog",
+    "name": "Changelog Maintenance",
+    "description": "User-facing release notes with clear upgrade guidance",
+    "category": "Documentation",
+    "icon": "list.number",
+    "requiredMCPs": [],
+    "triggers": [
+      "changelog",
+      "release notes",
+      "semver"
+    ],
+    "content": "# Changelog Maintenance\n\nFollow Keep a Changelog style: Added/Changed/Fixed/Removed/Security. Link PRs/issues when helpful. Call out migrations and config changes loudly. Align version bumps with semver rules. Automate generation where possible but curate for humans. Proofread for customer impact language.",
+    "tags": [
+      "releases",
+      "communication",
+      "semver"
+    ]
+  },
+  {
+    "catalogId": "runbook",
+    "name": "Runbook Authoring",
+    "description": "Operational procedures for incidents and routine tasks",
+    "category": "Documentation",
+    "icon": "cross.case",
+    "requiredMCPs": [
+      "notion"
+    ],
+    "triggers": [
+      "runbook",
+      "operations",
+      "playbook"
+    ],
+    "content": "# Runbook Authoring\n\nWrite steps a tired on-call engineer can follow. Include verification commands and expected outputs. Link dashboards, logs queries, and escalation paths. Document rollback for risky changes. Test runbooks during game days. Keep ownership and last-reviewed date visible.",
+    "tags": [
+      "sre",
+      "incident",
+      "operations"
+    ]
+  },
+  {
+    "catalogId": "onboarding-guide",
+    "name": "Onboarding Guide",
+    "description": "Role-based first-week plans for engineers and contributors",
+    "category": "Documentation",
+    "icon": "hand.raised.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "onboarding",
+      "new hire",
+      "contributing"
+    ],
+    "content": "# Onboarding Guide\n\nSplit by role: app, infra, data. Day-one: access, laptop setup, repo clone, hello-world PR. Week-one: architecture tour, coding standards, on-call shadowing if applicable. List mentors and where to ask questions. Update quarterly; remove stale tooling steps.",
+    "tags": [
+      "people",
+      "engineering",
+      "culture"
+    ]
+  },
+  {
+    "catalogId": "peer-collaboration",
+    "name": "Peer Collaboration",
+    "description": "Patterns for multi-agent coordination and shared context",
+    "category": "ClaudPeer Collaboration",
+    "icon": "person.3.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "multi-agent",
+      "peers",
+      "collaborate"
+    ],
+    "content": "# Peer Collaboration\n\nEstablish shared goals, boundaries, and handoff formats between agents. Prefer explicit summaries over implicit state. Avoid duplicate work with clear task ownership. Use human-visible checkpoints for risky decisions. When parallelizing, define merge order and conflict resolution. Close loops with outcomes and open questions.",
+    "tags": [
+      "agents",
+      "coordination",
+      "workflow"
+    ]
+  },
+  {
+    "catalogId": "blackboard-patterns",
+    "name": "Blackboard Patterns",
+    "description": "Shared knowledge store usage for facts, tasks, and decisions",
+    "category": "ClaudPeer Collaboration",
+    "icon": "square.and.pencil",
+    "requiredMCPs": [
+      "memory"
+    ],
+    "triggers": [
+      "blackboard",
+      "shared state",
+      "facts"
+    ],
+    "content": "# Blackboard Patterns\n\nWrite atomic entries with keys that age well; include provenance and timestamps. Prefer structured JSON over prose blobs when machines consume it. Define TTL or archival rules for stale facts. Avoid overwriting without noting supersession. Link entries to conversations and owners for traceability.",
+    "tags": [
+      "knowledge",
+      "shared-context",
+      "claudpeer"
+    ]
+  },
+  {
+    "catalogId": "delegation-patterns",
+    "name": "Delegation Patterns",
+    "description": "Split work across specialists with crisp inputs and outputs",
+    "category": "ClaudPeer Collaboration",
+    "icon": "arrow.turn.down.right",
+    "requiredMCPs": [],
+    "triggers": [
+      "delegate",
+      "subagent",
+      "handoff"
+    ],
+    "content": "# Delegation Patterns\n\nPackage context: goal, constraints, artifacts, and definition of done. Keep delegations small enough to verify. Pass structured artifacts (diffs, test output) back upstream. Escalate ambiguities early rather than guessing. Record decisions so the parent agent can resume safely.",
+    "tags": [
+      "workflow",
+      "agents",
+      "claudpeer"
+    ]
+  },
+  {
+    "catalogId": "workspace-collaboration",
+    "name": "Workspace Collaboration",
+    "description": "Shared directories, permissions, and safe parallel edits",
+    "category": "ClaudPeer Collaboration",
+    "icon": "folder.fill.badge.gearshape",
+    "requiredMCPs": [
+      "filesystem"
+    ],
+    "triggers": [
+      "workspace",
+      "shared folder",
+      "sandbox"
+    ],
+    "content": "# Workspace Collaboration\n\nAgree on directory ownership and naming conventions. Use branches or subfolders to reduce merge conflicts. Document required tools and env files without committing secrets. Validate file locks or coordination when automation collides. Snapshot critical state before destructive operations.",
+    "tags": [
+      "files",
+      "permissions",
+      "claudpeer"
+    ]
+  },
+  {
+    "catalogId": "agent-identity",
+    "name": "Agent Identity",
+    "description": "Roles, prompts, and permissions that stay consistent over time",
+    "category": "ClaudPeer Collaboration",
+    "icon": "person.crop.circle.badge.checkmark",
+    "requiredMCPs": [],
+    "triggers": [
+      "agent persona",
+      "role",
+      "permissions"
+    ],
+    "content": "# Agent Identity\n\nDefine the agent’s mission, tools, and escalation rules up front. Keep prompts stable; version changes intentionally. Align permissions with least privilege for the task. Disclose limitations and confidence to users. Avoid persona drift by re-grounding on the system template periodically.",
+    "tags": [
+      "governance",
+      "prompting",
+      "claudpeer"
+    ]
+  },
+  {
+    "catalogId": "web-scraping",
+    "name": "Web Scraping",
+    "description": "Respectful extraction with parsing, rate limits, and legality",
+    "category": "Specialized",
+    "icon": "spider.fill",
+    "requiredMCPs": [
+      "fetch",
+      "brave-search"
+    ],
+    "triggers": [
+      "scrape",
+      "crawl",
+      "html parse"
+    ],
+    "content": "# Web Scraping\n\nCheck robots/terms; prefer official APIs when available. Throttle requests; backoff on errors; identify your client ethically. Parse defensively—sites change. Store minimal data and redact PII. Handle encodings and pagination robustly. Monitor for breakage with structured alerts.",
+    "tags": [
+      "data",
+      "automation",
+      "compliance"
+    ]
+  },
+  {
+    "catalogId": "browser-automation",
+    "name": "Browser Automation",
+    "description": "Reliable UI automation with stable selectors and debugging",
+    "category": "Specialized",
+    "icon": "cursorarrow.rays",
+    "requiredMCPs": [
+      "playwright"
+    ],
+    "triggers": [
+      "browser automation",
+      "e2e",
+      "scraping ui"
+    ],
+    "content": "# Browser Automation\n\nPrefer resilient selectors; avoid brittle XPath tied to layout. Stabilize with auto-waits; never hard-sleep unless unavoidable. Capture traces on failure. Parameterize environments and credentials safely. Keep sessions isolated for parallel runs. Document flaky tests with repro recipes.",
+    "tags": [
+      "testing",
+      "rpa",
+      "automation"
+    ]
+  },
+  {
+    "catalogId": "image-processing",
+    "name": "Image Processing",
+    "description": "Resize, compress, and transform images without quality surprises",
+    "category": "Specialized",
+    "icon": "photo.fill",
+    "requiredMCPs": [
+      "openai"
+    ],
+    "triggers": [
+      "image",
+      "vision",
+      "thumbnail"
+    ],
+    "content": "# Image Processing\n\nChoose formats intentionally: lossless vs lossy tradeoffs. Preserve metadata policy explicitly (strip EXIF when needed). Generate responsive variants with consistent naming. Validate color profiles for web. For ML/vision tasks, document prompts and safety constraints. Benchmark CPU/memory for batch jobs.",
+    "tags": [
+      "media",
+      "performance",
+      "ml"
+    ]
+  },
+  {
+    "catalogId": "pdf-generation",
+    "name": "PDF Generation",
+    "description": "Layout-faithful documents with fonts, pagination, and accessibility",
+    "category": "Specialized",
+    "icon": "doc.richtext",
+    "requiredMCPs": [],
+    "triggers": [
+      "PDF",
+      "report",
+      "print"
+    ],
+    "content": "# PDF Generation\n\nEmbed fonts or subset carefully; test missing glyph paths. Handle pagination, headers/footers, and tables that split across pages. Add tags for accessibility when required. Secure outputs: redact sensitive fields; avoid executable content surprises. Verify file size and generation time at scale.",
+    "tags": [
+      "documents",
+      "reporting",
+      "layout"
+    ]
+  },
+  {
+    "catalogId": "claudpeer-accessibility",
+    "name": "ClaudPeer Accessibility",
+    "description": "Accessibility identifier conventions for ClaudPeer UI — enables AppXray and UI automation",
+    "category": "ClaudPeer",
+    "icon": "accessibility",
+    "requiredMCPs": [],
+    "triggers": [
+      "accessibility identifier",
+      "accessibilityIdentifier",
+      "testId",
+      "appxray",
+      "UI testing",
+      "a11y identifier"
+    ],
+    "content": "# ClaudPeer Accessibility Identifiers\n\nEvery interactive or semantically meaningful SwiftUI element must have an `.accessibilityIdentifier()` so AppXray (`@testId()`) and UI automation can target it.\n\n## Naming Convention\n\nUse dot-separated `viewName.elementName` in camelCase:\n- Static: `\"chat.sendButton\"`, `\"sidebar.conversationList\"`, `\"settings.general.appearancePicker\"`\n- Dynamic rows: append UUID — `\"sidebar.conversationRow.\\(id.uuidString)\"`\n- Nested contexts: `\"agentEditor.skills.addButton.\\(skill.id.uuidString)\"`\n\n## What Gets What\n\n| Element Type | Modifiers |\n|---|---|\n| Button with text label | `.accessibilityIdentifier()` |\n| Icon-only Button | `.accessibilityIdentifier()` + `.accessibilityLabel()` |\n| TextField / TextEditor | `.accessibilityIdentifier()` |\n| Picker / Toggle / Stepper | `.accessibilityIdentifier()` |\n| List / ScrollView | `.accessibilityIdentifier()` on the container |\n| Dynamic rows | `.accessibilityIdentifier()` with UUID suffix |\n| Status indicators | `.accessibilityIdentifier()` + `.accessibilityLabel()` |\n| Decorative-only | `.accessibilityElement(children: .ignore)` |\n\n## Existing Prefix Map\n\n| View | Prefix |\n|---|---|\n| MainWindowView | `mainWindow.*` |\n| SidebarView | `sidebar.*` |\n| ChatView | `chat.*` |\n| InspectorView | `inspector.*` |\n| NewSessionSheet | `newSession.*` |\n| AgentLibraryView | `agentLibrary.*` |\n| AgentEditorView | `agentEditor.*` |\n| SettingsView | `settings.general.*`, `settings.connection.*`, `settings.advanced.*` |\n| AgentCardView | `agentCard.*` |\n| MessageBubble | `messageBubble.*` |\n| ToolCallView | `toolCall.*` |\n| CodeBlockView | `codeBlock.*` |\n| StatusBadge | `statusBadge.*` |\n| StreamingIndicator | `streamingIndicator` |\n| InfoRow | `infoRow.*` |\n\n## When Adding New Views\n\n1. Pick a unique camelCase prefix matching the view name.\n2. Add `.accessibilityIdentifier(\"prefix.elementName\")` to every button, field, picker, toggle, list, and meaningful text.\n3. For icon-only buttons, also add `.accessibilityLabel(\"Human-readable action\")`.\n4. For dynamic `ForEach` rows, suffix with `.\\(item.id.uuidString)`.\n5. Never reuse an identifier across different views.",
+    "tags": [
+      "accessibility",
+      "appxray",
+      "ui-testing",
+      "claudpeer"
+    ]
+  },
+  {
+    "catalogId": "email-templates",
+    "name": "Email Templates",
+    "description": "Cross-client HTML/text with deliverability and compliance in mind",
+    "category": "Specialized",
+    "icon": "envelope.fill",
+    "requiredMCPs": [],
+    "triggers": [
+      "email",
+      "template",
+      "transactional"
+    ],
+    "content": "# Email Templates\n\nProvide both HTML and text parts; keep HTML table-layout simple for clients. Inline critical CSS where needed; test dark mode. Include unsubscribe/manage prefs for marketing contexts. Validate links and tracking parameters. Warm up sending domains; monitor bounces and spam complaints.",
+    "tags": [
+      "messaging",
+      "deliverability",
+      "marketing"
+    ]
+  }
+]

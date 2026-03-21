@@ -19,9 +19,11 @@ struct AgentCardView: View {
                     Text(agent.name)
                         .font(.headline)
                         .lineLimit(1)
+                        .accessibilityIdentifier("agentCard.name")
                     Text(originLabel)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("agentCard.originLabel")
                 }
                 Spacer()
             }
@@ -31,6 +33,7 @@ struct AgentCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
+                    .accessibilityIdentifier("agentCard.description")
             }
 
             Divider()
@@ -39,7 +42,7 @@ struct AgentCardView: View {
                 Label("\(agent.skillIds.count)", systemImage: "book.fill")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                Label("\(agent.mcpServerIds.count)", systemImage: "server.rack")
+                Label("\(agent.extraMCPServerIds.count)", systemImage: "server.rack")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Label(agent.model, systemImage: "cpu")
@@ -51,9 +54,11 @@ struct AgentCardView: View {
                 Button("Start", action: onStart)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .accessibilityIdentifier("agentCard.startButton")
 
                 Button("Edit", action: onEdit)
                     .controlSize(.small)
+                    .accessibilityIdentifier("agentCard.editButton")
             }
         }
         .padding(12)
@@ -76,16 +81,6 @@ struct AgentCardView: View {
     }
 
     private func colorFromString(_ color: String) -> Color {
-        switch color {
-        case "blue": return .blue
-        case "red": return .red
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "teal": return .teal
-        default: return .accentColor
-        }
+        Color.fromAgentColor(color)
     }
 }

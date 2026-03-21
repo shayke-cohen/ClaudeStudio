@@ -22,5 +22,8 @@ struct StreamingIndicator: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .onAppear { animating = true }
+        .accessibilityIdentifier("streamingIndicator")
+        .accessibilityLabel("Loading")
+        .accessibilityElement(children: .ignore)
     }
 }

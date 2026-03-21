@@ -10,6 +10,7 @@ struct AgentLibraryView: View {
     @State private var filterOrigin: AgentOriginFilter = .all
     @State private var showingNewAgent = false
     @State private var editingAgent: Agent?
+    @State private var showCatalog = false
 
     enum AgentOriginFilter: String, CaseIterable {
         case all = "All"
@@ -39,27 +40,36 @@ struct AgentLibraryView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                LazyVGrid(columns: [
-                    GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 16)
-                ], spacing: 16) {
-                    ForEach(filteredAgents) { agent in
-                        AgentCardView(agent: agent, onStart: {
-                            startSession(with: agent)
-                        }) {
-                            editingAgent = agent
-                        }
-                        .contextMenu {
-                            Button("Edit") {
+            if agents.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 16)
+                    ], spacing: 16) {
+                        ForEach(filteredAgents) { agent in
+                            AgentCardView(agent: agent, onStart: {
+                                startSession(with: agent)
+                            }) {
                                 editingAgent = agent
                             }
-                            Button("Duplicate") { duplicateAgent(agent) }
-                            Divider()
-                            Button("Delete", role: .destructive) { deleteAgent(agent) }
+                            .accessibilityIdentifier("agentLibrary.card.\(agent.id.uuidString)")
+                            .contextMenu {
+                                Button("Edit") {
+                                    editingAgent = agent
+                                }
+                                .accessibilityIdentifier("agentLibrary.card.context.edit.\(agent.id.uuidString)")
+                                Button("Duplicate") { duplicateAgent(agent) }
+                                    .accessibilityIdentifier("agentLibrary.card.context.duplicate.\(agent.id.uuidString)")
+                                Divider()
+                                Button("Delete", role: .destructive) { deleteAgent(agent) }
+                                    .accessibilityIdentifier("agentLibrary.card.context.delete.\(agent.id.uuidString)")
+                            }
                         }
                     }
+                    .padding()
                 }
-                .padding()
+                .accessibilityIdentifier("agentLibrary.agentGrid")
             }
         }
         .sheet(item: $editingAgent) { agent in
@@ -74,6 +84,42 @@ struct AgentLibraryView: View {
             }
             .frame(minWidth: 600, minHeight: 500)
         }
+        .sheet(isPresented: $showCatalog) {
+            CatalogBrowserView()
+                .frame(minWidth: 700, minHeight: 550)
+        }
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 24)
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.tertiary)
+            Text("No agents installed yet")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            Text("Browse the catalog to find agents, skills, and MCP servers to get started.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            Button {
+                showCatalog = true
+            } label: {
+                Text("Browse Catalog")
+            }
+            .buttonStyle(.borderedProminent)
+            Text("or")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            Button("Create Custom Agent") {
+                showingNewAgent = true
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -82,6 +128,7 @@ struct AgentLibraryView: View {
             Text("Agent Library")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .accessibilityIdentifier("agentLibrary.title")
             Spacer()
 
             Picker("Filter", selection: $filterOrigin) {
@@ -91,10 +138,12 @@ struct AgentLibraryView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 200)
+            .accessibilityIdentifier("agentLibrary.originFilter")
 
             TextField("Search...", text: $searchText)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 180)
+                .accessibilityIdentifier("agentLibrary.searchField")
 
             Button {
                 showingNewAgent = true
@@ -103,6 +152,15 @@ struct AgentLibraryView: View {
             }
             .buttonStyle(.borderedProminent)
             .help("Create a new agent")
+            .accessibilityIdentifier("agentLibrary.newAgentButton")
+
+            Button {
+                showCatalog = true
+            } label: {
+                Label("Catalog", systemImage: "square.grid.2x2")
+            }
+            .help("Browse catalog")
+            .accessibilityIdentifier("agentLibrary.catalogButton")
 
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -110,6 +168,8 @@ struct AgentLibraryView: View {
             }
             .buttonStyle(.borderless)
             .help("Close")
+            .accessibilityIdentifier("agentLibrary.closeButton")
+            .accessibilityLabel("Close")
         }
         .padding()
     }
@@ -124,8 +184,10 @@ struct AgentLibraryView: View {
             color: agent.color
         )
         copy.skillIds = agent.skillIds
-        copy.mcpServerIds = agent.mcpServerIds
+        copy.extraMCPServerIds = agent.extraMCPServerIds
         copy.permissionSetId = agent.permissionSetId
+        copy.maxTurns = agent.maxTurns
+        copy.maxBudget = agent.maxBudget
         copy.instancePolicy = agent.instancePolicy
         copy.defaultWorkingDirectory = agent.defaultWorkingDirectory
         copy.githubRepo = agent.githubRepo

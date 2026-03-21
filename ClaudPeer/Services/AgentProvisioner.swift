@@ -19,7 +19,7 @@ final class AgentProvisioner {
         )
 
         let skills = resolveSkills(ids: agent.skillIds)
-        let mcpServers = resolveMCPServers(ids: agent.mcpServerIds)
+        let mcpServers = resolveMCPServers(ids: agent.extraMCPServerIds)
         let permissions = resolvePermissions(id: agent.permissionSetId)
 
         var allowedTools = permissions?.allowRules ?? ["Read", "Write", "Bash", "Grep", "Glob"]

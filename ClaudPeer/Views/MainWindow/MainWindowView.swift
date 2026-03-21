@@ -18,6 +18,7 @@ struct MainWindowView: View {
                     systemImage: "bubble.left.and.bubble.right",
                     description: Text("Select a conversation from the sidebar or start a new one.")
                 )
+                .accessibilityIdentifier("mainWindow.noConversationPlaceholder")
             }
         } detail: {
             if let conversationId = appState.selectedConversationId {
@@ -26,6 +27,7 @@ struct MainWindowView: View {
                 Text("Inspector")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier("mainWindow.inspectorPlaceholder")
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -39,6 +41,7 @@ struct MainWindowView: View {
                 }
                 .keyboardShortcut("n", modifiers: .command)
                 .help("New session (⌘N)")
+                .accessibilityIdentifier("mainWindow.newSessionButton")
 
                 Button {
                     createQuickChat()
@@ -47,6 +50,7 @@ struct MainWindowView: View {
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .help("Quick chat (⌘⇧N)")
+                .accessibilityIdentifier("mainWindow.quickChatButton")
 
                 Button {
                     appState.showAgentLibrary = true
@@ -54,6 +58,7 @@ struct MainWindowView: View {
                     Label("Agent Library", systemImage: "cpu")
                 }
                 .help("Agent library")
+                .accessibilityIdentifier("mainWindow.agentLibraryButton")
 
                 Button {
                     appState.showPeerNetwork = true
@@ -61,6 +66,7 @@ struct MainWindowView: View {
                     Label("Peer Network", systemImage: "network")
                 }
                 .help("Peer network")
+                .accessibilityIdentifier("mainWindow.peerNetworkButton")
 
                 sidecarStatusIndicator
             }
@@ -84,18 +90,26 @@ struct MainWindowView: View {
             Image(systemName: "circle.fill")
                 .foregroundStyle(.green)
                 .help("Sidecar connected")
+                .accessibilityIdentifier("mainWindow.sidecarStatus")
+                .accessibilityLabel("Sidecar connected")
         case .connecting:
             ProgressView()
                 .controlSize(.small)
                 .help("Connecting to sidecar...")
+                .accessibilityIdentifier("mainWindow.sidecarStatus")
+                .accessibilityLabel("Connecting to sidecar")
         case .disconnected:
             Image(systemName: "circle.fill")
                 .foregroundStyle(.gray)
                 .help("Sidecar disconnected")
+                .accessibilityIdentifier("mainWindow.sidecarStatus")
+                .accessibilityLabel("Sidecar disconnected")
         case .error(let msg):
             Image(systemName: "exclamationmark.circle.fill")
                 .foregroundStyle(.red)
                 .help("Sidecar error: \(msg)")
+                .accessibilityIdentifier("mainWindow.sidecarStatus")
+                .accessibilityLabel("Sidecar error: \(msg)")
         }
     }
 

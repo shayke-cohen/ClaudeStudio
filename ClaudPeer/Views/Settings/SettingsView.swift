@@ -7,18 +7,22 @@ struct SettingsView: View {
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
+                .accessibilityIdentifier("settings.tab.general")
 
             ConnectionSettingsTab()
                 .tabItem {
                     Label("Connection", systemImage: "network")
                 }
+                .accessibilityIdentifier("settings.tab.connection")
 
             AdvancedSettingsTab()
                 .tabItem {
                     Label("Advanced", systemImage: "gearshape.2")
                 }
+                .accessibilityIdentifier("settings.tab.advanced")
         }
         .frame(width: 480)
+        .accessibilityIdentifier("settings.tabView")
     }
 }
 
@@ -53,6 +57,7 @@ private struct GeneralSettingsTab: View {
                 }
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier("settings.general.appearancePicker")
 
             Divider()
 
@@ -61,8 +66,10 @@ private struct GeneralSettingsTab: View {
                     Text(model.label).tag(model)
                 }
             }
+            .accessibilityIdentifier("settings.general.defaultModelPicker")
 
             Stepper("Default Max Turns: \(defaultMaxTurns)", value: $defaultMaxTurns, in: 1...200)
+                .accessibilityIdentifier("settings.general.defaultMaxTurnsStepper")
 
             HStack {
                 Text("Default Max Budget")
@@ -71,6 +78,7 @@ private struct GeneralSettingsTab: View {
                     .frame(width: 80)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("settings.general.defaultMaxBudgetField")
                 Text(defaultMaxBudget == 0 ? "(unlimited)" : "")
                     .foregroundStyle(.secondary)
                     .font(.caption)
@@ -79,6 +87,7 @@ private struct GeneralSettingsTab: View {
             Divider()
 
             Toggle("Auto-connect Sidecar on Launch", isOn: $autoConnectSidecar)
+                .accessibilityIdentifier("settings.general.autoConnectSidecarToggle")
         }
         .formStyle(.grouped)
         .padding()
@@ -103,6 +112,7 @@ private struct ConnectionSettingsTab: View {
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("settings.connection.wsPortField")
                 }
 
                 HStack {
@@ -112,6 +122,7 @@ private struct ConnectionSettingsTab: View {
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("settings.connection.httpPortField")
                 }
 
                 Text("Changes take effect after restarting the sidecar.")
@@ -125,9 +136,11 @@ private struct ConnectionSettingsTab: View {
                     HStack {
                         TextField("Auto-detect", text: $bunPathOverride)
                             .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("settings.connection.bunPathField")
                         Button("Browse...") {
                             browseBunPath()
                         }
+                        .accessibilityIdentifier("settings.connection.bunPathBrowseButton")
                     }
                     if bunPathOverride.isEmpty {
                         Text("Will search: /opt/homebrew/bin/bun, /usr/local/bin/bun, ~/.bun/bin/bun")
@@ -141,9 +154,11 @@ private struct ConnectionSettingsTab: View {
                     HStack {
                         TextField("Auto-detect", text: $sidecarPath)
                             .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("settings.connection.sidecarPathField")
                         Button("Browse...") {
                             browseProjectPath()
                         }
+                        .accessibilityIdentifier("settings.connection.sidecarPathBrowseButton")
                     }
                     Text("Root directory containing the sidecar/ folder.")
                         .font(.caption)
@@ -202,9 +217,11 @@ private struct AdvancedSettingsTab: View {
                     HStack {
                         TextField("~/.claudpeer", text: $dataDirectory)
                             .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("settings.advanced.dataDirectoryField")
                         Button("Browse...") {
                             browseDataDirectory()
                         }
+                        .accessibilityIdentifier("settings.advanced.dataDirectoryBrowseButton")
                     }
                     Text("Stores logs, blackboard data, repos, and sandboxes.")
                         .font(.caption)
@@ -218,6 +235,7 @@ private struct AdvancedSettingsTab: View {
                         Text(level.label).tag(level)
                     }
                 }
+                .accessibilityIdentifier("settings.advanced.logLevelPicker")
             }
 
             Section {
@@ -225,12 +243,14 @@ private struct AdvancedSettingsTab: View {
                     Button("Open Data Directory in Finder") {
                         openDataDirectory()
                     }
+                    .accessibilityIdentifier("settings.advanced.openDataDirectoryButton")
 
                     Spacer()
 
                     Button("Reset All Settings", role: .destructive) {
                         showResetConfirmation = true
                     }
+                    .accessibilityIdentifier("settings.advanced.resetSettingsButton")
                     .confirmationDialog(
                         "Reset all settings to defaults?",
                         isPresented: $showResetConfirmation,

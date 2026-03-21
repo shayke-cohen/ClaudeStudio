@@ -44,6 +44,7 @@ struct NewSessionSheet: View {
             Text("New Session")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .accessibilityIdentifier("newSession.title")
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -52,6 +53,8 @@ struct NewSessionSheet: View {
             }
             .buttonStyle(.borderless)
             .help("Close")
+            .accessibilityIdentifier("newSession.closeButton")
+            .accessibilityLabel("Close")
         }
         .padding(16)
     }
@@ -72,7 +75,8 @@ struct NewSessionSheet: View {
                     name: "Freeform",
                     detail: "No agent",
                     color: .secondary,
-                    isSelected: selectedAgent == nil
+                    isSelected: selectedAgent == nil,
+                    identifier: "newSession.agentCard.freeform"
                 ) {
                     selectedAgent = nil
                     modelOverride = "claude-sonnet-4-6"
@@ -84,7 +88,8 @@ struct NewSessionSheet: View {
                         name: agent.name,
                         detail: agent.model,
                         color: agentColor(agent.color),
-                        isSelected: selectedAgent?.id == agent.id
+                        isSelected: selectedAgent?.id == agent.id,
+                        identifier: "newSession.agentCard.\(agent.id.uuidString)"
                     ) {
                         selectedAgent = agent
                         modelOverride = agent.model
@@ -97,7 +102,7 @@ struct NewSessionSheet: View {
         }
     }
 
-    private func agentPickerCard(icon: String, name: String, detail: String, color: Color, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private func agentPickerCard(icon: String, name: String, detail: String, color: Color, isSelected: Bool, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
@@ -131,6 +136,7 @@ struct NewSessionSheet: View {
         }
         .buttonStyle(.plain)
         .help(name)
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: - Options
@@ -153,6 +159,7 @@ struct NewSessionSheet: View {
                 }
                 .labelsHidden()
                 .frame(width: 220)
+                .accessibilityIdentifier("newSession.modelPicker")
             }
 
             HStack(alignment: .firstTextBaseline) {
@@ -168,6 +175,7 @@ struct NewSessionSheet: View {
                 .pickerStyle(.segmented)
                 .frame(width: 280)
                 .labelsHidden()
+                .accessibilityIdentifier("newSession.modePicker")
             }
 
             HStack(alignment: .top) {
@@ -179,6 +187,7 @@ struct NewSessionSheet: View {
                 TextField("Optional goal for this session...", text: $mission, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
+                    .accessibilityIdentifier("newSession.missionField")
             }
 
             HStack(alignment: .firstTextBaseline) {
@@ -188,6 +197,7 @@ struct NewSessionSheet: View {
                     .foregroundStyle(.secondary)
                 TextField("~/projects/my-app", text: $workingDirectory)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("newSession.workingDirectoryField")
                 Button {
                     pickDirectory()
                 } label: {
@@ -195,6 +205,8 @@ struct NewSessionSheet: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Browse for directory")
+                .accessibilityIdentifier("newSession.browseDirectoryButton")
+                .accessibilityLabel("Browse for directory")
             }
         }
     }
@@ -212,11 +224,13 @@ struct NewSessionSheet: View {
                 createQuickChat()
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+            .accessibilityIdentifier("newSession.quickChatButton")
             Button("Start Session") {
                 createSession()
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.return)
+            .accessibilityIdentifier("newSession.startSessionButton")
         }
         .padding(16)
     }

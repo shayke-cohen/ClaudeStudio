@@ -21,6 +21,7 @@ final class MCPServer {
     var resourceSchemas: String?
     var status: MCPStatus
     var createdAt: Date
+    var catalogId: String?
 
     // MCPTransport flattened for SwiftData
     var transportKind: String
@@ -69,6 +70,7 @@ final class MCPServer {
         self.serverDescription = serverDescription
         self.status = .available
         self.createdAt = Date()
+        self.catalogId = nil
         self.transportKind = "stdio"
         self.transportCommand = nil
         self.transportUrl = nil

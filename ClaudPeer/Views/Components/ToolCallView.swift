@@ -19,6 +19,7 @@ struct ToolCallView: View {
                     Text(message.toolName ?? "Tool")
                         .font(.caption)
                         .fontWeight(.medium)
+                        .accessibilityIdentifier("toolCall.title.\(message.id.uuidString)")
 
                     if message.type == .toolResult {
                         Text("completed")
@@ -38,6 +39,8 @@ struct ToolCallView: View {
             }
             .buttonStyle(.plain)
             .help(isExpanded ? "Collapse tool details" : "Expand tool details")
+            .accessibilityIdentifier("toolCall.toggleButton.\(message.id.uuidString)")
+            .accessibilityLabel("\(message.toolName ?? "Tool") - \(isExpanded ? "collapse" : "expand")")
 
             if isExpanded {
                 Divider()

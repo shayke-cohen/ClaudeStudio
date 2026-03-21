@@ -102,6 +102,50 @@ Core entities (all in `ClaudPeer/Models/`):
 - Agent Comms view, Peer Network panel
 - Skill/MCP pool management views
 
+## Accessibility Identifiers (AppXray / UI Testing)
+
+Every interactive or semantically meaningful SwiftUI element must have an `.accessibilityIdentifier()` so AppXray can target it via `@testId("...")` selectors.
+
+### Naming Convention
+
+Dot-separated `viewName.elementName` in camelCase:
+- Static: `"chat.sendButton"`, `"sidebar.conversationList"`
+- Dynamic rows: `"sidebar.conversationRow.\(id.uuidString)"`
+- Nested: `"agentEditor.skills.addButton.\(skill.id.uuidString)"`
+- Settings: `"settings.general.appearancePicker"`, `"settings.connection.wsPortField"`
+
+### Rules
+
+- **Buttons with text**: `.accessibilityIdentifier()` only
+- **Icon-only buttons**: `.accessibilityIdentifier()` + `.accessibilityLabel("Human-readable action")`
+- **TextFields / TextEditors / Pickers / Toggles / Steppers**: `.accessibilityIdentifier()`
+- **Lists / ScrollViews**: `.accessibilityIdentifier()` on the container
+- **Dynamic ForEach rows**: suffix with `.\(item.id.uuidString)`
+- **Decorative elements**: `.accessibilityElement(children: .ignore)`
+- **Never reuse** an identifier across different views
+
+### Prefix Map
+
+| View | Prefix |
+|---|---|
+| MainWindowView | `mainWindow.*` |
+| SidebarView | `sidebar.*` |
+| ChatView | `chat.*` |
+| InspectorView | `inspector.*` |
+| NewSessionSheet | `newSession.*` |
+| AgentLibraryView | `agentLibrary.*` |
+| AgentEditorView | `agentEditor.*` |
+| SettingsView | `settings.{general,connection,advanced}.*` |
+| AgentCardView | `agentCard.*` |
+| MessageBubble | `messageBubble.*` |
+| ToolCallView | `toolCall.*` |
+| CodeBlockView | `codeBlock.*` |
+| StatusBadge | `statusBadge.*` |
+| StreamingIndicator | `streamingIndicator` |
+| InfoRow | `infoRow.*` |
+
+When adding new views, pick a unique camelCase prefix and annotate every interactive element.
+
 ## Common Tasks
 
 ### Adding a new SwiftData model

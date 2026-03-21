@@ -32,6 +32,7 @@ struct ConversationTreeNode: View {
                     Text(conversation.topic ?? "Chat")
                         .lineLimit(1)
                         .font(.callout)
+                        .accessibilityIdentifier("conversationTree.topic.\(conversation.id.uuidString)")
 
                     Spacer()
 
@@ -47,6 +48,7 @@ struct ConversationTreeNode: View {
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("conversationTree.node.\(conversation.id.uuidString)")
 
             ForEach(children) { child in
                 ConversationTreeNode(

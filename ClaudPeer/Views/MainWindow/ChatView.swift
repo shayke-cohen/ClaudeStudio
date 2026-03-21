@@ -8,6 +8,7 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var isProcessing = false
     @State private var sessionCreated = false
+    @State private var lastTokenTime: Date?
     @State private var isEditingTopic = false
     @State private var editedTopic = ""
     @State private var showClearConfirmation = false
@@ -49,6 +50,11 @@ struct ChatView: View {
         .onReceive(appState.$lastSessionEvent) { _ in
             checkForCompletion()
         }
+        .onReceive(appState.$sidecarStatus) { status in
+            if status != .connected && isProcessing {
+                isProcessing = false
+            }
+        }
         .alert("Clear Messages?", isPresented: $showClearConfirmation) {
             Button("Clear All", role: .destructive) { clearMessages() }
             Button("Cancel", role: .cancel) {}
@@ -71,10 +77,12 @@ struct ChatView: View {
                         .frame(maxWidth: 300)
                         .onSubmit { commitRename() }
                         .onExitCommand { cancelRename() }
+                        .accessibilityIdentifier("chat.topicField")
                 } else {
                     Text(conversation?.topic ?? "Chat")
                         .font(.headline)
                         .lineLimit(1)
+                        .accessibilityIdentifier("chat.topicTitle")
                     Button {
                         editedTopic = conversation?.topic ?? ""
                         isEditingTopic = true
@@ -86,6 +94,8 @@ struct ChatView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Rename conversation")
+                    .accessibilityIdentifier("chat.editTopicButton")
+                    .accessibilityLabel("Rename conversation")
                 }
 
                 Spacer()
@@ -98,6 +108,7 @@ struct ChatView: View {
                         .padding(.vertical, 2)
                         .background(.quaternary)
                         .clipShape(Capsule())
+                        .accessibilityIdentifier("chat.modelPill")
                 }
 
                 if let cost = liveCost, cost > 0 {
@@ -105,6 +116,7 @@ struct ChatView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .accessibilityIdentifier("chat.liveCostLabel")
                 }
             }
 
@@ -112,6 +124,7 @@ struct ChatView: View {
                 Text(participantSummary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("chat.participantSummary")
                 Spacer()
 
                 if let convo = conversation {
@@ -131,37 +144,49 @@ struct ChatView: View {
                 Image(systemName: "arrow.branch")
             }
             .help("Fork conversation")
+            .accessibilityIdentifier("chat.forkButton")
+            .accessibilityLabel("Fork conversation")
 
             if convo.status == .active {
                 Button { pauseSession() } label: {
                     Image(systemName: "pause.fill")
                 }
                 .help("Pause session")
+                .accessibilityIdentifier("chat.pauseButton")
+                .accessibilityLabel("Pause session")
 
                 Button { closeConversation(convo) } label: {
                     Image(systemName: "stop.circle")
                 }
                 .help("Close session")
+                .accessibilityIdentifier("chat.closeSessionButton")
+                .accessibilityLabel("Close session")
             } else if convo.session?.status == .paused {
                 Button { resumeSession() } label: {
                     Image(systemName: "play.fill")
                 }
                 .help("Resume session")
+                .accessibilityIdentifier("chat.resumeButton")
+                .accessibilityLabel("Resume session")
             }
 
             Menu {
                 Button { showClearConfirmation = true } label: {
                     Label("Clear Messages", systemImage: "trash")
                 }
+                .accessibilityIdentifier("chat.moreOptions.clearMessages")
                 Button { duplicateConversation(convo) } label: {
                     Label("Duplicate", systemImage: "doc.on.doc")
                 }
+                .accessibilityIdentifier("chat.moreOptions.duplicate")
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
             .frame(width: 20)
             .help("More options")
+            .accessibilityIdentifier("chat.moreOptionsMenu")
+            .accessibilityLabel("More options")
         }
         .buttonStyle(.borderless)
     }
@@ -188,6 +213,7 @@ struct ChatView: View {
                 }
                 .padding()
             }
+            .accessibilityIdentifier("chat.messageScrollView")
             .onChange(of: sortedMessages.count) { _, _ in
                 scrollToBottom(proxy)
             }
@@ -208,7 +234,7 @@ struct ChatView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($inputFocused)
-                .accessibilityIdentifier("messageInput")
+                .accessibilityIdentifier("chat.messageInput")
                 .onSubmit {
                     if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         sendMessage()
@@ -222,7 +248,8 @@ struct ChatView: View {
                     .font(.title2)
             }
             .buttonStyle(.borderless)
-            .accessibilityIdentifier("sendButton")
+            .accessibilityIdentifier("chat.sendButton")
+            .accessibilityLabel("Send message")
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
             .keyboardShortcut(.return, modifiers: .command)
             .help("Send message (⌘Return)")
@@ -248,13 +275,14 @@ struct ChatView: View {
 
                 if let text = liveStreamingText {
                     MarkdownContent(text: text)
+                } else {
+                    StreamingIndicator()
                 }
-
-                StreamingIndicator()
             }
 
             Spacer(minLength: 60)
         }
+        .accessibilityIdentifier("chat.streamingBubble")
     }
 
     // MARK: - Helpers
@@ -384,7 +412,7 @@ struct ChatView: View {
                     allowedTools: [],
                     mcpServers: [],
                     model: "claude-sonnet-4-6",
-                    maxTurns: 3,
+                    maxTurns: 1,
                     maxBudget: nil,
                     workingDirectory: NSHomeDirectory(),
                     skills: []

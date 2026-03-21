@@ -39,6 +39,7 @@ struct InspectorView: View {
             }
             .padding()
         }
+        .accessibilityIdentifier("inspector.scrollView")
         .frame(minWidth: 220, idealWidth: 280)
     }
 
@@ -63,10 +64,12 @@ struct InspectorView: View {
                             .focused($topicFocused)
                             .onSubmit { commitTopicRename() }
                             .onExitCommand { isEditingTopic = false }
+                            .accessibilityIdentifier("inspector.topicField")
                     } else {
                         Text(convo.topic ?? "Untitled")
                             .font(.caption)
                             .lineLimit(2)
+                            .accessibilityIdentifier("inspector.topicValue")
                         Button {
                             editedTopic = convo.topic ?? ""
                             isEditingTopic = true
@@ -77,6 +80,8 @@ struct InspectorView: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Rename topic")
+                        .accessibilityIdentifier("inspector.editTopicButton")
+                        .accessibilityLabel("Rename topic")
                     }
                 }
 
@@ -92,6 +97,7 @@ struct InspectorView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         .help("Close this conversation")
+                        .accessibilityIdentifier("inspector.closeConversationButton")
                     }
                 }
 
@@ -153,6 +159,7 @@ struct InspectorView: View {
                 }
                 .controlSize(.small)
                 .help("Pause session")
+                .accessibilityIdentifier("inspector.sessionPauseButton")
 
                 Button(role: .destructive) {
                     stopCurrentSession()
@@ -161,6 +168,7 @@ struct InspectorView: View {
                 }
                 .controlSize(.small)
                 .help("Stop session")
+                .accessibilityIdentifier("inspector.sessionStopButton")
 
             case .paused:
                 Button {
@@ -171,12 +179,14 @@ struct InspectorView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .help("Resume session")
+                .accessibilityIdentifier("inspector.sessionResumeButton")
 
             case .completed, .failed:
                 Text(session.status == .completed ? "Session ended" : "Session failed")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .italic()
+                    .accessibilityIdentifier("inspector.sessionTerminalStatus")
             }
         }
         .padding(.leading, 84)
@@ -195,7 +205,7 @@ struct InspectorView: View {
                 InfoRow(label: "Name", value: agent.name)
                 InfoRow(label: "Model", value: agent.model)
                 InfoRow(label: "Skills", value: "\(agent.skillIds.count)")
-                InfoRow(label: "MCPs", value: "\(agent.mcpServerIds.count)")
+                InfoRow(label: "MCPs", value: "\(agent.extraMCPServerIds.count)")
                 InfoRow(label: "Policy", value: policyLabel(agent.instancePolicy))
 
                 Button {
@@ -208,6 +218,7 @@ struct InspectorView: View {
                 .controlSize(.small)
                 .padding(.leading, 84)
                 .help("Open agent in editor")
+                .accessibilityIdentifier("inspector.openAgentEditorButton")
             }
         }
     }
@@ -304,5 +315,7 @@ struct InfoRow: View {
                 .font(.caption)
                 .lineLimit(2)
         }
+        .accessibilityIdentifier("infoRow.\(label.lowercased().replacingOccurrences(of: " ", with: ""))")
+        .accessibilityLabel("\(label): \(value)")
     }
 }
