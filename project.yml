@@ -25,7 +25,11 @@ targets:
         excludes:
           - "**/.DS_Store"
           - "Resources/DefaultSkills/**"
+          - "Resources/DefaultAgents/**"
           - "Resources/SystemPromptTemplates/**"
+          - "Resources/Catalog/**"
+      - path: ClaudPeer/Resources/Catalog
+        type: folder
     dependencies:
       - package: AppXray
       - package: MarkdownUI

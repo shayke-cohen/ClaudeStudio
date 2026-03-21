@@ -23,6 +23,9 @@ final class ConversationMessage {
     var isStreaming: Bool
     var conversation: Conversation?
 
+    @Relationship(deleteRule: .cascade, inverse: \MessageAttachment.message)
+    var attachments: [MessageAttachment] = []
+
     init(
         senderParticipantId: UUID? = nil,
         text: String,

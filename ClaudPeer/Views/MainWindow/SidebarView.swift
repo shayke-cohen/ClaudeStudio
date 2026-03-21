@@ -265,7 +265,12 @@ struct SidebarView: View {
                         Text("·")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
-                        Text(preview)
+                        if let icon = preview.attachmentIcon {
+                            Image(systemName: icon)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(preview.text)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -346,15 +351,46 @@ struct SidebarView: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    private func lastMessagePreview(_ convo: Conversation) -> String? {
+    private func lastMessagePreview(_ convo: Conversation) -> (text: String, attachmentIcon: String?)? {
         let chatMessages = convo.messages
             .filter { $0.type == .chat }
             .sorted { $0.timestamp < $1.timestamp }
         guard let last = chatMessages.last else { return nil }
+        let attachments = last.attachments
         let text = last.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.count <= 40 { return text }
-        let cutoff = text.index(text.startIndex, offsetBy: 40)
-        return String(text[..<cutoff]) + "..."
+
+        let icon: String? = {
+            guard !attachments.isEmpty else { return nil }
+            let hasImages = attachments.contains { $0.isImage }
+            let hasDocs = attachments.contains { $0.isDocument }
+            if hasImages && hasDocs { return "paperclip" }
+            if hasDocs { return "doc.text" }
+            return "photo"
+        }()
+
+        if text.isEmpty && !attachments.isEmpty {
+            let count = attachments.count
+            let hasImages = attachments.contains { $0.isImage }
+            let hasDocs = attachments.contains { $0.isDocument }
+            let label: String
+            if hasImages && !hasDocs {
+                label = count == 1 ? "Image" : "\(count) Images"
+            } else if hasDocs && !hasImages {
+                label = count == 1 ? "File" : "\(count) Files"
+            } else {
+                label = "\(count) Attachments"
+            }
+            return (text: label, attachmentIcon: icon)
+        }
+
+        let preview: String
+        if text.count <= 40 {
+            preview = text
+        } else {
+            let cutoff = text.index(text.startIndex, offsetBy: 40)
+            preview = String(text[..<cutoff]) + "..."
+        }
+        return preview.isEmpty ? nil : (text: preview, attachmentIcon: icon)
     }
 
     private func filteredConversations(_ convos: [Conversation]) -> [Conversation] {

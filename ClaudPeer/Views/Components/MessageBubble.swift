@@ -1,8 +1,10 @@
 import SwiftUI
+import AppKit
 
 struct MessageBubble: View {
     let message: ConversationMessage
     let participants: [Participant]
+    var onTapAttachment: ((MessageAttachment) -> Void)?
     @State private var isHovered = false
     @State private var isCopied = false
 
@@ -61,11 +63,18 @@ struct MessageBubble: View {
                 }
 
                 HStack(alignment: .top, spacing: 4) {
-                    messageContent
-                        .padding(.horizontal, isUser ? 12 : 0)
-                        .padding(.vertical, isUser ? 8 : 0)
-                        .background(isUser ? Color.accentColor.opacity(0.15) : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
+                        if !message.attachments.isEmpty {
+                            attachmentGrid
+                        }
+                        if !message.text.isEmpty {
+                            messageContent
+                        }
+                    }
+                    .padding(.horizontal, isUser ? 12 : 0)
+                    .padding(.vertical, isUser ? 8 : 0)
+                    .background(isUser ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     if isHovered {
                         Button {
@@ -98,6 +107,24 @@ struct MessageBubble: View {
                 isHovered = hovering
             }
         }
+    }
+
+    @ViewBuilder
+    private var attachmentGrid: some View {
+        let attachments = message.attachments
+        let columns = attachments.count == 1 ? 1 : 2
+        let gridItems = Array(repeating: GridItem(.flexible(), spacing: 4), count: columns)
+
+        LazyVGrid(columns: gridItems, spacing: 4) {
+            ForEach(attachments) { attachment in
+                AttachmentThumbnail(attachment: attachment)
+                    .onTapGesture {
+                        onTapAttachment?(attachment)
+                    }
+                    .accessibilityIdentifier("messageBubble.attachment.\(attachment.id.uuidString)")
+            }
+        }
+        .frame(maxWidth: 300)
     }
 
     @ViewBuilder

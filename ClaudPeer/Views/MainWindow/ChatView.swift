@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+import AppKit
 
 struct ChatView: View {
     let conversationId: UUID
@@ -12,7 +14,10 @@ struct ChatView: View {
     @State private var isEditingTopic = false
     @State private var editedTopic = ""
     @State private var showClearConfirmation = false
-    @FocusState private var inputFocused: Bool
+    @State private var pendingAttachments: [(id: UUID, data: Data, mediaType: String, fileName: String)] = []
+    @State private var showFileImporter = false
+    @State private var previewAttachment: MessageAttachment?
+    @State private var previewImageFromPending: (data: Data, mediaType: String)?
     @FocusState private var topicFieldFocused: Bool
 
     @Query private var allConversations: [Conversation]
@@ -89,6 +94,24 @@ struct ChatView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("All messages in this conversation will be deleted. The conversation will remain.")
+        }
+        .sheet(item: $previewAttachment) { attachment in
+            ImagePreviewOverlay(attachment: attachment)
+        }
+        .sheet(isPresented: Binding(
+            get: { previewImageFromPending != nil },
+            set: { if !$0 { previewImageFromPending = nil } }
+        )) {
+            if let pending = previewImageFromPending {
+                ImagePreviewOverlay(imageData: pending.data, mediaType: pending.mediaType)
+            }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: AttachmentStore.supportedContentTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            handleFileImport(result)
         }
     }
 
@@ -230,7 +253,10 @@ struct ChatView: View {
                     ForEach(sortedMessages) { message in
                         MessageBubble(
                             message: message,
-                            participants: conversation?.participants ?? []
+                            participants: conversation?.participants ?? [],
+                            onTapAttachment: { attachment in
+                                previewAttachment = attachment
+                            }
                         )
                         .id(message.id)
                     }
@@ -256,35 +282,180 @@ struct ChatView: View {
 
     // MARK: - Input Area
 
+    private var canSend: Bool {
+        let hasText = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasText || !pendingAttachments.isEmpty) && !isProcessing
+    }
+
     @ViewBuilder
     private var inputArea: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Type a message...", text: $inputText, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .focused($inputFocused)
+        VStack(spacing: 0) {
+            if !pendingAttachments.isEmpty {
+                pendingAttachmentStrip
+            }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                Button {
+                    showFileImporter = true
+                } label: {
+                    Image(systemName: "paperclip")
+                        .font(.body)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("chat.attachButton")
+                .accessibilityLabel("Attach file")
+                .help("Attach file")
+                .disabled(isProcessing)
+
+                PasteableTextField(
+                    text: $inputText,
+                    onImagePaste: { data, mediaType in
+                        guard AttachmentStore.validate(data: data, mediaType: mediaType) else { return }
+                        pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: "pasted.png"))
+                    },
+                    onSubmit: { if canSend { sendMessage() } }
+                )
                 .accessibilityIdentifier("chat.messageInput")
-                .onSubmit {
-                    if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        sendMessage()
+
+                Button {
+                    sendMessage()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title2)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("chat.sendButton")
+                .accessibilityLabel("Send message")
+                .disabled(!canSend)
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("Send message (⌘Return)")
+            }
+            .padding(12)
+        }
+        .background(.bar)
+        .onDrop(of: [.image, .fileURL, .plainText, .pdf], isTargeted: nil) { providers in
+            handleDrop(providers)
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private var pendingAttachmentStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(pendingAttachments.enumerated()), id: \.element.id) { index, item in
+                    ZStack(alignment: .topTrailing) {
+                        if item.mediaType.hasPrefix("image/"), let nsImage = NSImage(data: item.data) {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .onTapGesture {
+                                    previewImageFromPending = (data: item.data, mediaType: item.mediaType)
+                                }
+                                .accessibilityIdentifier("chat.pendingAttachment.\(index)")
+                        } else {
+                            VStack(spacing: 2) {
+                                Image(systemName: iconForMediaType(item.mediaType))
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                Text(item.fileName)
+                                    .font(.caption2)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .frame(maxWidth: 56)
+                            }
+                            .frame(width: 60, height: 60)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+                            .accessibilityIdentifier("chat.pendingAttachment.\(index)")
+                        }
+
+                        Button {
+                            pendingAttachments.removeAll { $0.id == item.id }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.white)
+                                .background(Circle().fill(.black.opacity(0.6)))
+                        }
+                        .buttonStyle(.borderless)
+                        .offset(x: 4, y: -4)
+                        .accessibilityIdentifier("chat.pendingAttachment.remove.\(index)")
+                        .accessibilityLabel("Remove attachment")
                     }
                 }
-
-            Button {
-                sendMessage()
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title2)
             }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier("chat.sendButton")
-            .accessibilityLabel("Send message")
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
-            .keyboardShortcut(.return, modifiers: .command)
-            .help("Send message (⌘Return)")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
-        .padding(12)
-        .background(.bar)
+        .accessibilityIdentifier("chat.pendingAttachments")
+    }
+
+    private func iconForMediaType(_ mediaType: String) -> String {
+        switch mediaType {
+        case "text/plain", "text/markdown": return "doc.text"
+        case "application/pdf": return "doc.richtext"
+        default: return mediaType.hasPrefix("image/") ? "photo" : "doc"
+        }
+    }
+
+    // MARK: - Image Input Handlers
+
+    private func handleDrop(_ providers: [NSItemProvider]) {
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                loadImageFromProvider(provider)
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
+                    guard let urlData = data as? Data,
+                          let url = URL(dataRepresentation: urlData, relativeTo: nil) else { return }
+                    let ext = url.pathExtension.lowercased()
+                    guard AttachmentStore.supportedExtensions.contains(ext) else { return }
+                    guard let fileData = try? Data(contentsOf: url) else { return }
+                    let mediaType = AttachmentStore.mediaTypeForURL(url)
+                    guard AttachmentStore.validate(data: fileData, mediaType: mediaType) else { return }
+                    DispatchQueue.main.async {
+                        pendingAttachments.append((id: UUID(), data: fileData, mediaType: mediaType, fileName: url.lastPathComponent))
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadImageFromProvider(_ provider: NSItemProvider) {
+        let imageTypes: [UTType] = [.png, .jpeg, .tiff, .gif]
+        for type in imageTypes {
+            if provider.hasItemConformingToTypeIdentifier(type.identifier) {
+                provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in
+                    guard let data, AttachmentStore.validate(data: data, mediaType: "image/png") else { return }
+                    let resolved: (Data, String)
+                    if type == .tiff {
+                        guard let nsImage = NSImage(data: data),
+                              let converted = AttachmentStore.mediaTypeFromNSImage(nsImage) else { return }
+                        resolved = converted
+                    } else {
+                        resolved = (data, AttachmentStore.mediaTypeFromData(data))
+                    }
+                    DispatchQueue.main.async {
+                        pendingAttachments.append((id: UUID(), data: resolved.0, mediaType: resolved.1, fileName: "pasted.png"))
+                    }
+                }
+                return
+            }
+        }
+    }
+
+    private func handleFileImport(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result else { return }
+        for url in urls {
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            defer { url.stopAccessingSecurityScopedResource() }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let mediaType = AttachmentStore.mediaTypeForURL(url)
+            guard AttachmentStore.validate(data: data, mediaType: mediaType) else { continue }
+            pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: url.lastPathComponent))
+        }
     }
 
     // MARK: - Streaming Bubble
@@ -397,8 +568,10 @@ struct ChatView: View {
 
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, let convo = conversation else { return }
+        let attachments = pendingAttachments
+        guard !text.isEmpty || !attachments.isEmpty, let convo = conversation else { return }
         inputText = ""
+        pendingAttachments = []
 
         let isFirstMessage = convo.messages.filter({ $0.type == .chat }).isEmpty
         let userParticipant = convo.participants.first { $0.type == .user }
@@ -408,11 +581,32 @@ struct ChatView: View {
             type: .chat,
             conversation: convo
         )
+
+        var wireAttachments: [WireAttachment] = []
+        for item in attachments {
+            let attachment = AttachmentStore.save(data: item.data, mediaType: item.mediaType, fileName: item.fileName)
+            attachment.message = message
+            message.attachments.append(attachment)
+            modelContext.insert(attachment)
+            wireAttachments.append(WireAttachment(
+                data: item.data.base64EncodedString(),
+                mediaType: item.mediaType,
+                fileName: item.fileName
+            ))
+        }
+
         convo.messages.append(message)
         modelContext.insert(message)
 
         if isFirstMessage {
-            autoNameConversation(convo, firstMessage: text)
+            let nameHint: String
+            if text.isEmpty {
+                let fileCount = attachments.count
+                nameHint = "Shared \(fileCount) file\(fileCount == 1 ? "" : "s")"
+            } else {
+                nameHint = text
+            }
+            autoNameConversation(convo, firstMessage: nameHint)
         }
 
         try? modelContext.save()
@@ -462,7 +656,8 @@ struct ChatView: View {
             }
             try? await manager.send(.sessionMessage(
                 sessionId: sessionId,
-                text: text
+                text: text,
+                attachments: wireAttachments
             ))
         }
     }
@@ -472,6 +667,7 @@ struct ChatView: View {
     private func checkForPendingResponse() {
         let sessionId = conversationId.uuidString
         if let event = appState.lastSessionEvent[sessionId] {
+            isProcessing = true
             switch event {
             case .result:
                 collectResponse()
@@ -491,6 +687,7 @@ struct ChatView: View {
         let source = events ?? appState.lastSessionEvent
         guard let event = source[sessionId] else { return }
 
+        isProcessing = true
         switch event {
         case .result:
             collectResponse()

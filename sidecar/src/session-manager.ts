@@ -1,6 +1,9 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { randomUUID } from "crypto";
-import type { AgentConfig, SidecarEvent } from "./types.js";
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+import type { AgentConfig, FileAttachment, SidecarEvent } from "./types.js";
 import { SessionRegistry } from "./stores/session-registry.js";
 
 type EventEmitter = (event: SidecarEvent) => void;
@@ -19,7 +22,7 @@ export class SessionManager {
     console.log(`[session] Created session ${conversationId} for "${config.name}" (model: ${config.model})`);
   }
 
-  async sendMessage(sessionId: string, text: string): Promise<void> {
+  async sendMessage(sessionId: string, text: string, attachments?: FileAttachment[]): Promise<void> {
     const config = this.registry.getConfig(sessionId);
     if (!config) {
       this.emit({ type: "session.error", sessionId, error: "Session not found" });
@@ -37,11 +40,13 @@ export class SessionManager {
     this.registry.update(sessionId, { status: "active" });
 
     try {
-      const options = this.buildQueryOptions(sessionId, config, state.claudeSessionId, abortController);
+      const options = this.buildQueryOptions(sessionId, config, state.claudeSessionId, abortController, attachments?.length ?? 0);
       const sdkSessionId = options.sessionId ?? options.resume;
 
-      console.log(`[session] query() start for ${sessionId} (${config.model})`);
-      const stream = query({ prompt: text, options });
+      const prompt = this.buildPrompt(text, attachments);
+      const attachmentCount = attachments?.length ?? 0;
+      console.log(`[session] query() start for ${sessionId} (${config.model}, ${attachmentCount} attachments)`);
+      const stream = query({ prompt, options });
       let resultText = "";
 
       for await (const message of stream) {
@@ -122,10 +127,15 @@ export class SessionManager {
     config: AgentConfig,
     claudeSessionId: string | undefined,
     abortController: AbortController,
+    attachmentCount: number = 0,
   ): Record<string, any> {
+    let maxTurns = config.maxTurns ?? 30;
+    if (attachmentCount > 0 && maxTurns < 3) {
+      maxTurns = 3;
+    }
     const options: Record<string, any> = {
       model: config.model || "claude-sonnet-4-6",
-      maxTurns: config.maxTurns ?? 30,
+      maxTurns,
       abortController,
       cwd: config.workingDirectory || undefined,
       permissionMode: "bypassPermissions",
@@ -181,6 +191,67 @@ export class SessionManager {
     }
 
     return options;
+  }
+
+  private buildPrompt(text: string, attachments?: FileAttachment[]): string {
+    if (!attachments || attachments.length === 0) {
+      return text;
+    }
+
+    const tmpDir = join(homedir(), ".claudpeer", "tmp-attachments");
+    mkdirSync(tmpDir, { recursive: true });
+
+    const inlineTexts: string[] = [];
+    const fileRefs: string[] = [];
+
+    for (let i = 0; i < attachments.length; i++) {
+      const att = attachments[i];
+      const label = att.fileName || `attachment-${i + 1}`;
+
+      if (att.mediaType === "text/plain" || att.mediaType === "text/markdown") {
+        const content = Buffer.from(att.data, "base64").toString("utf-8");
+        inlineTexts.push(`--- ${label} ---\n${content}\n--- end ${label} ---`);
+      } else {
+        const ext = this.extensionForMediaType(att.mediaType);
+        const filename = `${randomUUID()}.${ext}`;
+        const filePath = join(tmpDir, filename);
+        writeFileSync(filePath, Buffer.from(att.data, "base64"));
+        const kind = att.mediaType.startsWith("image/") ? "Image" : "File";
+        fileRefs.push(`[${kind}: ${label}]: ${filePath}`);
+      }
+    }
+
+    const parts: string[] = [];
+
+    if (fileRefs.length > 0) {
+      const noun = fileRefs.length === 1 ? "file" : "files";
+      parts.push(`The user has attached ${fileRefs.length} ${noun}. Read ${fileRefs.length === 1 ? "it" : "them"} with your Read tool before responding.`);
+      parts.push(fileRefs.join("\n"));
+    }
+
+    if (inlineTexts.length > 0) {
+      parts.push("The user has included the following text file contents:\n");
+      parts.push(inlineTexts.join("\n\n"));
+    }
+
+    if (text) {
+      parts.push(text);
+    }
+
+    return parts.join("\n\n");
+  }
+
+  private extensionForMediaType(mediaType: string): string {
+    switch (mediaType) {
+      case "image/png": return "png";
+      case "image/jpeg": return "jpg";
+      case "image/gif": return "gif";
+      case "image/webp": return "webp";
+      case "application/pdf": return "pdf";
+      case "text/plain": return "txt";
+      case "text/markdown": return "md";
+      default: return mediaType.split("/")[1] || "dat";
+    }
   }
 
   private buildSystemPromptAppend(config: AgentConfig): string {

@@ -1,7 +1,7 @@
 // Commands from Swift -> Sidecar
 export type SidecarCommand =
   | { type: "session.create"; conversationId: string; agentConfig: AgentConfig }
-  | { type: "session.message"; sessionId: string; text: string }
+  | { type: "session.message"; sessionId: string; text: string; attachments?: FileAttachment[] }
   | { type: "session.resume"; sessionId: string; claudeSessionId: string }
   | { type: "session.fork"; sessionId: string }
   | { type: "session.pause"; sessionId: string };
@@ -29,6 +29,12 @@ export interface MCPServerConfig {
 export interface SkillContent {
   name: string;
   content: string;
+}
+
+export interface FileAttachment {
+  data: string;
+  mediaType: string;
+  fileName?: string;
 }
 
 // Events from Sidecar -> Swift

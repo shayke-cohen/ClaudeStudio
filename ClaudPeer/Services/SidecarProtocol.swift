@@ -2,7 +2,7 @@ import Foundation
 
 enum SidecarCommand: Sendable {
     case sessionCreate(conversationId: String, agentConfig: AgentConfig)
-    case sessionMessage(sessionId: String, text: String)
+    case sessionMessage(sessionId: String, text: String, attachments: [WireAttachment] = [])
     case sessionResume(sessionId: String, claudeSessionId: String)
     case sessionFork(sessionId: String)
     case sessionPause(sessionId: String)
@@ -14,9 +14,14 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 SessionCreateWire(type: "session.create", conversationId: conversationId, agentConfig: agentConfig)
             )
-        case .sessionMessage(let sessionId, let text):
+        case .sessionMessage(let sessionId, let text, let attachments):
             return try encoder.encode(
-                SessionMessageWire(type: "session.message", sessionId: sessionId, text: text)
+                SessionMessageWire(
+                    type: "session.message",
+                    sessionId: sessionId,
+                    text: text,
+                    attachments: attachments.isEmpty ? nil : attachments
+                )
             )
         case .sessionResume(let sessionId, let claudeSessionId):
             return try encoder.encode(
@@ -44,6 +49,13 @@ private struct SessionMessageWire: Encodable {
     let type: String
     let sessionId: String
     let text: String
+    let attachments: [WireAttachment]?
+}
+
+struct WireAttachment: Codable, Sendable {
+    let data: String
+    let mediaType: String
+    let fileName: String?
 }
 
 private struct SessionResumeWire: Encodable {

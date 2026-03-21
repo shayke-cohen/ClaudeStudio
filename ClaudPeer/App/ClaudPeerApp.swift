@@ -26,6 +26,7 @@ struct ClaudPeerApp: App {
                 Session.self,
                 Conversation.self,
                 ConversationMessage.self,
+                MessageAttachment.self,
                 Skill.self,
                 MCPServer.self,
                 PermissionSet.self,

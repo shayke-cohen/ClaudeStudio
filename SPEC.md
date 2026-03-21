@@ -125,7 +125,7 @@ Unified conversation model supporting user-to-agent and agent-to-agent communica
 | FR-5.6: Conversation tree node component | Done |
 | FR-5.7: Status badges (session/conversation) | Done |
 | FR-5.8: Slash commands in input | Not started |
-| FR-5.9: File drag-and-drop | Not started |
+| FR-5.9: File drag-and-drop (images + documents) | Done |
 | FR-5.10: @-mention agents in group chats | Not started |
 | FR-5.11: Fork from any message point | Not started |
 | FR-5.12: Auto-name conversations from first user message | Done |
@@ -226,6 +226,32 @@ Configurable application preferences accessible via Cmd+, (standard macOS Settin
 | FR-9.16: SidecarManager accepts configured ports and path overrides from settings | Done |
 | FR-9.17: Centralized AppSettings enum with all keys and defaults | Done |
 
+### FR-10: File Attachments
+
+**Status:** Implemented
+
+Users can attach images and documents (txt, md, pdf) to chat messages via the attach button, paste (images), or drag-and-drop.
+
+| Requirement | Status |
+|---|---|
+| FR-10.1: Attach images (png, jpg, gif, webp) via file picker | Done |
+| FR-10.2: Paste images from clipboard (Cmd+V) | Done |
+| FR-10.3: Drag-and-drop images into chat input | Done |
+| FR-10.4: Attach text files (.txt) via file picker or drag-and-drop | Done |
+| FR-10.5: Attach markdown files (.md) via file picker or drag-and-drop | Done |
+| FR-10.6: Attach PDF files (.pdf) via file picker or drag-and-drop | Done |
+| FR-10.7: Image thumbnails in message bubbles (grid layout) | Done |
+| FR-10.8: Document thumbnails with file icon, name, and size | Done |
+| FR-10.9: Full-size image preview overlay (click to zoom) | Done |
+| FR-10.10: Pending attachment strip above input (with remove buttons) | Done |
+| FR-10.11: Images sent to Claude via temp files + Read tool instruction | Done |
+| FR-10.12: Text/markdown files inlined directly in the prompt | Done |
+| FR-10.13: PDF files sent to Claude via temp files + Read tool instruction | Done |
+| FR-10.14: Attachment indicator in sidebar preview (photo/doc.text/paperclip icon) | Done |
+| FR-10.15: Attachments stored on disk (~/.claudpeer/attachments/) | Done |
+| FR-10.16: File size validation (5MB images, 10MB documents) | Done |
+| FR-10.17: Wire protocol supports attachments with mediaType and fileName | Done |
+
 ---
 
 ## 3. User Stories
@@ -311,7 +337,21 @@ Configurable application preferences accessible via Cmd+, (standard macOS Settin
 - [x] Can reset all settings to defaults
 - [x] Settings persist across app restarts
 
-### US-9: Read Rich Markdown Responses
+### US-9: Attach Files to Chat Messages
+**As a** developer, **I want to** attach images and documents (txt, md, pdf) to my chat messages, **so that** I can share context with Claude and get help with files I'm working on.
+
+**Acceptance criteria:**
+- [x] Can attach files via paperclip button (images + txt/md/pdf)
+- [x] Can paste images from clipboard with Cmd+V
+- [x] Can drag-and-drop files onto the chat input area
+- [x] Pending attachments appear as thumbnails above the input field
+- [x] Image attachments display as thumbnails in sent messages (clickable for full-size preview)
+- [x] Document attachments display with file icon, name, and file size
+- [x] Text/markdown file contents are inlined directly into the prompt sent to Claude
+- [x] Image and PDF files are saved to temp directory and Claude reads them via its Read tool
+- [x] Sidebar shows appropriate icon (photo/doc.text/paperclip) when the last message has attachments
+
+### US-10: Read Rich Markdown Responses
 **As a** developer, **I want to** see Claude's responses rendered with proper markdown formatting, **so that** code blocks, links, headers, and lists are easy to read and interact with.
 
 **Acceptance criteria:**
@@ -427,6 +467,32 @@ flowchart TD
     Result2 --> Save
 ```
 
+### Flow 7: Attach Files to a Message
+
+```mermaid
+flowchart TD
+    Start([User in chat]) --> Method{"Attach method?"}
+    Method -->|Paperclip button| FilePicker["File picker opens\nSupports: png, jpg, gif, webp,\ntxt, md, pdf"]
+    Method -->|Cmd+V| Paste["Image pasted from clipboard\n(Custom NSTextField intercepts)"]
+    Method -->|Drag-and-drop| Drop["File dropped on input area\nValidated by extension"]
+    FilePicker --> Pending["File added to\npending attachment strip"]
+    Paste --> Pending
+    Drop --> Pending
+    Pending --> Preview{"File type?"}
+    Preview -->|Image| ImgThumb["Image thumbnail 60x60"]
+    Preview -->|Document| DocThumb["File icon + name"]
+    ImgThumb --> Send["User clicks Send"]
+    DocThumb --> Send
+    Send --> Save["Attachment saved to disk\n~/.claudpeer/attachments/"]
+    Save --> Wire["WireAttachment sent to sidecar\n(base64 + mediaType + fileName)"]
+    Wire --> Route{"Sidecar routes\nby mediaType?"}
+    Route -->|text/plain, text/markdown| Inline["Content decoded to UTF-8\nInlined directly in prompt"]
+    Route -->|image/*, application/pdf| TempFile["Written to temp file\nPrompt says 'Read with Read tool'"]
+    Inline --> Claude["Claude processes message"]
+    TempFile --> Claude
+    Claude --> Response["Response streamed back"]
+```
+
 ---
 
 ## 5. Non-Functional Requirements
@@ -450,4 +516,5 @@ flowchart TD
 | 2026-03-21 | Lightweight ChatHandler for simple sessions: routes sessions without tools/MCPs/skills to `claude --print` instead of full Agent SDK. Response polling in Swift saves agent replies to SwiftData. Fixed AgentLibrary sheet presentation, added indigo/gray agent colors, built-in agent loading. | FR-2.10, FR-2.14, FR-3.15-3.17, Flow 6 |
 | 2026-03-21 | Rich markdown chat: MarkdownUI rendering for agent messages, code blocks with copy button, live streaming text, hover copy/timestamp, clickable links. Settings screen: three-tab preferences (General/Connection/Advanced) with dark mode, port/path overrides, reset. SidecarManager accepts configurable settings. | FR-5.18-5.25, FR-9, US-8, US-9, Flow 4, Flow 5 |
 | 2026-03-21 | UX improvements: smart naming, conversation management (rename/pin/close/delete/duplicate), New Session sheet, sidebar polish (timestamps, previews, pinned section, empty state, agent icons, swipe actions), chat header enhancements (rename, close/resume, clear, model pill, cost), inspector actions (pause/resume/stop, editable topic, open in editor), agent card Start button | FR-5, FR-6, US-6, US-7, Flow 1, Flow 3 |
+| 2026-03-21 | File attachments: added txt/md/pdf support alongside images. Text/markdown files inlined in prompt, images/PDFs via temp files. Generalized wire protocol from WireImageAttachment to WireAttachment. Document thumbnails with icon+name+size. Sidebar shows context-aware attachment icons. | FR-5.9, FR-10, US-9, Flow 7 |
 | 2026-03-21 | Initial spec created from implemented codebase | All sections |

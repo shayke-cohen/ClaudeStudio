@@ -58,7 +58,7 @@ export class WsServer {
         );
         break;
       case "session.message":
-        await this.sessionManager.sendMessage(command.sessionId, command.text);
+        await this.sessionManager.sendMessage(command.sessionId, command.text, command.attachments);
         break;
       case "session.resume":
         await this.sessionManager.resumeSession(

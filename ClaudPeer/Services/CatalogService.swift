@@ -36,6 +36,10 @@ struct CatalogSkill: Codable, Identifiable {
     var content: String = ""
 
     var id: String { catalogId }
+
+    private enum CodingKeys: String, CodingKey {
+        case catalogId, name, description, category, icon, requiredMCPs, triggers, tags
+    }
 }
 
 struct CatalogAgent: Codable, Identifiable {
@@ -52,8 +56,15 @@ struct CatalogAgent: Codable, Identifiable {
     let systemPromptTemplate: String
     let systemPromptVariables: [String: String]
     let tags: [String]
+    var systemPrompt: String = ""
 
     var id: String { catalogId }
+
+    private enum CodingKeys: String, CodingKey {
+        case catalogId, name, description, category, icon, color, model
+        case instancePolicy, requiredSkills, extraMCPs
+        case systemPromptTemplate, systemPromptVariables, tags
+    }
 }
 
 @MainActor
@@ -69,7 +80,7 @@ final class CatalogService {
     }
 
     private func loadCatalogs() {
-        agentCatalog = loadCatalogItems(directory: "agents")
+        agentCatalog = loadAgentItems()
         skillCatalog = loadSkillItems()
         mcpCatalog = loadCatalogItems(directory: "mcps")
     }
@@ -77,6 +88,15 @@ final class CatalogService {
     private func loadCatalogItems<T: Decodable>(directory: String) -> [T] {
         guard let ids: [String] = loadJSON(directory: directory, name: "index") else { return [] }
         return ids.compactMap { loadJSON(directory: directory, name: $0) }
+    }
+
+    private func loadAgentItems() -> [CatalogAgent] {
+        guard let ids: [String] = loadJSON(directory: "agents", name: "index") else { return [] }
+        return ids.compactMap { id -> CatalogAgent? in
+            guard var agent: CatalogAgent = loadJSON(directory: "agents", name: id) else { return nil }
+            agent.systemPrompt = loadMarkdown(directory: "agents", name: id) ?? ""
+            return agent
+        }
     }
 
     private func loadSkillItems() -> [CatalogSkill] {
@@ -287,6 +307,7 @@ final class CatalogService {
         let agent = Agent(
             name: entry.name,
             agentDescription: entry.description,
+            systemPrompt: entry.systemPrompt,
             model: entry.model,
             icon: entry.icon,
             color: entry.color

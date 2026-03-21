@@ -12,6 +12,7 @@ struct MainWindowView: View {
         } content: {
             if let conversationId = appState.selectedConversationId {
                 ChatView(conversationId: conversationId)
+                    .id(conversationId)
             } else {
                 ContentUnavailableView(
                     "No Conversation Selected",
@@ -23,6 +24,7 @@ struct MainWindowView: View {
         } detail: {
             if let conversationId = appState.selectedConversationId {
                 InspectorView(conversationId: conversationId)
+                    .id(conversationId)
             } else {
                 Text("Inspector")
                     .foregroundStyle(.secondary)
