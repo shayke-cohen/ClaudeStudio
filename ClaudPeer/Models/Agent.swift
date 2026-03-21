@@ -1,13 +1,13 @@
 import Foundation
 import SwiftData
 
-enum InstancePolicy: Codable, Sendable, Hashable {
+enum InstancePolicy: Sendable, Hashable {
     case spawn
     case singleton
     case pool(max: Int)
 }
 
-enum AgentOrigin: Codable, Sendable, Hashable {
+enum AgentOrigin: Sendable, Hashable {
     case local
     case peer(peerId: UUID)
     case imported
@@ -27,17 +27,75 @@ final class Agent {
     var maxBudget: Double?
     var icon: String
     var color: String
-    var instancePolicy: InstancePolicy
+
+    // InstancePolicy flattened for SwiftData
+    var instancePolicyKind: String
+    var instancePolicyPoolMax: Int?
+
+    // AgentOrigin flattened for SwiftData
+    var originKind: String
+    var originPeerId: UUID?
+
     var defaultWorkingDirectory: String?
     var githubRepo: String?
     var githubDefaultBranch: String?
-    var origin: AgentOrigin
     var isShared: Bool
     var createdAt: Date
     var updatedAt: Date
 
     @Relationship(deleteRule: .cascade, inverse: \Session.agent)
     var sessions: [Session] = []
+
+    @Transient
+    var instancePolicy: InstancePolicy {
+        get {
+            switch instancePolicyKind {
+            case "singleton": return .singleton
+            case "pool": return .pool(max: instancePolicyPoolMax ?? 3)
+            default: return .spawn
+            }
+        }
+        set {
+            switch newValue {
+            case .spawn:
+                instancePolicyKind = "spawn"
+                instancePolicyPoolMax = nil
+            case .singleton:
+                instancePolicyKind = "singleton"
+                instancePolicyPoolMax = nil
+            case .pool(let max):
+                instancePolicyKind = "pool"
+                instancePolicyPoolMax = max
+            }
+        }
+    }
+
+    @Transient
+    var origin: AgentOrigin {
+        get {
+            switch originKind {
+            case "peer":
+                return .peer(peerId: originPeerId ?? UUID())
+            case "imported":
+                return .imported
+            default:
+                return .local
+            }
+        }
+        set {
+            switch newValue {
+            case .local:
+                originKind = "local"
+                originPeerId = nil
+            case .peer(let peerId):
+                originKind = "peer"
+                originPeerId = peerId
+            case .imported:
+                originKind = "imported"
+                originPeerId = nil
+            }
+        }
+    }
 
     init(
         name: String,
@@ -58,8 +116,10 @@ final class Agent {
         self.maxBudget = nil
         self.icon = icon
         self.color = color
-        self.instancePolicy = .spawn
-        self.origin = .local
+        self.instancePolicyKind = "spawn"
+        self.instancePolicyPoolMax = nil
+        self.originKind = "local"
+        self.originPeerId = nil
         self.isShared = false
         self.createdAt = Date()
         self.updatedAt = Date()
