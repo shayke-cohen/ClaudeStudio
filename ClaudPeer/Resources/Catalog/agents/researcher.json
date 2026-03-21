@@ -10,7 +10,7 @@
   "requiredSkills": [
     "web-scraping",
     "browser-automation",
-    "README-writing"
+    "readme-writing"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

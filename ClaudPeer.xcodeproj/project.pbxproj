@@ -148,6 +148,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5C7132648460F9637A5ECB2A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -384,6 +391,7 @@
 			buildConfigurationList = 29B7267F1B3D08E2444DFD0C /* Build configuration list for PBXNativeTarget "ClaudPeerTests" */;
 			buildPhases = (
 				3A664D0E71D53CA930498DF8 /* Sources */,
+				5C7132648460F9637A5ECB2A /* Frameworks */,
 			);
 			buildRules = (
 			);

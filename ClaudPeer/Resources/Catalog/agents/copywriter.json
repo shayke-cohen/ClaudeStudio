@@ -8,7 +8,7 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "README-writing",
+    "readme-writing",
     "changelog",
     "error-handling"
   ],

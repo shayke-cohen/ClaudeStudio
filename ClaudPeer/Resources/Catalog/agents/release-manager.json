@@ -8,9 +8,9 @@
   "model": "haiku",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "CD-deployment",
+    "cd-deployment",
     "environment-management",
-    "CI-pipeline"
+    "ci-pipeline"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "worker",

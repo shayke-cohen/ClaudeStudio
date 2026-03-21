@@ -2,7 +2,7 @@
 
 Living specification tracking implemented features, user flows, and requirements.
 
-**Version:** 0.1.0
+**Version:** 0.2.0
 **Status:** Early development (Phase 1-2 of roadmap)
 
 ---
@@ -18,6 +18,7 @@ ClaudPeer is a native macOS developer tool for managing multiple Claude AI agent
 ### Core Value Proposition
 - **Multi-agent orchestration** — run multiple Claude sessions simultaneously with different configurations
 - **Composable agents** — build agents from reusable skills, MCP servers, and permission presets
+- **Curated catalog** — browse and install from 30 agents, 101 skills, and 100 MCP servers with cascading dependency resolution
 - **Persistent conversations** — conversations survive app restarts, resumable via Claude session IDs
 - **Native macOS experience** — SwiftUI three-panel layout optimized for developer workflows
 
@@ -65,7 +66,11 @@ Users create and manage reusable agent templates.
 | FR-2.11: Agent library grid view | Done |
 | FR-2.12: Agent editor view with sheet(item:) presentation for editing | Done |
 | FR-2.13: Persist agents in SwiftData | Done |
-| FR-2.14: Built-in agents loaded from bundled JSON (7 agents) | Done |
+| FR-2.14: Built-in agents loaded from bundled JSON (7 agents) | Superseded by FR-12 |
+| FR-2.15: Per-agent system prompts loaded from dedicated .md files | Done |
+| FR-2.16: Agent → Skill → MCP dependency hierarchy (skills declare MCPs, agents select skills) | Done |
+| FR-2.17: Duplicate agent with full config copy | Done |
+| FR-2.18: catalogId tracking for catalog-originating agents | Done |
 
 ### FR-3: Session Lifecycle
 
@@ -274,6 +279,67 @@ Users can attach images and documents (txt, md, pdf) to chat messages via the at
 | FR-11.16: File size validation (5MB images, 10MB documents) | Done |
 | FR-11.17: Wire protocol supports attachments with mediaType and fileName | Done |
 
+### FR-12: Catalog System
+
+**Status:** Implemented
+
+Browsable catalog of pre-built agents (30), skills (101), and MCP servers (100) with one-click installation and cascading dependency resolution.
+
+| Requirement | Status |
+|---|---|
+| FR-12.1: Directory-based catalog structure (agents/, skills/, mcps/ with index.json + per-item JSON/MD) | Done |
+| FR-12.2: CatalogService singleton loads all items from bundled resources at startup | Done |
+| FR-12.3: Agent catalog with 30 agents across categories (Core Team, Specialists, Content, Infrastructure) | Done |
+| FR-12.4: Skill catalog with 101 skills across categories (Development, Testing, DevOps, etc.) | Done |
+| FR-12.5: MCP catalog with 100 servers across categories (Developer Tools, Data, AI, Cloud, etc.) | Done |
+| FR-12.6: Per-agent system prompts stored as .md files with identity, boundaries, collaboration rules | Done |
+| FR-12.7: Per-skill content stored as .md files with methodology, procedures, and guidance | Done |
+| FR-12.8: Find operations by catalogId for agents, skills, and MCPs | Done |
+| FR-12.9: Category listing (sorted, deduplicated) for filtering UI | Done |
+| FR-12.10: Install MCP from catalog (maps transport config, sets catalogId) | Done |
+| FR-12.11: Install Skill from catalog (cascades required MCPs, resolves UUID references) | Done |
+| FR-12.12: Install Agent from catalog (cascades skills + MCPs, copies system prompt, sets origin) | Done |
+| FR-12.13: Idempotent install (re-installing returns existing SwiftData instance) | Done |
+| FR-12.14: Uninstall agent/skill/MCP by catalogId (deletes from SwiftData) | Done |
+| FR-12.15: Dependency resolution for agents (lists uninstalled skills + MCPs needed) | Done |
+| FR-12.16: Dependency resolution for skills (lists uninstalled MCPs needed) | Done |
+| FR-12.17: Installed status check by catalogId across all three types | Done |
+| FR-12.18: CatalogBrowserView with tab-based navigation (Agents, Skills, MCPs) | Done |
+| FR-12.19: Search and category filter in catalog browser | Done |
+| FR-12.20: Catalog cards with icon, name, truncated description, category, tags, install status | Done |
+| FR-12.21: Tap catalog card to open detail sheet | Done |
+| FR-12.22: CatalogDetailView with full item information (header, chips, tags, description) | Done |
+| FR-12.23: Agent detail shows resolved required skills and extra MCPs by name | Done |
+| FR-12.24: Agent detail shows collapsible system prompt preview (DisclosureGroup) | Done |
+| FR-12.25: Skill detail shows required MCPs, triggers (FlowLayout wrapping), and full content | Done |
+| FR-12.26: MCP detail shows transport config (command/args for stdio, URL for http) and homepage link | Done |
+| FR-12.27: Detail view footer with Install/Uninstall button and installed status badge | Done |
+| FR-12.28: Install/uninstall from detail view refreshes catalog browser card status | Done |
+| FR-12.29: Data integrity — all agent skill references and skill MCP references resolve | Done |
+| FR-12.30: Catalog accessible from toolbar | Done |
+
+### FR-13: Test Infrastructure
+
+**Status:** Implemented
+
+XCTest-based unit test target for verifying catalog system integrity, service logic, and app configuration.
+
+| Requirement | Status |
+|---|---|
+| FR-13.1: ClaudPeerTests target in Xcode project with scheme integration | Done |
+| FR-13.2: CatalogModelTests — JSON decoding for CatalogMCP, CatalogSkill, CatalogAgent | Done |
+| FR-13.3: CatalogModelTests — CatalogItem enum case construction and extraction | Done |
+| FR-13.4: CatalogServiceTests — catalog loading, counts, and emptiness checks | Done |
+| FR-13.5: CatalogServiceTests — find operations and category listing | Done |
+| FR-13.6: CatalogServiceTests — agent system prompts and skill content loaded from .md files | Done |
+| FR-13.7: CatalogServiceTests — install/uninstall with in-memory SwiftData ModelContainer | Done |
+| FR-13.8: CatalogServiceTests — cascading install (agent → skills → MCPs) | Done |
+| FR-13.9: CatalogServiceTests — idempotent install returns same instance | Done |
+| FR-13.10: CatalogServiceTests — dependency resolution excludes already-installed items | Done |
+| FR-13.11: CatalogServiceTests — data integrity (unique IDs, valid cross-references, required fields) | Done |
+| FR-13.12: InstanceConfigTests — directory structure, UserDefaults suite, port allocation | Done |
+| FR-13.13: 61 tests passing with 0 failures | Done |
+
 ---
 
 ## 3. User Stories
@@ -384,7 +450,24 @@ Users can attach images and documents (txt, md, pdf) to chat messages via the at
 - [x] Default instance (no flag) is backward compatible with existing behavior
 - [x] Settings changes in one instance do not affect other instances
 
-### US-11: Read Rich Markdown Responses
+### US-11: Browse and Install from Catalog
+**As a** developer, **I want to** browse a curated catalog of agents, skills, and MCP servers and install them with one click, **so that** I can quickly assemble powerful agent configurations without manual setup.
+
+**Acceptance criteria:**
+- [x] Can open the catalog browser from the toolbar
+- [x] Can browse agents, skills, and MCPs in separate tabs
+- [x] Can search by name and filter by category
+- [x] Cards show key info (icon, name, description, tags, install status)
+- [x] Tapping a card opens a detail sheet with full information
+- [x] Agent details show required skills, extra MCPs, and system prompt preview
+- [x] Skill details show required MCPs, triggers, and full content markdown
+- [x] MCP details show transport configuration and homepage link
+- [x] Can install/uninstall items from the detail view
+- [x] Installing an agent cascades to install its required skills and MCPs
+- [x] Installing a skill cascades to install its required MCPs
+- [x] Install/uninstall status updates immediately in the catalog browser
+
+### US-12: Read Rich Markdown Responses
 **As a** developer, **I want to** see Claude's responses rendered with proper markdown formatting, **so that** code blocks, links, headers, and lists are easy to read and interact with.
 
 **Acceptance criteria:**
@@ -541,6 +624,35 @@ flowchart TD
     Claude --> Response["Response streamed back"]
 ```
 
+### Flow 9: Browse Catalog and Install Agent
+
+```mermaid
+flowchart TD
+    Open([User clicks Catalog\nin toolbar]) --> Browser["CatalogBrowserView opens\nTabs: Agents / Skills / MCPs"]
+    Browser --> Search["Optional: search by name\nor filter by category"]
+    Search --> Tap["User taps agent card"]
+    Tap --> Detail["CatalogDetailView sheet opens\nFull description, skills, MCPs,\nsystem prompt preview"]
+    Detail --> Install{"Click Install?"}
+    Install -->|Yes| Resolve["CatalogService resolves\ndependencies"]
+    Resolve --> Cascade["Auto-install required skills\nAuto-install required MCPs"]
+    Cascade --> Create["Agent created in SwiftData\nwith catalogId, system prompt,\nskill/MCP UUID references"]
+    Create --> Refresh["Detail shows 'Installed'\nBrowser card updates badge"]
+    Install -->|No| Close["Dismiss sheet"]
+```
+
+### Flow 10: Install Skill with MCP Dependencies
+
+```mermaid
+flowchart TD
+    Tab([User switches to\nSkills tab]) --> Browse["Browse 101 skills\nacross categories"]
+    Browse --> Tap["User taps skill card"]
+    Tap --> Detail["Skill detail:\nrequired MCPs, triggers,\nfull content markdown"]
+    Detail --> Install["Click Install"]
+    Install --> MCPs["CatalogService installs\neach required MCP first"]
+    MCPs --> Skill["Skill created in SwiftData\nwith mcpServerIds resolved"]
+    Skill --> Done["Skill available for\nassignment to agents"]
+```
+
 ---
 
 ## 5. Non-Functional Requirements
@@ -555,6 +667,8 @@ flowchart TD
 | Memory | Graceful with 10+ concurrent sessions | Untested |
 | Security | Hardened runtime, localhost-only sidecar | Met |
 | Multi-instance | Fully isolated data, ports, settings | Met |
+| Test coverage | Unit tests for catalog, config, data integrity | Met (61 tests) |
+| Catalog size | 30 agents + 101 skills + 100 MCPs bundled | Met |
 
 ---
 
@@ -567,4 +681,6 @@ flowchart TD
 | 2026-03-21 | UX improvements: smart naming, conversation management (rename/pin/close/delete/duplicate), New Session sheet, sidebar polish (timestamps, previews, pinned section, empty state, agent icons, swipe actions), chat header enhancements (rename, close/resume, clear, model pill, cost), inspector actions (pause/resume/stop, editable topic, open in editor), agent card Start button | FR-5, FR-6, US-6, US-7, Flow 1, Flow 3 |
 | 2026-03-21 | File attachments: added txt/md/pdf support alongside images. Text/markdown files inlined in prompt, images/PDFs via temp files. Generalized wire protocol from WireImageAttachment to WireAttachment. Document thumbnails with icon+name+size. Sidebar shows context-aware attachment icons. | FR-5.9, FR-10, US-9, Flow 7 |
 | 2026-03-21 | Multi-instance support: InstanceConfig parses `--instance <name>`, namespaces SwiftData/blackboard/logs/UserDefaults per instance, dynamic port allocation for non-default instances, CLAUDPEER_DATA_DIR env var for sidecar, window title with instance name. | FR-10, US-10, Flow 7, NFR |
+| 2026-03-21 | Catalog system: directory-based catalog with 30 agents, 101 skills, 100 MCPs. CatalogService with loading, find, install/uninstall, cascading dependency resolution. CatalogBrowserView with tabs, search, category filter. CatalogDetailView with full item information, collapsible system prompt, FlowLayout triggers, install/uninstall actions. Per-agent .md system prompts. Agent → Skill → MCP hierarchy. | FR-2.15-2.18, FR-12, US-11, Flow 9, Flow 10 |
+| 2026-03-21 | Test infrastructure: ClaudPeerTests XCTest target with 61 tests covering catalog model decoding, service operations (install/uninstall/cascading/idempotent/dependency resolution), data integrity (unique IDs, valid cross-references), InstanceConfig (directories, UserDefaults, ports). Fixed catalog skill ID case mismatches across 20 agent files. Added InstanceConfig.swift to project, fixed Swift 6 concurrency warning in AppSettings. | FR-13, NFR |
 | 2026-03-21 | Initial spec created from implemented codebase | All sections |

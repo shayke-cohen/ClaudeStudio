@@ -8,8 +8,8 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "README-writing",
-    "API-documentation",
+    "readme-writing",
+    "api-documentation",
     "changelog"
   ],
   "extraMCPs": [],

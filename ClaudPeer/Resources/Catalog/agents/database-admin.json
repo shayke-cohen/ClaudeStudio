@@ -8,7 +8,7 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "SQL-optimization",
+    "sql-optimization",
     "data-modeling",
     "database-migration",
     "migration-planning"

@@ -8,7 +8,7 @@
   "model": "opus",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "OWASP-top-10",
+    "owasp-top-10",
     "threat-modeling",
     "code-audit",
     "dependency-scanning",

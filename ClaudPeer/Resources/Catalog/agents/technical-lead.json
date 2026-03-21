@@ -9,8 +9,8 @@
   "instancePolicy": "singleton",
   "requiredSkills": [
     "code-architecture",
-    "technical-RFC",
-    "ADR-writing",
+    "technical-rfc",
+    "adr-writing",
     "code-review"
   ],
   "extraMCPs": [],

@@ -8,10 +8,10 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "SQL-optimization",
+    "sql-optimization",
     "analytics-dashboard",
     "data-validation",
-    "ETL-pipeline"
+    "etl-pipeline"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

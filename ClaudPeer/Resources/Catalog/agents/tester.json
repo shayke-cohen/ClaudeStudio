@@ -10,7 +10,7 @@
   "requiredSkills": [
     "web-testing",
     "unit-testing",
-    "E2E-testing",
+    "e2e-testing",
     "exploratory-testing",
     "claudpeer-accessibility"
   ],

@@ -8,10 +8,10 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "iOS-swift",
+    "ios-swift",
     "android-kotlin",
     "react-native",
-    "mobile-CI"
+    "mobile-ci"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

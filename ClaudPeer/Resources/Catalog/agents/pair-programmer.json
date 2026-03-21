@@ -10,7 +10,7 @@
   "requiredSkills": [
     "peer-collaboration",
     "debugging",
-    "TDD",
+    "tdd",
     "code-review"
   ],
   "extraMCPs": [],

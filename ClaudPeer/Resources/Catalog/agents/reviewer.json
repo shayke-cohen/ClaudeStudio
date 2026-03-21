@@ -9,7 +9,7 @@
   "instancePolicy": "spawn",
   "requiredSkills": [
     "code-review",
-    "OWASP-top-10",
+    "owasp-top-10",
     "code-audit"
   ],
   "extraMCPs": [],

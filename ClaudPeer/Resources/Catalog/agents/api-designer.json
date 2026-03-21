@@ -8,10 +8,10 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "REST-API",
-    "GraphQL-API",
-    "API-design",
-    "API-documentation"
+    "rest-api",
+    "graphql-api",
+    "api-design",
+    "api-documentation"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

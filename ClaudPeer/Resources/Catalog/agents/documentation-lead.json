@@ -8,7 +8,7 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "API-documentation",
+    "api-documentation",
     "runbook",
     "onboarding-guide",
     "changelog"

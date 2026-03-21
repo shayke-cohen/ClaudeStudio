@@ -9,7 +9,7 @@
   "instancePolicy": "spawn",
   "requiredSkills": [
     "docker-containerization",
-    "CI-pipeline",
+    "ci-pipeline",
     "monitoring-setup"
   ],
   "extraMCPs": [],

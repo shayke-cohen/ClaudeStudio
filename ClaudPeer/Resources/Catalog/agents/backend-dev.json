@@ -8,8 +8,8 @@
   "model": "sonnet",
   "instancePolicy": "spawn",
   "requiredSkills": [
-    "REST-API",
-    "GraphQL-API",
+    "rest-api",
+    "graphql-api",
     "authentication",
     "caching-strategy",
     "database-migration"

@@ -9,7 +9,7 @@
   "instancePolicy": "spawn",
   "requiredSkills": [
     "react-patterns",
-    "CSS-architecture",
+    "css-architecture",
     "component-design",
     "web-performance",
     "accessibility-audit",
