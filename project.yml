@@ -1,0 +1,41 @@
+name: ClaudPeer
+options:
+  bundleIdPrefix: com.claudpeer
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+targets:
+  ClaudPeer:
+    type: application
+    platform: macOS
+    sources:
+      - path: ClaudPeer
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.claudpeer.app
+        PRODUCT_NAME: ClaudPeer
+        INFOPLIST_GENERATION_MODE: GeneratedByXcode
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.1.0"
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: ClaudPeer
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "ClaudPeer uses the local network to discover and share agent definitions with peers."
+        ENABLE_HARDENED_RUNTIME: true
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_EMIT_LOC_STRINGS: true
+    entitlements:
+      path: ClaudPeer/Resources/ClaudPeer.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.network.client: true
+        com.apple.security.network.server: true
+        com.apple.security.files.user-selected.read-write: true

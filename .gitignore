@@ -1,0 +1,19 @@
+# Xcode
+build/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Sidecar
+sidecar/node_modules/
+sidecar/dist/
+sidecar/bun.lockb
+
+# Runtime data
+.claudpeer/
