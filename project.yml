@@ -5,6 +5,9 @@ options:
     macOS: "14.0"
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
+packages:
+  AppXray:
+    path: Dependencies/appxray/packages/sdk-ios
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -18,6 +21,8 @@ targets:
       - path: ClaudPeer
         excludes:
           - "**/.DS_Store"
+    dependencies:
+      - package: AppXray
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudpeer.app

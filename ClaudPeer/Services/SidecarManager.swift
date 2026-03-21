@@ -46,16 +46,27 @@ final class SidecarManager: ObservableObject, Sendable {
     }
 
     private func launchSidecar() throws {
+        let bunPath = findBunPath()
         let sidecarPath = findSidecarPath()
+        print("[SidecarManager] Bun: \(bunPath)")
+        print("[SidecarManager] Sidecar: \(sidecarPath)")
+
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: findBunPath())
+        process.executableURL = URL(fileURLWithPath: bunPath)
         process.arguments = ["run", sidecarPath]
         process.environment = ProcessInfo.processInfo.environment
         process.environment?["CLAUDPEER_WS_PORT"] = "\(port)"
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
 
-        process.terminationHandler = { [weak self] _ in
+        let logDir = "\(NSHomeDirectory())/.claudpeer/logs"
+        try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)
+        let logFile = "\(logDir)/sidecar.log"
+        FileManager.default.createFile(atPath: logFile, contents: nil)
+        let logHandle = FileHandle(forWritingAtPath: logFile)
+        process.standardOutput = logHandle ?? FileHandle.nullDevice
+        process.standardError = logHandle ?? FileHandle.nullDevice
+
+        process.terminationHandler = { [weak self] proc in
+            print("[SidecarManager] Process exited with code \(proc.terminationStatus)")
             Task { @MainActor in
                 self?.handleProcessTermination()
             }
@@ -63,6 +74,7 @@ final class SidecarManager: ObservableObject, Sendable {
 
         try process.run()
         self.process = process
+        print("[SidecarManager] Launched PID \(process.processIdentifier)")
     }
 
     private func connectWebSocket() async throws {
@@ -142,15 +154,24 @@ final class SidecarManager: ObservableObject, Sendable {
     }
 
     private func findSidecarPath() -> String {
+        let fm = FileManager.default
+
         if let bundlePath = Bundle.main.resourcePath {
             let inBundle = "\(bundlePath)/sidecar/src/index.ts"
-            if FileManager.default.fileExists(atPath: inBundle) { return inBundle }
+            if fm.fileExists(atPath: inBundle) { return inBundle }
         }
-        let devPath = "\(FileManager.default.currentDirectoryPath)/sidecar/src/index.ts"
-        if FileManager.default.fileExists(atPath: devPath) { return devPath }
 
-        let scriptDir = URL(fileURLWithPath: #file).deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        return scriptDir.appendingPathComponent("sidecar/src/index.ts").path
+        let devPath = "\(fm.currentDirectoryPath)/sidecar/src/index.ts"
+        if fm.fileExists(atPath: devPath) { return devPath }
+
+        let wellKnown = "\(NSHomeDirectory())/ClaudPeer/sidecar/src/index.ts"
+        if fm.fileExists(atPath: wellKnown) { return wellKnown }
+
+        if let saved = UserDefaults.standard.string(forKey: "claudpeer.projectPath") {
+            let savedPath = "\(saved)/sidecar/src/index.ts"
+            if fm.fileExists(atPath: savedPath) { return savedPath }
+        }
+
+        return wellKnown
     }
 }
