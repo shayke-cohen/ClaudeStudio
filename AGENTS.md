@@ -147,15 +147,25 @@ These are specified in `system-plan-vision.md` but not yet in code:
 
 ## Testing
 
-Sidecar tests require a running sidecar:
+See `TESTING.md` for the full testing guide — screen-by-screen control reference, AppXray selectors, Argus E2E flows, and YAML regression tests.
 
+### Quick Reference
+
+**Swift unit tests** (9 test files in `ClaudPeerTests/`):
+```bash
+xcodebuild test -project ClaudPeer.xcodeproj -scheme ClaudPeer -destination 'platform=macOS'
+```
+
+**Sidecar tests** (require a running sidecar):
 ```bash
 cd sidecar
 bun run start &
 bun test
 ```
 
-No Swift unit tests yet. The app can be tested with AppXray in DEBUG builds.
+**AppXray** (inside-out, DEBUG builds): connect via `session({ action: "discover" })` then `session({ action: "connect", appId: "com.claudpeer.app" })`. Target elements with `@testId("chat.sendButton")`.
+
+**Argus** (outside-in E2E): `inspect({ platform: "macos", appName: "ClaudPeer" })` to start, then `act`/`assert`/`wait` for automation.
 
 ## Environment
 

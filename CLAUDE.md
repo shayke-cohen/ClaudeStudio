@@ -165,6 +165,15 @@ Dot-separated `viewName.elementName` in camelCase:
 
 When adding new views, pick a unique camelCase prefix and annotate every interactive element.
 
+## Testing
+
+See `TESTING.md` for the complete testing guide, including:
+- Three testing layers (XCTest, AppXray, Argus)
+- Full screen-by-screen control inventory with all `accessibilityIdentifier` and `accessibilityLabel` values
+- AppXray selector syntax (`@testId`, `@label`, `@text`, `@type`)
+- Argus macOS E2E examples and YAML regression test format
+- Dynamic identifier patterns and known gaps
+
 ## Common Tasks
 
 ### Adding a new SwiftData model
