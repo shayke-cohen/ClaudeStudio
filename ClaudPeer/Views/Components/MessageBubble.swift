@@ -1,9 +1,16 @@
 import SwiftUI
 import AppKit
 
+struct AgentAppearance {
+    let color: Color
+    let icon: String
+}
+
 struct MessageBubble: View {
     let message: ConversationMessage
     let participants: [Participant]
+    /// Per-participant appearance map for multi-agent conversations. `nil` for single-agent.
+    var agentAppearances: [UUID: AgentAppearance]?
     var onTapAttachment: ((MessageAttachment) -> Void)?
     /// When set, shows “Fork from here” in the context menu (chat bubbles only).
     var onForkFromHere: (() -> Void)?
@@ -18,6 +25,11 @@ struct MessageBubble: View {
 
     private var isUser: Bool {
         sender?.type == .user
+    }
+
+    private var senderAppearance: AgentAppearance? {
+        guard let senderId = message.senderParticipantId else { return nil }
+        return agentAppearances?[senderId]
     }
 
     var body: some View {
@@ -35,7 +47,7 @@ struct MessageBubble: View {
                 blackboardMessage
             }
         }
-        .accessibilityIdentifier("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")
+        .xrayId("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")
     }
 
     @ViewBuilder
@@ -48,14 +60,14 @@ struct MessageBubble: View {
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     if !isUser {
-                        Image(systemName: "cpu")
+                        Image(systemName: senderAppearance?.icon ?? "cpu")
                             .font(.caption2)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(senderAppearance?.color ?? .purple)
                     }
                     Text(sender?.displayName ?? "Unknown")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("messageBubble.senderLabel.\(message.id.uuidString)")
+                        .foregroundStyle(senderAppearance?.color ?? .secondary)
+                        .xrayId("messageBubble.senderLabel.\(message.id.uuidString)")
                 }
 
                 VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
@@ -69,9 +81,9 @@ struct MessageBubble: View {
                         messageContent
                     }
                 }
-                .padding(.horizontal, isUser ? 12 : 0)
-                .padding(.vertical, isUser ? 8 : 0)
-                .background(isUser ? Color.accentColor.opacity(0.15) : Color.clear)
+                .padding(.horizontal, isUser ? 12 : (senderAppearance != nil ? 10 : 0))
+                .padding(.vertical, isUser ? 8 : (senderAppearance != nil ? 6 : 0))
+                .background(isUser ? Color.accentColor.opacity(0.15) : (senderAppearance.map { $0.color.opacity(0.08) } ?? Color.clear))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(alignment: .topTrailing) {
                     if isHovered {
@@ -90,7 +102,7 @@ struct MessageBubble: View {
                             }
                             .buttonStyle(.borderless)
                             .help("Copy message")
-                            .accessibilityIdentifier("messageBubble.copyButton.\(message.id.uuidString)")
+                            .xrayId("messageBubble.copyButton.\(message.id.uuidString)")
                             .accessibilityLabel("Copy message")
                         }
                         .padding(.horizontal, 6)
@@ -118,7 +130,7 @@ struct MessageBubble: View {
                 } label: {
                     Label("Fork from here", systemImage: "arrow.branch")
                 }
-                .accessibilityIdentifier("messageBubble.forkFromHere.\(message.id.uuidString)")
+                .xrayId("messageBubble.forkFromHere.\(message.id.uuidString)")
             }
             Button {
                 copyMessage()
@@ -145,7 +157,7 @@ struct MessageBubble: View {
                     .onTapGesture {
                         onTapAttachment?(attachment)
                     }
-                    .accessibilityIdentifier("messageBubble.attachment.\(attachment.id.uuidString)")
+                    .xrayId("messageBubble.attachment.\(attachment.id.uuidString)")
             }
         }
         .frame(maxWidth: 300)
@@ -187,7 +199,7 @@ struct MessageBubble: View {
                 .padding(.vertical, 5)
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("messageBubble.thinkingToggle.\(message.id.uuidString)")
+            .xrayId("messageBubble.thinkingToggle.\(message.id.uuidString)")
             .accessibilityLabel(isThinkingExpanded ? "Collapse thinking" : "Expand thinking")
 
             if isThinkingExpanded {

@@ -31,6 +31,11 @@ struct ChatView: View {
     @State private var showAddAgentsSheet = false
     /// Retained while the system share sheet is visible so temp export files can be cleaned up.
     @State private var shareCoordinator: ShareTempFileCoordinator?
+    @State private var showAllDoneBanner = false
+    @State private var allDoneBannerTimer: Task<Void, Never>?
+    @State private var planModeEnabled = false
+    /// The ID of the last assistant message produced while plan mode was active (for showing the Execute Plan action bar).
+    @State private var lastPlanResponseMessageId: UUID?
     @FocusState private var topicFieldFocused: Bool
 
     @Query private var allConversations: [Conversation]
@@ -95,6 +100,33 @@ struct ChatView: View {
         guard let c = conversation, c.sessions.count > 1 else { return nil }
         let names = c.sessions.compactMap { $0.agent?.name ?? "Assistant" }
         return "Group — " + names.joined(separator: ", ") + " · peer replies reach everyone"
+    }
+
+    /// Maps participantId → AgentAppearance for multi-agent conversations. `nil` for single-agent.
+    private var participantAppearanceMap: [UUID: AgentAppearance]? {
+        guard let convo = conversation, convo.sessions.count > 1 else { return nil }
+        var map: [UUID: AgentAppearance] = [:]
+        for participant in convo.participants {
+            if let sessionId = participant.typeSessionId,
+               let session = convo.sessions.first(where: { $0.id == sessionId }),
+               let agent = session.agent {
+                map[participant.id] = AgentAppearance(
+                    color: Color.fromAgentColor(agent.color),
+                    icon: agent.icon
+                )
+            }
+        }
+        return map.isEmpty ? nil : map
+    }
+
+    /// Resolves the active streaming agent's appearance for multi-agent conversations.
+    private var streamingAgentAppearance: AgentAppearance? {
+        guard let convo = conversation, convo.sessions.count > 1 else { return nil }
+        guard let key = activeStreamSessionKey,
+              let sessionId = UUID(uuidString: key),
+              let session = convo.sessions.first(where: { $0.id == sessionId }),
+              let agent = session.agent else { return nil }
+        return AgentAppearance(color: Color.fromAgentColor(agent.color), icon: agent.icon)
     }
 
     private var streamingAppendix: ChatTranscriptStreamingAppendix? {
@@ -165,6 +197,22 @@ struct ChatView: View {
         .onChange(of: sortedMessages.count) { oldCount, newCount in
             if oldCount == 0, newCount > 0 {
                 checkForPendingResponse()
+            }
+        }
+        .onChange(of: appState.sessionActivity) { _, _ in
+            if let convo = conversation {
+                let summary = appState.conversationActivity(for: convo)
+                if case .allDone = summary.aggregate, summary.totalSessions > 0, !showAllDoneBanner {
+                    withAnimation(.easeInOut(duration: 0.3)) { showAllDoneBanner = true }
+                    allDoneBannerTimer?.cancel()
+                    allDoneBannerTimer = Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            withAnimation(.easeInOut(duration: 0.5)) { showAllDoneBanner = false }
+                        }
+                    }
+                }
             }
         }
         .task(id: isProcessing) {
@@ -253,15 +301,26 @@ struct ChatView: View {
                         .frame(maxWidth: 300)
                         .onSubmit { commitRename() }
                         .onExitCommand { cancelRename() }
-                        .accessibilityIdentifier("chat.topicField")
+                        .xrayId("chat.topicField")
                 } else {
                     Text(conversation?.topic ?? "Chat")
                         .font(.headline)
                         .lineLimit(1)
-                        .accessibilityIdentifier("chat.topicTitle")
+                        .xrayId("chat.topicTitle")
                 }
 
                 Spacer()
+
+                if planModeEnabled {
+                    Text("Plan Mode")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.orange, in: Capsule())
+                        .xrayId("chat.planModeBadge")
+                }
 
                 if let model = currentModel {
                     Text(modelShortName(model))
@@ -271,7 +330,7 @@ struct ChatView: View {
                         .padding(.vertical, 2)
                         .background(.quaternary)
                         .clipShape(Capsule())
-                        .accessibilityIdentifier("chat.modelPill")
+                        .xrayId("chat.modelPill")
                 }
 
                 if let cost = liveCost, cost > 0 {
@@ -279,7 +338,7 @@ struct ChatView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                        .accessibilityIdentifier("chat.liveCostLabel")
+                        .xrayId("chat.liveCostLabel")
                 }
 
                 if let convo = conversation {
@@ -294,7 +353,7 @@ struct ChatView: View {
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .accessibilityIdentifier("chat.missionPreview")
+                        .xrayId("chat.missionPreview")
                     Spacer()
                 }
             }
@@ -323,7 +382,7 @@ struct ChatView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .accessibilityIdentifier("chat.groupAgentIcons")
+            .xrayId("chat.groupAgentIcons")
         } else if let agent = primarySession?.agent {
             Button {
                 appState.showAgentLibrary = true
@@ -334,13 +393,13 @@ struct ChatView: View {
             }
             .buttonStyle(.plain)
             .help("Open agent: \(agent.name)")
-            .accessibilityIdentifier("chat.agentIconButton")
+            .xrayId("chat.agentIconButton")
             .accessibilityLabel("Open agent \(agent.name)")
         } else {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .foregroundStyle(.blue)
                 .font(.title3)
-                .accessibilityIdentifier("chat.chatIcon")
+                .xrayId("chat.chatIcon")
         }
     }
 
@@ -352,21 +411,21 @@ struct ChatView: View {
                     Image(systemName: "pause.fill")
                 }
                 .help("Pause session")
-                .accessibilityIdentifier("chat.pauseButton")
+                .xrayId("chat.pauseButton")
                 .accessibilityLabel("Pause session")
 
                 Button { closeConversation(convo) } label: {
                     Image(systemName: "stop.circle")
                 }
                 .help("Close session")
-                .accessibilityIdentifier("chat.closeSessionButton")
+                .xrayId("chat.closeSessionButton")
                 .accessibilityLabel("Close session")
             } else if convo.sessions.contains(where: { $0.status == .paused }) {
                 Button { resumeSession() } label: {
                     Image(systemName: "play.fill")
                 }
                 .help("Resume session")
-                .accessibilityIdentifier("chat.resumeButton")
+                .xrayId("chat.resumeButton")
                 .accessibilityLabel("Resume session")
             }
 
@@ -375,7 +434,7 @@ struct ChatView: View {
                     Button { forkConversation() } label: {
                         Label("Fork Conversation", systemImage: "arrow.branch")
                     }
-                    .accessibilityIdentifier("chat.moreOptions.fork")
+                    .xrayId("chat.moreOptions.fork")
                 }
                 Button {
                     editedTopic = convo.topic ?? ""
@@ -384,11 +443,11 @@ struct ChatView: View {
                 } label: {
                     Label("Rename", systemImage: "pencil")
                 }
-                .accessibilityIdentifier("chat.moreOptions.rename")
+                .xrayId("chat.moreOptions.rename")
                 Button { duplicateConversation(convo) } label: {
                     Label("Duplicate", systemImage: "doc.on.doc")
                 }
-                .accessibilityIdentifier("chat.moreOptions.duplicate")
+                .xrayId("chat.moreOptions.duplicate")
                 Divider()
                 Menu {
                     Button {
@@ -397,26 +456,26 @@ struct ChatView: View {
                         Label("Markdown…", systemImage: "doc.richtext")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.export.markdown")
+                    .xrayId("chat.export.markdown")
                     Button {
                         Task { await exportChatTranscript(kind: .html, destination: .save) }
                     } label: {
                         Label("HTML…", systemImage: "doc.richtext")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.export.html")
+                    .xrayId("chat.export.html")
                     Button {
                         Task { await exportChatTranscript(kind: .pdf, destination: .save) }
                     } label: {
                         Label("PDF…", systemImage: "doc.fill")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.export.pdf")
+                    .xrayId("chat.export.pdf")
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.down")
                 }
                 .disabled(!canExportChat)
-                .accessibilityIdentifier("chat.exportSubmenu")
+                .xrayId("chat.exportSubmenu")
                 .accessibilityLabel("Export chat")
                 Menu {
                     Button {
@@ -425,39 +484,39 @@ struct ChatView: View {
                         Label("Markdown", systemImage: "doc.richtext")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.share.markdown")
+                    .xrayId("chat.share.markdown")
                     Button {
                         Task { await exportChatTranscript(kind: .html, destination: .share) }
                     } label: {
                         Label("HTML", systemImage: "doc.richtext")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.share.html")
+                    .xrayId("chat.share.html")
                     Button {
                         Task { await exportChatTranscript(kind: .pdf, destination: .share) }
                     } label: {
                         Label("PDF", systemImage: "doc.fill")
                     }
                     .disabled(!canExportChat)
-                    .accessibilityIdentifier("chat.share.pdf")
+                    .xrayId("chat.share.pdf")
                 } label: {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
                 .disabled(!canExportChat)
-                .accessibilityIdentifier("chat.shareSubmenu")
+                .xrayId("chat.shareSubmenu")
                 .accessibilityLabel("Share chat")
                 Divider()
                 Button { showClearConfirmation = true } label: {
                     Label("Clear Messages", systemImage: "trash")
                 }
-                .accessibilityIdentifier("chat.moreOptions.clearMessages")
+                .xrayId("chat.moreOptions.clearMessages")
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
             .frame(width: 20)
             .help("More options")
-            .accessibilityIdentifier("chat.moreOptionsMenu")
+            .xrayId("chat.moreOptionsMenu")
             .accessibilityLabel("More options")
         }
         .buttonStyle(.borderless)
@@ -474,6 +533,7 @@ struct ChatView: View {
                         MessageBubble(
                             message: message,
                             participants: conversation?.participants ?? [],
+                            agentAppearances: participantAppearanceMap,
                             onTapAttachment: { attachment in
                                 previewAttachment = attachment
                             },
@@ -482,16 +542,51 @@ struct ChatView: View {
                             }
                         )
                         .id(message.id)
+
+                        if message.id == lastPlanResponseMessageId, !isProcessing {
+                            planActionBar
+                        }
+                    }
+
+                    if let convo = conversation, convo.sessions.count > 1 {
+                        AgentActivityBar(
+                            sessions: convo.sessions,
+                            sessionActivity: appState.sessionActivity
+                        )
+                        .id("agentActivityBar")
                     }
 
                     if isProcessing {
                         streamingBubble
                             .id("streaming")
                     }
+
+                    ForEach(pendingQuestionsForCurrentConversation) { question in
+                        AgentQuestionBubble(
+                            question: question,
+                            agentName: agentNameForQuestion(question),
+                            agentColor: agentColorForQuestion(question)
+                        ) { answer, selectedOptions in
+                            appState.answerQuestion(
+                                sessionId: question.sessionId,
+                                questionId: question.id,
+                                answer: answer,
+                                selectedOptions: selectedOptions
+                            )
+                        }
+                        .id("agentQuestion-\(question.id)")
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    if showAllDoneBanner {
+                        AllDoneBanner()
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .id("allDoneBanner")
+                    }
                 }
                 .padding()
             }
-            .accessibilityIdentifier("chat.messageScrollView")
+            .xrayId("chat.messageScrollView")
             .onChange(of: sortedMessages.count) { _, _ in
                 scrollToBottom(proxy)
             }
@@ -524,7 +619,7 @@ struct ChatView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
                     .padding(.top, 6)
-                    .accessibilityIdentifier("chat.sendingToHint")
+                    .xrayId("chat.sendingToHint")
             }
 
             if !mentionAutocompleteAgents.isEmpty {
@@ -546,13 +641,13 @@ struct ChatView: View {
                                 .background(.quaternary, in: Capsule())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityIdentifier("chat.mentionSuggestion.\(agent.id.uuidString)")
+                            .xrayId("chat.mentionSuggestion.\(agent.id.uuidString)")
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 4)
                 }
-                .accessibilityIdentifier("chat.mentionSuggestions")
+                .xrayId("chat.mentionSuggestions")
             }
 
             HStack(alignment: .bottom, spacing: 8) {
@@ -563,12 +658,25 @@ struct ChatView: View {
                         .font(.body)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityIdentifier("chat.attachButton")
+                .xrayId("chat.attachButton")
                 .accessibilityLabel("Attach file")
                 .help("Attach file")
                 .disabled(isProcessing)
 
                 delegateMenu
+
+                Button {
+                    planModeEnabled.toggle()
+                } label: {
+                    Image(systemName: planModeEnabled ? "doc.text.magnifyingglass" : "doc.text.magnifyingglass")
+                        .font(.body)
+                        .foregroundStyle(planModeEnabled ? .orange : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .xrayId("chat.planModeToggle")
+                .accessibilityLabel("Toggle plan mode")
+                .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
+                .disabled(isProcessing)
 
                 PasteableTextField(
                     text: $inputText,
@@ -579,7 +687,7 @@ struct ChatView: View {
                     onSubmit: { if canSend { sendMessage() } },
                     canSubmitOnReturn: { canSend }
                 )
-                .accessibilityIdentifier("chat.messageInput")
+                .xrayId("chat.messageInput")
                 .help("Return sends when there is text or attachments. Shift-Return inserts a new line. ⌘↩ also sends.")
 
                 Button {
@@ -589,7 +697,7 @@ struct ChatView: View {
                         .font(.title2)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityIdentifier("chat.sendButton")
+                .xrayId("chat.sendButton")
                 .accessibilityLabel("Send message")
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: .command)
@@ -602,6 +710,35 @@ struct ChatView: View {
             handleDrop(providers)
             return true
         }
+    }
+
+    @ViewBuilder
+    private var planActionBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                executePlan()
+            } label: {
+                Label("Execute Plan", systemImage: "play.fill")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .xrayId("chat.executePlanButton")
+
+            Button {
+                // Keep plan mode on, just clear the action bar so user can type a follow-up
+                lastPlanResponseMessageId = nil
+            } label: {
+                Label("Refine Plan", systemImage: "pencil")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .xrayId("chat.refinePlanButton")
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -619,7 +756,7 @@ struct ChatView: View {
                                 .onTapGesture {
                                     previewImageFromPending = (data: item.data, mediaType: item.mediaType)
                                 }
-                                .accessibilityIdentifier("chat.pendingAttachment.\(index)")
+                                .xrayId("chat.pendingAttachment.\(index)")
                         } else {
                             VStack(spacing: 2) {
                                 Image(systemName: iconForMediaType(item.mediaType))
@@ -633,7 +770,7 @@ struct ChatView: View {
                             }
                             .frame(width: 60, height: 60)
                             .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
-                            .accessibilityIdentifier("chat.pendingAttachment.\(index)")
+                            .xrayId("chat.pendingAttachment.\(index)")
                         }
 
                         Button {
@@ -646,7 +783,7 @@ struct ChatView: View {
                         }
                         .buttonStyle(.borderless)
                         .offset(x: 4, y: -4)
-                        .accessibilityIdentifier("chat.pendingAttachment.remove.\(index)")
+                        .xrayId("chat.pendingAttachment.remove.\(index)")
                         .accessibilityLabel("Remove attachment")
                     }
                 }
@@ -654,7 +791,7 @@ struct ChatView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .accessibilityIdentifier("chat.pendingAttachments")
+        .xrayId("chat.pendingAttachments")
     }
 
     @ViewBuilder
@@ -678,7 +815,7 @@ struct ChatView: View {
         }
         .menuStyle(.borderlessButton)
         .frame(width: 20)
-        .accessibilityIdentifier("chat.delegateButton")
+        .xrayId("chat.delegateButton")
         .accessibilityLabel("Delegate to agent")
         .help("Delegate task to another agent")
         .disabled(isProcessing || appState.sidecarStatus != .connected || eligibleAgents.isEmpty)
@@ -754,15 +891,22 @@ struct ChatView: View {
 
     @ViewBuilder
     private var streamingBubble: some View {
+        let appearance = streamingAgentAppearance
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
-                    Image(systemName: "cpu")
+                    Image(systemName: appearance?.icon ?? "cpu")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(appearance?.color ?? .purple)
                     Text(streamingDisplayName)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(appearance?.color ?? .secondary)
+                    if let key = activeStreamSessionKey,
+                       let state = appState.sessionActivity[key] {
+                        Text(state.displayLabel)
+                            .font(.caption2)
+                            .foregroundStyle(state.displayColor.opacity(0.8))
+                    }
                 }
 
                 if let thinking = liveThinkingText {
@@ -775,10 +919,14 @@ struct ChatView: View {
                     StreamingIndicator()
                 }
             }
+            .padding(.horizontal, appearance != nil ? 10 : 0)
+            .padding(.vertical, appearance != nil ? 6 : 0)
+            .background(appearance.map { $0.color.opacity(0.08) } ?? Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Spacer(minLength: 60)
         }
-        .accessibilityIdentifier("chat.streamingBubble")
+        .xrayId("chat.streamingBubble")
     }
 
     @ViewBuilder
@@ -807,7 +955,7 @@ struct ChatView: View {
                 .padding(.vertical, 5)
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("chat.streamingThinkingToggle")
+            .xrayId("chat.streamingThinkingToggle")
             .accessibilityLabel(isStreamingThinkingExpanded ? "Collapse thinking" : "Expand thinking")
 
             if isStreamingThinkingExpanded {
@@ -831,6 +979,30 @@ struct ChatView: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(.indigo.opacity(0.15), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - Agent Question Helpers
+
+    private var pendingQuestionsForCurrentConversation: [AppState.AgentQuestion] {
+        guard let convo = conversation else { return [] }
+        return convo.sessions.compactMap { session in
+            appState.pendingQuestions[session.id.uuidString]
+        }
+    }
+
+    private func agentNameForQuestion(_ question: AppState.AgentQuestion) -> String {
+        guard let convo = conversation else { return "Agent" }
+        if let session = convo.sessions.first(where: { $0.id.uuidString == question.sessionId }) {
+            return session.agent?.name ?? "Agent"
+        }
+        return "Agent"
+    }
+
+    private func agentColorForQuestion(_ question: AppState.AgentQuestion) -> Color? {
+        guard let convo = conversation, convo.sessions.count > 1,
+              let session = convo.sessions.first(where: { $0.id.uuidString == question.sessionId }),
+              let agent = session.agent else { return nil }
+        return Color.fromAgentColor(agent.color)
     }
 
     // MARK: - Helpers
@@ -932,6 +1104,15 @@ struct ChatView: View {
             if case .agentSession(let sid) = $0.type { return sid == session.id }
             return false
         }
+    }
+
+    // MARK: - Plan Mode Actions
+
+    private func executePlan() {
+        planModeEnabled = false
+        lastPlanResponseMessageId = nil
+        inputText = "Go ahead and execute the plan above."
+        sendMessage()
     }
 
     // MARK: - Send Message
@@ -1069,6 +1250,7 @@ struct ChatView: View {
         processingStartTime = Date()
 
         let mentionHighlightNames = resolvedMentionAgents.map(\.name)
+        let currentPlanMode = planModeEnabled
         Task { @MainActor in
             await runSequentialAgentTurns(
                 convo: convo,
@@ -1076,7 +1258,8 @@ struct ChatView: View {
                 latestUserText: text,
                 highlightedMentionAgentNames: mentionHighlightNames,
                 wireAttachments: wireAttachments,
-                manager: manager
+                manager: manager,
+                planMode: currentPlanMode
             )
         }
     }
@@ -1088,7 +1271,8 @@ struct ChatView: View {
         latestUserText: String,
         highlightedMentionAgentNames: [String],
         wireAttachments: [WireAttachment],
-        manager: SidecarManager
+        manager: SidecarManager,
+        planMode: Bool = false
     ) async {
         GroupWorkingDirectory.ensureShared(
             for: convo,
@@ -1118,6 +1302,7 @@ struct ChatView: View {
             appState.streamingText.removeValue(forKey: sidecarKey)
             appState.thinkingText.removeValue(forKey: sidecarKey)
             appState.lastSessionEvent.removeValue(forKey: sidecarKey)
+            appState.sessionActivity[sidecarKey] = .idle
 
             var createConfig: AgentConfig?
             if !appState.createdSessions.contains(sidecarKey) {
@@ -1152,7 +1337,8 @@ struct ChatView: View {
                 try await manager.send(.sessionMessage(
                     sessionId: sidecarKey,
                     text: promptText,
-                    attachments: wireAttachments
+                    attachments: wireAttachments,
+                    planMode: planMode
                 ))
             } catch {
                 isProcessing = false
@@ -1174,6 +1360,9 @@ struct ChatView: View {
                 session: session,
                 sidecarKey: sidecarKey
             ) {
+                if planMode {
+                    lastPlanResponseMessageId = reply.id
+                }
                 let pendingUserTurnIds = Set(targetSessions.suffix(from: index + 1).map(\.id))
                 await fanOutPeerNotifications(
                     fromSession: session,
@@ -1238,6 +1427,7 @@ struct ChatView: View {
             appState.streamingText.removeValue(forKey: key)
             appState.thinkingText.removeValue(forKey: key)
             appState.lastSessionEvent.removeValue(forKey: key)
+            appState.sessionActivity[key] = .idle
 
             var createConfig: AgentConfig?
             if !appState.createdSessions.contains(key) {
@@ -1370,10 +1560,12 @@ struct ChatView: View {
             err = m
         }
         let streamedText = appState.streamingText[sidecarKey] ?? ""
-        guard !streamedText.isEmpty || err != nil else {
+        let hasImages = !(appState.streamingImages[sidecarKey]?.isEmpty ?? true)
+        let hasFileCards = !(appState.streamingFileCards[sidecarKey]?.isEmpty ?? true)
+        guard !streamedText.isEmpty || err != nil || hasImages || hasFileCards else {
             return nil
         }
-        let responseText = !streamedText.isEmpty ? streamedText : (err ?? "(no response)")
+        let responseText = !streamedText.isEmpty ? streamedText : (err ?? "")
 
         let agentParticipant = participantForSession(session, in: convo)
         let response = ConversationMessage(
@@ -1606,7 +1798,9 @@ struct ChatView: View {
     private func pauseSession() {
         guard let convo = conversation else { return }
         for session in convo.sessions {
-            appState.sendToSidecar(.sessionPause(sessionId: session.id.uuidString))
+            let key = session.id.uuidString
+            appState.sendToSidecar(.sessionPause(sessionId: key))
+            appState.pendingQuestions.removeValue(forKey: key)
             session.status = .paused
         }
         try? modelContext.save()
@@ -1627,7 +1821,9 @@ struct ChatView: View {
         convo.status = .closed
         convo.closedAt = Date()
         for session in convo.sessions {
-            appState.sendToSidecar(.sessionPause(sessionId: session.id.uuidString))
+            let key = session.id.uuidString
+            appState.sendToSidecar(.sessionPause(sessionId: key))
+            appState.pendingQuestions.removeValue(forKey: key)
             session.status = .paused
         }
         try? modelContext.save()
