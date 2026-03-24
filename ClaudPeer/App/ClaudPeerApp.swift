@@ -23,20 +23,22 @@ struct ClaudPeerApp: App {
         do {
             let storeURL = InstanceConfig.dataDirectory.appendingPathComponent("ClaudPeer.store")
             let config = ModelConfiguration(url: storeURL)
+            let schema = Schema([
+                Agent.self,
+                Session.self,
+                Conversation.self,
+                ConversationMessage.self,
+                MessageAttachment.self,
+                Skill.self,
+                MCPServer.self,
+                PermissionSet.self,
+                SharedWorkspace.self,
+                BlackboardEntry.self,
+                Peer.self,
+                AgentGroup.self,
+            ])
             modelContainer = try ModelContainer(
-                for:
-                    Agent.self,
-                    Session.self,
-                    Conversation.self,
-                    ConversationMessage.self,
-                    MessageAttachment.self,
-                    Skill.self,
-                    MCPServer.self,
-                    PermissionSet.self,
-                    SharedWorkspace.self,
-                    BlackboardEntry.self,
-                    Peer.self,
-                    AgentGroup.self,
+                for: schema,
                 configurations: config
             )
         } catch {
