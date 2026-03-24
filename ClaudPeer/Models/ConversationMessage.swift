@@ -21,6 +21,7 @@ final class ConversationMessage {
     var toolInput: String?
     var toolOutput: String?
     var thinkingText: String?
+    var workflowStepIndex: Int?
     var isStreaming: Bool
     var conversation: Conversation?
 

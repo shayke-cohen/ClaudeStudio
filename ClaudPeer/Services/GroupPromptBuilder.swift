@@ -21,7 +21,8 @@ enum GroupPromptBuilder {
         latestUserMessageText: String,
         participants: [Participant],
         highlightedMentionAgentNames: [String] = [],
-        groupInstruction: String? = nil
+        groupInstruction: String? = nil,
+        role: GroupRole? = nil
     ) -> String {
         let sessionCount = conversation.sessions.count
         guard shouldUseGroupInjection(sessionCount: sessionCount) else {
@@ -50,6 +51,11 @@ enum GroupPromptBuilder {
             return "[Group Context]\n\(instr)\n---\n"
         }()
 
+        let roleBlock: String = {
+            guard let role, role != .participant else { return "" }
+            return "[Your Role: \(role.displayName)]\n\(role.systemPromptSnippet)\n---\n"
+        }()
+
         let agentName = targetSession.agent?.name ?? "Assistant"
         let mentionNote: String = {
             let names = highlightedMentionAgentNames
@@ -60,7 +66,7 @@ enum GroupPromptBuilder {
             return "\nThe user specifically mentioned by name: \(joined). Address them directly when appropriate.\n"
         }()
         return """
-        \(instructionBlock)--- Group thread (new since your last reply) ---
+        \(instructionBlock)\(roleBlock)--- Group thread (new since your last reply) ---
         \(clipped)
         --- End ---
         \(mentionNote)
@@ -76,18 +82,102 @@ enum GroupPromptBuilder {
     static func buildPeerNotifyPrompt(
         senderLabel: String,
         peerMessageText: String,
-        recipientSession: Session
+        recipientSession: Session,
+        role: GroupRole? = nil
     ) -> String {
         let name = recipientSession.agent?.name ?? "Assistant"
         let body = peerMessageText.trimmingCharacters(in: .whitespacesAndNewlines)
         let shown = body.isEmpty ? "(empty)" : body
+
+        let roleInstruction: String
+        switch role {
+        case .observer:
+            roleInstruction = "You are \(name) (observer). Only reply if you are directly addressed by name or have critical information. Otherwise reply very briefly that you have nothing to add."
+        case .scribe:
+            roleInstruction = "You are \(name) (scribe). If this exchange contains a decision or outcome, record it to the blackboard. You may also reply briefly to the group."
+        case .coordinator:
+            roleInstruction = "You are \(name) (coordinator). Consider whether this changes the plan or requires redirecting the group. Reply if you have guidance."
+        default:
+            roleInstruction = "You are \(name). Another participant posted the above in this shared group. You may reply to the whole group if you have something substantive to add; stay concise. If you have nothing useful to add, reply very briefly (e.g. that you have nothing to add)."
+        }
+
         return """
         --- Group chat: peer message ---
         \(senderLabel): \(shown)
         --- End ---
 
-        You are \(name). Another participant posted the above in this shared group. You may reply to the whole group if you have something substantive to add; stay concise. If you have nothing useful to add, reply very briefly (e.g. that you have nothing to add).
+        \(roleInstruction)
         """
+    }
+
+    // MARK: - Workflow Step Prompt
+
+    static func buildWorkflowStepPrompt(
+        step: WorkflowStep,
+        stepIndex: Int,
+        totalSteps: Int,
+        userMessage: String,
+        previousStepOutput: String?,
+        groupInstruction: String? = nil,
+        role: GroupRole? = nil
+    ) -> String {
+        var parts: [String] = []
+
+        if let instr = groupInstruction, !instr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("[Group Context]\n\(instr)\n---")
+        }
+
+        if let role, role != .participant {
+            parts.append("[Your Role: \(role.displayName)]\n\(role.systemPromptSnippet)\n---")
+        }
+
+        let label = step.stepLabel ?? "Step \(stepIndex + 1)"
+        parts.append("[Workflow Step \(stepIndex + 1)/\(totalSteps): \(label)]")
+        parts.append("Your task: \(step.instruction)")
+
+        if let prev = previousStepOutput, !prev.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let clipped = prev.count > maxInjectedCharacters ? String(prev.suffix(maxInjectedCharacters)) : prev
+            parts.append("\n[Previous step output]:\n\(clipped)")
+        }
+
+        parts.append("\n[User's original request]:\n\"\"\"\n\(userMessage)\n\"\"\"")
+
+        return parts.joined(separator: "\n")
+    }
+
+    // MARK: - Autonomous Coordinator Prompt
+
+    static func buildCoordinatorPrompt(
+        mission: String,
+        teamAgents: [(name: String, description: String)],
+        groupInstruction: String?
+    ) -> String {
+        var parts: [String] = []
+
+        if let instr = groupInstruction, !instr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("[Group Context]\n\(instr)\n---")
+        }
+
+        parts.append("[Autonomous Mission]")
+        parts.append("You are the coordinator of an autonomous agent team. Your mission:")
+        parts.append("\"\"\"\n\(mission)\n\"\"\"")
+
+        parts.append("\nYour team:")
+        for agent in teamAgents {
+            parts.append("- \(agent.name): \(agent.description)")
+        }
+
+        parts.append("""
+
+        Instructions:
+        - Use peer_delegate_task to assign specific tasks to team members.
+        - Use peer_receive_messages to check for completed work.
+        - Use blackboard_write to record decisions and progress.
+        - Coordinate the team to accomplish the mission efficiently.
+        - When all tasks are complete, write a final summary and include "MISSION COMPLETE" in your response.
+        """)
+
+        return parts.joined(separator: "\n")
     }
 
     static func senderDisplayLabel(for message: ConversationMessage, participants: [Participant]) -> String {

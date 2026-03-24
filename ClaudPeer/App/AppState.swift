@@ -226,6 +226,61 @@ final class AppState: ObservableObject {
         selectedConversationId = conversation.id
     }
 
+    func startAutonomousGroupChat(group: AgentGroup, mission: String, modelContext: ModelContext) {
+        guard group.autonomousCapable, !group.agentIds.isEmpty else { return }
+
+        let allAgents = (try? modelContext.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentById = Dictionary(uniqueKeysWithValues: allAgents.map { ($0.id, $0) })
+        let resolvedAgents = group.agentIds.compactMap { agentById[$0] }
+        guard !resolvedAgents.isEmpty else { return }
+
+        let conversation = Conversation(topic: "\(group.name) — Autonomous")
+        conversation.sourceGroupId = group.id
+        conversation.isAutonomous = true
+
+        let userParticipant = Participant(type: .user, displayName: "You")
+        userParticipant.conversation = conversation
+        conversation.participants.append(userParticipant)
+
+        let instruction = group.groupInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !instruction.isEmpty {
+            let sysMsg = ConversationMessage(
+                senderParticipantId: nil,
+                text: instruction,
+                type: .system,
+                conversation: conversation
+            )
+            conversation.messages.append(sysMsg)
+        }
+
+        let provisioner = AgentProvisioner(modelContext: modelContext)
+
+        for agent in resolvedAgents {
+            let (_, session) = provisioner.provision(agent: agent, mission: mission)
+            session.conversations = [conversation]
+            conversation.sessions.append(session)
+
+            let agentParticipant = Participant(
+                type: .agentSession(sessionId: session.id),
+                displayName: agent.name
+            )
+            agentParticipant.conversation = conversation
+            conversation.participants.append(agentParticipant)
+            modelContext.insert(session)
+        }
+
+        modelContext.insert(conversation)
+        try? modelContext.save()
+
+        GroupWorkingDirectory.ensureShared(
+            for: conversation,
+            instanceDefault: instanceWorkingDirectory,
+            modelContext: modelContext
+        )
+
+        selectedConversationId = conversation.id
+    }
+
     func connectSidecar() {
         guard sidecarStatus == .disconnected || {
             if case .error = sidecarStatus { return true }

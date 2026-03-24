@@ -10,7 +10,10 @@ struct SidebarView: View {
     @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
     @State private var searchText = ""
     @State private var expandedAgentIds: Set<UUID> = []
+    @State private var expandedGroupIds: Set<UUID> = []
     @State private var editingGroup: AgentGroup?
+    @State private var autonomousGroup: AgentGroup?
+    @State private var showAutoAssemble = false
     @State private var renamingConversation: Conversation?
     @State private var renameText = ""
     @State private var conversationToDelete: Conversation?
@@ -47,6 +50,14 @@ struct SidebarView: View {
         }
         .sheet(item: $editingGroup) { group in
             GroupEditorView(group: group)
+        }
+        .sheet(item: $autonomousGroup) { group in
+            AutonomousMissionSheet(group: group)
+                .environmentObject(appState)
+        }
+        .sheet(isPresented: $showAutoAssemble) {
+            AutoAssembleSheet()
+                .environmentObject(appState)
         }
         .alert("Rename Conversation", isPresented: Binding(
             get: { renamingConversation != nil },
@@ -108,6 +119,20 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .help("Agent library")
             .xrayId("sidebar.agentsButton")
+
+            Divider()
+                .frame(height: 16)
+
+            Button {
+                showAutoAssemble = true
+            } label: {
+                Image(systemName: "wand.and.stars")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .help("Auto-assemble team")
+            .xrayId("sidebar.autoAssembleButton")
 
             Divider()
                 .frame(height: 16)
@@ -319,11 +344,25 @@ struct SidebarView: View {
             ForEach(groups) { group in
                 GroupSidebarRowView(
                     group: group,
-                    agentCount: group.agentIds.compactMap { id in agents.first { $0.id == id } }.count
+                    agentCount: group.agentIds.compactMap { id in agents.first { $0.id == id } }.count,
+                    conversations: conversationsForGroup(group),
+                    isExpanded: Binding(
+                        get: { expandedGroupIds.contains(group.id) },
+                        set: { expanded in
+                            if expanded { expandedGroupIds.insert(group.id) }
+                            else { expandedGroupIds.remove(group.id) }
+                        }
+                    ),
+                    onNewChat: {
+                        appState.startGroupChat(group: group, modelContext: modelContext)
+                    },
+                    onNewAutonomousChat: group.autonomousCapable ? {
+                        autonomousGroup = group
+                    } : nil,
+                    onSelectConversation: { conv in
+                        appState.selectedConversationId = conv.id
+                    }
                 )
-                .onTapGesture {
-                    appState.startGroupChat(group: group, modelContext: modelContext)
-                }
                 .contextMenu {
                     Button("Start Chat") {
                         appState.startGroupChat(group: group, modelContext: modelContext)
@@ -575,6 +614,10 @@ struct SidebarView: View {
     }
 
     // MARK: - Agent Chat History
+
+    private func conversationsForGroup(_ group: AgentGroup) -> [Conversation] {
+        conversations.filter { $0.sourceGroupId == group.id }
+    }
 
     private func conversationsForAgent(_ agent: Agent) -> [Conversation] {
         var seen = Set<UUID>()

@@ -31,19 +31,6 @@ struct AgentSidebarRowView: View {
                 .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).chatRow.\(conv.id.uuidString)")
             }
 
-            Button {
-                onNewChat()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.caption2)
-                    Text("New Chat")
-                        .font(.caption)
-                }
-                .foregroundStyle(.blue)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).newChatButton")
         } label: {
             HStack {
                 Image(systemName: agent.icon)
@@ -59,6 +46,15 @@ struct AgentSidebarRowView: View {
                         .background(.quaternary)
                         .clipShape(Capsule())
                 }
+                Button {
+                    onNewChat()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).newChatButton")
                 if agent.instancePolicy != .spawn {
                     Text(policyBadge(agent.instancePolicy))
                         .font(.caption2)

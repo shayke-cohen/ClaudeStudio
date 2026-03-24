@@ -1318,10 +1318,15 @@ struct ChatView: View {
                 }
             }
 
-            let groupInstruction: String? = {
+            let sourceGroup: AgentGroup? = {
                 guard let gid = convo.sourceGroupId else { return nil }
                 let desc = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == gid })
-                return (try? modelContext.fetch(desc).first)?.groupInstruction
+                return try? modelContext.fetch(desc).first
+            }()
+            let groupInstruction = sourceGroup?.groupInstruction
+            let agentRole: GroupRole? = {
+                guard let group = sourceGroup, let agentId = session.agent?.id else { return nil }
+                return group.roleFor(agentId: agentId)
             }()
 
             let promptText = GroupPromptBuilder.buildMessageText(
@@ -1330,7 +1335,8 @@ struct ChatView: View {
                 latestUserMessageText: latestUserText,
                 participants: participants,
                 highlightedMentionAgentNames: highlightedMentionAgentNames,
-                groupInstruction: groupInstruction
+                groupInstruction: groupInstruction,
+                role: agentRole
             )
 
             do {
@@ -1418,6 +1424,14 @@ struct ChatView: View {
     ) async {
         guard convo.sessions.count > 1 else { return }
 
+        // Check auto-reply toggle on the source group
+        if let gid = convo.sourceGroupId {
+            let desc = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == gid })
+            if let group = try? modelContext.fetch(desc).first, !group.autoReplyEnabled {
+                return
+            }
+        }
+
         let senderLabel = GroupPromptBuilder.senderDisplayLabel(for: triggerMessage, participants: participants)
         let sortedOthers = convo.sessions
             .filter { $0.id != fromSession.id && !skipRecipientSessionIds.contains($0.id) }
@@ -1450,10 +1464,19 @@ struct ChatView: View {
                 }
             }
 
+            let peerRole: GroupRole? = {
+                guard let gid = convo.sourceGroupId else { return nil }
+                let desc = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == gid })
+                guard let group = try? modelContext.fetch(desc).first,
+                      let agentId = other.agent?.id else { return nil }
+                return group.roleFor(agentId: agentId)
+            }()
+
             let prompt = GroupPromptBuilder.buildPeerNotifyPrompt(
                 senderLabel: senderLabel,
                 peerMessageText: triggerMessage.text,
-                recipientSession: other
+                recipientSession: other,
+                role: peerRole
             )
 
             do {

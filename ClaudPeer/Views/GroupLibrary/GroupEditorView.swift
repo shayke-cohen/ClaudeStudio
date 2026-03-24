@@ -15,10 +15,20 @@ struct GroupEditorView: View {
     @State private var groupInstruction: String = ""
     @State private var defaultMission: String = ""
     @State private var selectedAgentIds: [UUID] = []
+    @State private var autoReplyEnabled: Bool = true
+    @State private var autonomousCapable: Bool = false
+    @State private var coordinatorAgentId: UUID?
+    @State private var agentRoles: [UUID: String] = [:]
+    @State private var hasWorkflow: Bool = false
+    @State private var workflowSteps: [WorkflowStep] = []
 
     private let availableColors = ["blue", "red", "green", "purple", "orange", "yellow", "pink", "teal", "indigo", "gray"]
 
     private var isEditing: Bool { group != nil }
+
+    private var selectedAgents: [Agent] {
+        allAgents.filter { selectedAgentIds.contains($0.id) }
+    }
 
     private var pastConversations: [Conversation] {
         guard let gid = group?.id else { return [] }
@@ -31,7 +41,6 @@ struct GroupEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text(isEditing ? "Edit Group" : "New Group")
                     .font(.title2.bold())
@@ -53,7 +62,6 @@ struct GroupEditorView: View {
                     TextField("Description", text: $groupDescription)
                         .accessibilityIdentifier("groupEditor.descriptionField")
 
-                    // Color swatches
                     HStack(spacing: 6) {
                         Text("Color")
                             .foregroundStyle(.secondary)
@@ -88,37 +96,95 @@ struct GroupEditorView: View {
                         .accessibilityIdentifier("groupEditor.defaultMissionField")
                 }
 
-                // Agent Selection
+                // Behavior
+                Section("Behavior") {
+                    Toggle("Auto-Reply (agents react to each other)", isOn: $autoReplyEnabled)
+                        .accessibilityIdentifier("groupEditor.autoReplyToggle")
+                    Toggle("Autonomous Capable", isOn: $autonomousCapable)
+                        .accessibilityIdentifier("groupEditor.autonomousToggle")
+
+                    if autonomousCapable && !selectedAgents.isEmpty {
+                        Picker("Coordinator", selection: $coordinatorAgentId) {
+                            Text("None").tag(UUID?.none)
+                            ForEach(selectedAgents) { agent in
+                                HStack {
+                                    Image(systemName: agent.icon)
+                                        .foregroundStyle(Color.fromAgentColor(agent.color))
+                                    Text(agent.name)
+                                }
+                                .tag(UUID?.some(agent.id))
+                            }
+                        }
+                        .accessibilityIdentifier("groupEditor.coordinatorPicker")
+                    }
+                }
+
+                // Workflow
+                Section("Workflow") {
+                    Toggle("Enable Workflow (step-by-step pipeline)", isOn: $hasWorkflow)
+                        .accessibilityIdentifier("groupEditor.workflowToggle")
+
+                    if hasWorkflow {
+                        WorkflowEditorView(
+                            availableAgents: selectedAgents,
+                            steps: $workflowSteps
+                        )
+                    }
+                }
+
+                // Agent Selection with Roles
                 Section("Agents (\(selectedAgentIds.count))") {
                     ForEach(allAgents) { agent in
                         let isSelected = selectedAgentIds.contains(agent.id)
-                        HStack {
-                            Image(systemName: agent.icon)
-                                .foregroundStyle(Color.fromAgentColor(agent.color))
-                                .frame(width: 24)
-                            Text(agent.name)
-                            Spacer()
-                            if isSelected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.blue)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundStyle(.secondary)
+                        VStack(spacing: 0) {
+                            HStack {
+                                Image(systemName: agent.icon)
+                                    .foregroundStyle(Color.fromAgentColor(agent.color))
+                                    .frame(width: 24)
+                                Text(agent.name)
+                                Spacer()
+                                if isSelected {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.blue)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .foregroundStyle(.secondary)
+                                }
                             }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if isSelected {
+                                    selectedAgentIds.removeAll { $0 == agent.id }
+                                    agentRoles.removeValue(forKey: agent.id)
+                                    if coordinatorAgentId == agent.id { coordinatorAgentId = nil }
+                                } else {
+                                    selectedAgentIds.append(agent.id)
+                                }
+                            }
+
                             if isSelected {
-                                selectedAgentIds.removeAll { $0 == agent.id }
-                            } else {
-                                selectedAgentIds.append(agent.id)
+                                HStack {
+                                    Spacer().frame(width: 28)
+                                    Picker("Role", selection: Binding(
+                                        get: { GroupRole(rawValue: agentRoles[agent.id] ?? "") ?? .participant },
+                                        set: { agentRoles[agent.id] = $0.rawValue }
+                                    )) {
+                                        ForEach(GroupRole.allCases, id: \.self) { role in
+                                            Text(role.displayName).tag(role)
+                                        }
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .controlSize(.small)
+                                    .accessibilityIdentifier("groupEditor.rolePicker.\(agent.id.uuidString)")
+                                }
+                                .padding(.top, 4)
                             }
                         }
                     }
                     .accessibilityIdentifier("groupEditor.agentPicker")
                 }
 
-                // Past Chats (read-only, only for existing groups)
+                // Past Chats
                 if isEditing && !pastConversations.isEmpty {
                     Section("Past Chats (\(pastConversations.count))") {
                         ForEach(pastConversations.prefix(20)) { conv in
@@ -163,6 +229,14 @@ struct GroupEditorView: View {
         groupInstruction = group.groupInstruction
         defaultMission = group.defaultMission ?? ""
         selectedAgentIds = group.agentIds
+        autoReplyEnabled = group.autoReplyEnabled
+        autonomousCapable = group.autonomousCapable
+        coordinatorAgentId = group.coordinatorAgentId
+        agentRoles = group.agentRoles
+        if let wf = group.workflow, !wf.isEmpty {
+            hasWorkflow = true
+            workflowSteps = wf
+        }
     }
 
     private func save() {
@@ -177,6 +251,11 @@ struct GroupEditorView: View {
             group.groupInstruction = groupInstruction
             group.defaultMission = defaultMission.isEmpty ? nil : defaultMission
             group.agentIds = selectedAgentIds
+            group.autoReplyEnabled = autoReplyEnabled
+            group.autonomousCapable = autonomousCapable
+            group.coordinatorAgentId = coordinatorAgentId
+            group.agentRoles = agentRoles
+            group.workflow = hasWorkflow && !workflowSteps.isEmpty ? workflowSteps : nil
         } else {
             let newGroup = AgentGroup(
                 name: trimmedName,
@@ -187,6 +266,11 @@ struct GroupEditorView: View {
                 defaultMission: defaultMission.isEmpty ? nil : defaultMission,
                 agentIds: selectedAgentIds
             )
+            newGroup.autoReplyEnabled = autoReplyEnabled
+            newGroup.autonomousCapable = autonomousCapable
+            newGroup.coordinatorAgentId = coordinatorAgentId
+            newGroup.agentRoles = agentRoles
+            newGroup.workflow = hasWorkflow && !workflowSteps.isEmpty ? workflowSteps : nil
             modelContext.insert(newGroup)
         }
 

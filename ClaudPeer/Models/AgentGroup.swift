@@ -21,6 +21,16 @@ final class AgentGroup {
     var sortOrder: Int
     var createdAt: Date
 
+    // Feature: Auto-Reply toggle
+    var autoReplyEnabled: Bool
+    // Feature: Autonomous mode
+    var autonomousCapable: Bool
+    var coordinatorAgentId: UUID?
+    // Feature: Roles — JSON-encoded {uuid-string: role-name}
+    var agentRolesJSON: String?
+    // Feature: Workflow — JSON-encoded [WorkflowStep]
+    var workflowJSON: String?
+
     // AgentGroupOrigin flattened for SwiftData
     var originKind: String
     var originPeerName: String?
@@ -59,6 +69,39 @@ final class AgentGroup {
         }
     }
 
+    @Transient
+    var agentRoles: [UUID: String] {
+        get {
+            guard let json = agentRolesJSON,
+                  let data = json.data(using: .utf8),
+                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+            return Dictionary(uniqueKeysWithValues: dict.compactMap { k, v in
+                UUID(uuidString: k).map { ($0, v) }
+            })
+        }
+        set {
+            let stringDict = Dictionary(uniqueKeysWithValues: newValue.map { ($0.key.uuidString, $0.value) })
+            agentRolesJSON = (try? String(data: JSONEncoder().encode(stringDict), encoding: .utf8))
+        }
+    }
+
+    @Transient
+    var workflow: [WorkflowStep]? {
+        get {
+            guard let json = workflowJSON,
+                  let data = json.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode([WorkflowStep].self, from: data)
+        }
+        set {
+            guard let steps = newValue else { workflowJSON = nil; return }
+            workflowJSON = (try? String(data: JSONEncoder().encode(steps), encoding: .utf8))
+        }
+    }
+
+    func roleFor(agentId: UUID) -> GroupRole {
+        GroupRole(rawValue: agentRoles[agentId] ?? "") ?? .participant
+    }
+
     init(
         name: String,
         groupDescription: String = "",
@@ -79,6 +122,11 @@ final class AgentGroup {
         self.agentIds = agentIds
         self.sortOrder = sortOrder
         self.createdAt = Date()
+        self.autoReplyEnabled = true
+        self.autonomousCapable = false
+        self.coordinatorAgentId = nil
+        self.agentRolesJSON = nil
+        self.workflowJSON = nil
         self.originKind = "local"
         self.originPeerName = nil
         self.originRemoteId = nil

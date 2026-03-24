@@ -16,6 +16,9 @@ final class Conversation {
     var isPinned: Bool = false
     var isArchived: Bool = false
     var sourceGroupId: UUID?
+    var workflowCurrentStep: Int?
+    var workflowCompletedSteps: [Int]?
+    var isAutonomous: Bool = false
     var startedAt: Date
     var closedAt: Date?
 
