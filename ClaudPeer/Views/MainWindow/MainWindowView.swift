@@ -103,6 +103,10 @@ struct MainWindowView: View {
             AgentLibraryView()
                 .frame(minWidth: 700, minHeight: 500)
         }
+        .sheet(isPresented: $appState.showGroupLibrary) {
+            GroupLibraryView()
+                .frame(minWidth: 700, minHeight: 500)
+        }
         .sheet(isPresented: $appState.showAgentComms) {
             AgentCommsView()
                 .environmentObject(appState)

@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
     @Published var sidecarStatus: SidecarStatus = .disconnected
     @Published var selectedConversationId: UUID?
     @Published var showAgentLibrary = false
+    @Published var showGroupLibrary = false
     @Published var showNewSessionSheet = false
     @Published var showPeerNetwork = false
     @Published var showAgentComms = false
@@ -29,14 +30,90 @@ final class AppState: ObservableObject {
     @Published private(set) var allocatedHttpPort: Int = 0
 
     @Published var toolCalls: [String: [ToolCallInfo]] = [:]
+    @Published var sessionActivity: [String: SessionActivityState] = [:]
     @Published var commsEvents: [CommsEvent] = []
     @Published var fileTreeRefreshTrigger: Int = 0
+    @Published var generatedAgentSpec: GeneratedAgentSpec?
+    @Published var isGeneratingAgent: Bool = false
+    @Published var generateAgentError: String?
+    @Published var pendingQuestions: [String: AgentQuestion] = [:]
 
     var createdSessions: Set<String> = []
+    var generateAgentRequestId: String?
+
+    struct AgentQuestion: Identifiable {
+        let id: String  // questionId
+        let sessionId: String
+        let question: String
+        let options: [QuestionOption]?
+        let multiSelect: Bool
+        let isPrivate: Bool
+        let timestamp: Date
+    }
 
     enum SessionEventKind {
         case result
         case error(String)
+    }
+
+    // MARK: - Activity State
+
+    enum SessionActivityState: Equatable, Sendable {
+        case idle
+        case thinking
+        case streaming
+        case callingTool(toolName: String)
+        case waitingForResult
+        case askingUser
+        case done
+        case error(String)
+
+        var isActive: Bool {
+            switch self {
+            case .thinking, .streaming, .callingTool, .waitingForResult, .askingUser: return true
+            case .idle, .done, .error: return false
+            }
+        }
+
+        var displayLabel: String {
+            switch self {
+            case .idle: return "Idle"
+            case .thinking: return "Thinking\u{2026}"
+            case .streaming: return "Writing\u{2026}"
+            case .callingTool(let tool): return "Running \(tool)"
+            case .waitingForResult: return "Processing\u{2026}"
+            case .askingUser: return "Waiting for you\u{2026}"
+            case .done: return "Done"
+            case .error: return "Error"
+            }
+        }
+
+        var displayColor: Color {
+            switch self {
+            case .idle: return .gray
+            case .thinking: return .indigo
+            case .streaming: return .blue
+            case .callingTool: return .orange
+            case .waitingForResult: return .yellow
+            case .askingUser: return .purple
+            case .done: return .green
+            case .error: return .red
+            }
+        }
+    }
+
+    enum ConversationAggregateState: Equatable {
+        case idle
+        case working(count: Int)
+        case allDone
+        case completedWithErrors(errorCount: Int)
+    }
+
+    struct ConversationActivitySummary {
+        let perSession: [(agentName: String, state: SessionActivityState)]
+        let aggregate: ConversationAggregateState
+        let totalSessions: Int
+        let activeCount: Int
     }
 
     struct SessionInfo: Identifiable {
@@ -44,6 +121,7 @@ final class AppState: ObservableObject {
         let agentName: String
         var tokenCount: Int = 0
         var cost: Double = 0
+        var toolCallCount: Int = 0
         var isStreaming: Bool = false
     }
 
@@ -88,6 +166,64 @@ final class AppState: ObservableObject {
     func setInstanceWorkingDirectory(_ path: String) {
         instanceWorkingDirectory = path
         InstanceConfig.userDefaults.set(path, forKey: AppSettings.instanceWorkingDirectoryKey)
+    }
+
+    // MARK: - Group Chat
+
+    func startGroupChat(group: AgentGroup, modelContext: ModelContext) {
+        guard !group.agentIds.isEmpty else { return }
+
+        let allAgents = (try? modelContext.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentById = Dictionary(uniqueKeysWithValues: allAgents.map { ($0.id, $0) })
+        let resolvedAgents = group.agentIds.compactMap { agentById[$0] }
+        guard !resolvedAgents.isEmpty else { return }
+
+        let conversation = Conversation(topic: group.name)
+        conversation.sourceGroupId = group.id
+
+        let userParticipant = Participant(type: .user, displayName: "You")
+        userParticipant.conversation = conversation
+        conversation.participants.append(userParticipant)
+
+        // Inject group instruction as first system message
+        let instruction = group.groupInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !instruction.isEmpty {
+            let sysMsg = ConversationMessage(
+                senderParticipantId: nil,
+                text: instruction,
+                type: .system,
+                conversation: conversation
+            )
+            conversation.messages.append(sysMsg)
+        }
+
+        let provisioner = AgentProvisioner(modelContext: modelContext)
+        let mission = group.defaultMission
+
+        for agent in resolvedAgents {
+            let (_, session) = provisioner.provision(agent: agent, mission: mission)
+            session.conversations = [conversation]
+            conversation.sessions.append(session)
+
+            let agentParticipant = Participant(
+                type: .agentSession(sessionId: session.id),
+                displayName: agent.name
+            )
+            agentParticipant.conversation = conversation
+            conversation.participants.append(agentParticipant)
+            modelContext.insert(session)
+        }
+
+        modelContext.insert(conversation)
+        try? modelContext.save()
+
+        GroupWorkingDirectory.ensureShared(
+            for: conversation,
+            instanceDefault: instanceWorkingDirectory,
+            modelContext: modelContext
+        )
+
+        selectedConversationId = conversation.id
     }
 
     func connectSidecar() {
@@ -156,6 +292,61 @@ final class AppState: ObservableObject {
         ))
     }
 
+    func answerQuestion(sessionId: String, questionId: String, answer: String, selectedOptions: [String]? = nil) {
+        let question = pendingQuestions[sessionId]
+
+        sendToSidecar(.questionAnswer(
+            sessionId: sessionId,
+            questionId: questionId,
+            answer: answer,
+            selectedOptions: selectedOptions
+        ))
+        pendingQuestions.removeValue(forKey: sessionId)
+        sessionActivity[sessionId] = .waitingForResult
+
+        // Persist non-private Q&A as conversation messages so other agents see them
+        if let q = question, !q.isPrivate {
+            persistQuestionAnswer(sessionId: sessionId, question: q.question, answer: answer)
+        }
+    }
+
+    private func persistQuestionAnswer(sessionId: String, question: String, answer: String) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first else { return }
+
+        let agentName = session.agent?.name ?? "Agent"
+        let qMsg = ConversationMessage(
+            text: "[\(agentName) asked the user] \(question)",
+            type: .chat,
+            conversation: convo
+        )
+        ctx.insert(qMsg)
+
+        let aMsg = ConversationMessage(
+            text: "[User answered \(agentName)] \(answer)",
+            type: .chat,
+            conversation: convo
+        )
+        ctx.insert(aMsg)
+        try? ctx.save()
+    }
+
+    func requestAgentGeneration(prompt: String, skills: [SkillCatalogEntry], mcps: [MCPCatalogEntry]) {
+        let requestId = UUID().uuidString
+        generateAgentRequestId = requestId
+        isGeneratingAgent = true
+        generateAgentError = nil
+        generatedAgentSpec = nil
+        sendToSidecar(.generateAgent(
+            requestId: requestId,
+            prompt: prompt,
+            availableSkills: skills,
+            availableMCPs: mcps
+        ))
+    }
+
     private func registerAgentDefinitions() {
         guard let ctx = modelContext else { return }
         let descriptor = FetchDescriptor<Agent>()
@@ -177,6 +368,50 @@ final class AppState: ObservableObject {
         print("[AppState] Registered \(defs.count) agent definitions with sidecar")
     }
 
+    // MARK: - Conversation Activity
+
+    func conversationActivity(for conversation: Conversation) -> ConversationActivitySummary {
+        let sessionStates: [(agentName: String, state: SessionActivityState)] = conversation.sessions.map { session in
+            let key = session.id.uuidString
+            let state = sessionActivity[key] ?? .idle
+            return (agentName: session.agent?.name ?? "Agent", state: state)
+        }
+
+        let activeCount = sessionStates.filter { $0.state.isActive }.count
+        let doneCount = sessionStates.filter { $0.state == .done }.count
+        let errorCount = sessionStates.filter {
+            if case .error = $0.state { return true }
+            return false
+        }.count
+        let total = sessionStates.count
+
+        let aggregate: ConversationAggregateState
+        if total == 0 {
+            aggregate = .idle
+        } else if activeCount > 0 {
+            aggregate = .working(count: activeCount)
+        } else if errorCount > 0, doneCount + errorCount >= total {
+            aggregate = .completedWithErrors(errorCount: errorCount)
+        } else if doneCount >= total {
+            aggregate = .allDone
+        } else {
+            aggregate = .idle
+        }
+
+        return ConversationActivitySummary(
+            perSession: sessionStates,
+            aggregate: aggregate,
+            totalSessions: total,
+            activeCount: activeCount
+        )
+    }
+
+    func clearSessionActivity(for sessionIds: [String]) {
+        for key in sessionIds {
+            sessionActivity.removeValue(forKey: key)
+        }
+    }
+
     private func listenForEvents(from manager: SidecarManager) {
         eventTask = Task {
             for await event in manager.events {
@@ -190,17 +425,27 @@ final class AppState: ObservableObject {
         case .streamToken(let sessionId, let text):
             let current = streamingText[sessionId] ?? ""
             streamingText[sessionId] = current + text
-            activeSessions[UUID(uuidString: sessionId) ?? UUID()]?.isStreaming = true
+            if let uuid = UUID(uuidString: sessionId) {
+                activeSessions[uuid]?.isStreaming = true
+                // Rough estimate: ~4 chars per output token, refined on completion
+                activeSessions[uuid]?.tokenCount += max(1, text.count / 4)
+            }
+            sessionActivity[sessionId] = .streaming
 
         case .streamThinking(let sessionId, let text):
             let current = thinkingText[sessionId] ?? ""
             thinkingText[sessionId] = current + text
             activeSessions[UUID(uuidString: sessionId) ?? UUID()]?.isStreaming = true
+            sessionActivity[sessionId] = .thinking
 
         case .streamToolCall(let sessionId, let tool, let input):
             var calls = toolCalls[sessionId] ?? []
             calls.append(ToolCallInfo(tool: tool, input: input, timestamp: Date()))
             toolCalls[sessionId] = calls
+            if let uuid = UUID(uuidString: sessionId) {
+                activeSessions[uuid]?.toolCallCount += 1
+            }
+            sessionActivity[sessionId] = .callingTool(toolName: tool)
 
         case .streamToolResult(let sessionId, let tool, let output):
             if var calls = toolCalls[sessionId],
@@ -211,15 +456,23 @@ final class AppState: ObservableObject {
             if Self.fileModifyingTools.contains(tool.lowercased()) {
                 fileTreeRefreshTrigger += 1
             }
+            sessionActivity[sessionId] = .waitingForResult
 
-        case .sessionResult(let sessionId, let resultText, let cost):
-            activeSessions[UUID(uuidString: sessionId) ?? UUID()]?.isStreaming = false
-            activeSessions[UUID(uuidString: sessionId) ?? UUID()]?.cost += cost
+        case .sessionResult(let sessionId, let resultText, let cost, let tokenCount, let toolCallCount):
+            if let uuid = UUID(uuidString: sessionId) {
+                activeSessions[uuid]?.isStreaming = false
+                activeSessions[uuid]?.cost = cost
+                activeSessions[uuid]?.tokenCount = tokenCount
+                activeSessions[uuid]?.toolCallCount = toolCallCount
+            }
             if streamingText[sessionId]?.isEmpty != false, !resultText.isEmpty {
                 streamingText[sessionId] = resultText
             }
             lastSessionEvent[sessionId] = .result
             thinkingText.removeValue(forKey: sessionId)
+            sessionActivity[sessionId] = .done
+            persistSessionUsage(sessionId: sessionId, tokenCount: tokenCount, cost: cost, toolCallCount: toolCallCount)
+            cleanupWorktreeIfNeeded(sessionId: sessionId)
 
         case .sessionError(let sessionId, let error):
             activeSessions[UUID(uuidString: sessionId) ?? UUID()]?.isStreaming = false
@@ -227,7 +480,9 @@ final class AppState: ObservableObject {
             thinkingText.removeValue(forKey: sessionId)
             streamingImages.removeValue(forKey: sessionId)
             streamingFileCards.removeValue(forKey: sessionId)
+            sessionActivity[sessionId] = .error(error)
             print("[AppState] Session \(sessionId) error: \(error)")
+            cleanupWorktreeIfNeeded(sessionId: sessionId)
 
         case .peerChat(let channelId, let from, let message):
             commsEvents.append(CommsEvent(
@@ -253,17 +508,50 @@ final class AppState: ObservableObject {
         case .sessionForked(let parentSessionId, let childSessionId):
             print("[AppState] session.forked parent=\(parentSessionId) child=\(childSessionId)")
 
+        case .sessionReused(let originalSessionId, let reusedSessionId):
+            print("[AppState] session.reused original=\(originalSessionId) → reused=\(reusedSessionId)")
+
         case .streamImage(let sessionId, let imageData, let mediaType, _):
             streamingImages[sessionId, default: []].append((data: imageData, mediaType: mediaType))
 
         case .streamFileCard(let sessionId, let filePath, let fileType, let fileName):
             streamingFileCards[sessionId, default: []].append((path: filePath, type: fileType, name: fileName))
 
+        case .agentQuestion(let sessionId, let questionId, let question, let options, let multiSelect, let isPrivate):
+            pendingQuestions[sessionId] = AgentQuestion(
+                id: questionId,
+                sessionId: sessionId,
+                question: question,
+                options: options,
+                multiSelect: multiSelect,
+                isPrivate: isPrivate,
+                timestamp: Date()
+            )
+            sessionActivity[sessionId] = .askingUser
+
+        case .generatedAgent(let requestId, let spec):
+            guard requestId == generateAgentRequestId else { return }
+            generatedAgentSpec = spec
+            isGeneratingAgent = false
+            generateAgentRequestId = nil
+
+        case .generateAgentError(let requestId, let error):
+            guard requestId == generateAgentRequestId else { return }
+            generateAgentError = error
+            isGeneratingAgent = false
+            generateAgentRequestId = nil
+            print("[AppState] Agent generation error: \(error)")
+
         case .connected:
             sidecarStatus = .connected
+            disconnectTimer?.invalidate()
+            disconnectTimer = nil
+            Task { await recoverSessions() }
 
         case .disconnected:
             sidecarStatus = .disconnected
+            pendingQuestions.removeAll()
+            startDisconnectTimer()
         }
     }
 
@@ -273,6 +561,90 @@ final class AppState: ObservableObject {
         handleEvent(event)
     }
     #endif
+
+    // MARK: - Session crash recovery
+
+    private var disconnectTimer: Timer?
+
+    /// After sidecar reconnects, re-register agents and resume active sessions with their Claude SDK session IDs.
+    private func recoverSessions() async {
+        guard let ctx = modelContext, let manager = sidecarManager else { return }
+
+        // 1. Re-register agent definitions so sidecar knows about them
+        registerAgentDefinitions()
+
+        // 2. Find sessions that were active and have a Claude SDK session ID
+        let descriptor = FetchDescriptor<Session>()
+        guard let allSessions = try? ctx.fetch(descriptor) else { return }
+        let resumable = allSessions.filter {
+            ($0.status == .active || $0.status == .paused) && $0.claudeSessionId != nil
+        }
+        guard !resumable.isEmpty else { return }
+
+        let provisioner = AgentProvisioner(modelContext: ctx)
+        var entries: [SessionBulkResumeEntry] = []
+        for session in resumable {
+            guard let agent = session.agent, let claudeId = session.claudeSessionId else { continue }
+            let (config, _) = provisioner.provision(agent: agent, mission: session.mission)
+            entries.append(SessionBulkResumeEntry(
+                sessionId: session.id.uuidString,
+                claudeSessionId: claudeId,
+                agentConfig: config
+            ))
+            // Ensure session is marked active again if it was paused by disconnect
+            if session.status == .paused {
+                session.status = .active
+            }
+        }
+
+        guard !entries.isEmpty else { return }
+        try? ctx.save()
+        try? await manager.send(.sessionBulkResume(sessions: entries))
+        print("[AppState] Recovered \(entries.count) sessions after reconnect")
+    }
+
+    /// Mark active sessions as paused after prolonged sidecar disconnect (60s).
+    private func startDisconnectTimer() {
+        disconnectTimer?.invalidate()
+        disconnectTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.markSessionsStale()
+            }
+        }
+    }
+
+    private func markSessionsStale() {
+        guard let ctx = modelContext else { return }
+        let descriptor = FetchDescriptor<Session>()
+        guard let sessions = try? ctx.fetch(descriptor) else { return }
+        for session in sessions where session.status == .active {
+            session.status = .paused
+        }
+        try? ctx.save()
+        print("[AppState] Marked active sessions as paused after prolonged disconnect")
+    }
+
+    // MARK: - Worktree cleanup
+
+    private func cleanupWorktreeIfNeeded(sessionId: String) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first else { return }
+        Task { await WorktreeCleanup.cleanupIfNeeded(session: session) }
+    }
+
+    // MARK: - Session usage persistence
+
+    private func persistSessionUsage(sessionId: String, tokenCount: Int, cost: Double, toolCallCount: Int) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first else { return }
+        session.tokenCount = tokenCount
+        session.totalCost = cost
+        session.toolCallCount = toolCallCount
+        session.lastActiveAt = Date()
+        try? ctx.save()
+    }
 
     // MARK: - Persistence helpers for inter-agent events
 

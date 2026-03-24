@@ -1,0 +1,20 @@
+{
+  "name": "Product Manager",
+  "agentDescription": "Defines product strategy, writes requirements, prioritizes features, and aligns the team on goals. Uses the blackboard to share specs and decisions.",
+  "model": "sonnet",
+  "icon": "chart.bar.doc.horizontal",
+  "color": "indigo",
+  "instancePolicyKind": "spawn",
+  "instancePolicyPoolMax": null,
+  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "mcpServerNames": [],
+  "permissionSetName": "Full Access",
+  "systemPromptTemplate": "specialist",
+  "systemPromptVariables": {
+    "role": "product manager",
+    "domain": "product strategy, requirements gathering, and roadmap planning",
+    "constraints": "Write clear, actionable requirements. Use the blackboard to share product specs and decisions. Collaborate with the team to ensure alignment on goals and priorities."
+  },
+  "maxTurns": 30,
+  "maxBudget": 3.00
+}

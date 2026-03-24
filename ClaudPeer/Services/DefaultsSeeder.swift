@@ -29,6 +29,181 @@ enum DefaultsSeeder {
         }
     }
 
+    // MARK: - Group Seeding
+
+    static let groupsSeededKey = "claudpeer.groupsSeeded"
+
+    static func seedGroupsIfNeeded(container: ModelContainer) {
+        guard !InstanceConfig.userDefaults.bool(forKey: groupsSeededKey) else { return }
+
+        let context = ModelContext(container)
+        let groupCount = (try? context.fetchCount(FetchDescriptor<AgentGroup>())) ?? 0
+        if groupCount > 0 {
+            InstanceConfig.userDefaults.set(true, forKey: groupsSeededKey)
+            return
+        }
+
+        print("[DefaultsSeeder] Seeding default groups")
+        seedGroups(into: context)
+
+        do {
+            try context.save()
+            InstanceConfig.userDefaults.set(true, forKey: groupsSeededKey)
+            print("[DefaultsSeeder] Groups seeding complete")
+        } catch {
+            print("[DefaultsSeeder] Failed to save groups: \(error)")
+        }
+    }
+
+    private static func seedGroups(into context: ModelContext) {
+        let agents = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentIdByName: [String: UUID] = Dictionary(
+            uniqueKeysWithValues: agents.map { ($0.name, $0.id) }
+        )
+
+        func ids(_ names: [String]) -> [UUID] {
+            names.compactMap { agentIdByName[$0] }
+        }
+
+        struct GroupSpec {
+            let name: String
+            let description: String
+            let icon: String
+            let color: String
+            let instruction: String
+            let defaultMission: String?
+            let agentNames: [String]
+            let sortOrder: Int
+        }
+
+        let specs: [GroupSpec] = [
+            GroupSpec(
+                name: "Dev Squad",
+                description: "Core engineering trio for most coding tasks.",
+                icon: "⚙️", color: "blue",
+                instruction: "This is a software engineering group. Prioritize clean, tested, reviewed code. The Coder implements, the Reviewer critiques, the Tester validates.",
+                defaultMission: nil,
+                agentNames: ["Coder", "Reviewer", "Tester"],
+                sortOrder: 0
+            ),
+            GroupSpec(
+                name: "Code Review Pair",
+                description: "Fast pair review loop.",
+                icon: "🔍", color: "green",
+                instruction: "This is a focused code review session. Coder proposes changes, Reviewer provides actionable critique. Iterate until quality is met.",
+                defaultMission: nil,
+                agentNames: ["Coder", "Reviewer"],
+                sortOrder: 1
+            ),
+            GroupSpec(
+                name: "Full Stack Team",
+                description: "Complete engineering team with DevOps.",
+                icon: "🏗️", color: "purple",
+                instruction: "This is a full-stack engineering team. Coder builds, Reviewer ensures quality, Tester validates, DevOps handles infrastructure and deployment.",
+                defaultMission: nil,
+                agentNames: ["Coder", "Reviewer", "Tester", "DevOps"],
+                sortOrder: 2
+            ),
+            GroupSpec(
+                name: "DevOps Pipeline",
+                description: "Build, test, deploy pipeline specialists.",
+                icon: "🚀", color: "orange",
+                instruction: "This group focuses on CI/CD and infrastructure. Coordinate to deliver reliable builds and deployments. Coder writes pipeline code, Tester validates, DevOps deploys.",
+                defaultMission: nil,
+                agentNames: ["Coder", "Tester", "DevOps"],
+                sortOrder: 3
+            ),
+            GroupSpec(
+                name: "Security Audit",
+                description: "Vulnerability analysis and hardening.",
+                icon: "🔒", color: "red",
+                instruction: "This group performs a security-focused review. Look for vulnerabilities, edge cases, and trust boundary violations. Coder identifies issues, Reviewer assesses risk, Tester writes exploit tests.",
+                defaultMission: "Perform a security audit of the codebase.",
+                agentNames: ["Coder", "Reviewer", "Tester"],
+                sortOrder: 4
+            ),
+            GroupSpec(
+                name: "Plan & Build",
+                description: "Orchestrated implementation with QA.",
+                icon: "📋", color: "indigo",
+                instruction: "Orchestrator plans and coordinates the work, Coder implements each task, Tester validates the output. Follow the plan step by step.",
+                defaultMission: nil,
+                agentNames: ["Orchestrator", "Coder", "Tester"],
+                sortOrder: 5
+            ),
+            GroupSpec(
+                name: "Product Crew",
+                description: "Discovery, research, and strategy.",
+                icon: "🎯", color: "teal",
+                instruction: "This is a product strategy group. PM defines goals and requirements, Researcher gathers insights and competitive analysis, Analyst interprets data and tracks metrics.",
+                defaultMission: nil,
+                agentNames: ["Product Manager", "Researcher", "Analyst"],
+                sortOrder: 6
+            ),
+            GroupSpec(
+                name: "PM + Dev",
+                description: "Product planning to implementation.",
+                icon: "🤝", color: "indigo",
+                instruction: "PM defines requirements, Coder implements, Reviewer ensures quality, Tester validates the result. Bridge the gap between product vision and code.",
+                defaultMission: nil,
+                agentNames: ["Product Manager", "Coder", "Reviewer", "Tester"],
+                sortOrder: 7
+            ),
+            GroupSpec(
+                name: "Content Studio",
+                description: "Research, write, and review content.",
+                icon: "✍️", color: "blue",
+                instruction: "This is a content production group. Researcher gathers information and sources, Writer drafts content, Reviewer polishes and fact-checks.",
+                defaultMission: nil,
+                agentNames: ["Researcher", "Writer", "Reviewer"],
+                sortOrder: 8
+            ),
+            GroupSpec(
+                name: "Growth Team",
+                description: "Data-driven growth and content.",
+                icon: "📈", color: "green",
+                instruction: "PM drives growth strategy, Analyst tracks metrics and identifies opportunities, Writer creates messaging and content. Focus on measurable growth outcomes.",
+                defaultMission: nil,
+                agentNames: ["Product Manager", "Analyst", "Writer"],
+                sortOrder: 9
+            ),
+            GroupSpec(
+                name: "Design Review",
+                description: "UX review with implementation awareness.",
+                icon: "🎨", color: "pink",
+                instruction: "Designer leads UX critique and evaluates usability, Coder evaluates implementation feasibility, Reviewer ensures consistency with existing patterns.",
+                defaultMission: nil,
+                agentNames: ["Designer", "Coder", "Reviewer"],
+                sortOrder: 10
+            ),
+            GroupSpec(
+                name: "Full Ensemble",
+                description: "All ten agents working together.",
+                icon: "🌐", color: "purple",
+                instruction: "All agents are present. Collaborate, divide work by expertise, and coordinate via the blackboard. Each agent should contribute from their specialty.",
+                defaultMission: nil,
+                agentNames: ["Orchestrator", "Coder", "Reviewer", "Researcher", "Tester", "DevOps", "Writer", "Product Manager", "Analyst", "Designer"],
+                sortOrder: 11
+            ),
+        ]
+
+        for spec in specs {
+            let group = AgentGroup(
+                name: spec.name,
+                groupDescription: spec.description,
+                icon: spec.icon,
+                color: spec.color,
+                groupInstruction: spec.instruction,
+                defaultMission: spec.defaultMission,
+                agentIds: ids(spec.agentNames),
+                sortOrder: spec.sortOrder
+            )
+            group.origin = .builtin
+            context.insert(group)
+            print("[DefaultsSeeder]   Group: \(spec.name) (\(spec.agentNames.count) agents)")
+        }
+    }
+
     // MARK: - Permission Presets
 
     @discardableResult
@@ -173,7 +348,7 @@ enum DefaultsSeeder {
         skills: [String: Skill],
         templates: [String: String]
     ) {
-        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer"]
+        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer"]
 
         for fileName in agentFiles {
             guard let data = loadAgentResource(name: fileName) else {

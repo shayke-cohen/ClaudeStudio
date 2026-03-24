@@ -1318,12 +1318,19 @@ struct ChatView: View {
                 }
             }
 
+            let groupInstruction: String? = {
+                guard let gid = convo.sourceGroupId else { return nil }
+                let desc = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == gid })
+                return (try? modelContext.fetch(desc).first)?.groupInstruction
+            }()
+
             let promptText = GroupPromptBuilder.buildMessageText(
                 conversation: convo,
                 targetSession: session,
                 latestUserMessageText: latestUserText,
                 participants: participants,
-                highlightedMentionAgentNames: highlightedMentionAgentNames
+                highlightedMentionAgentNames: highlightedMentionAgentNames,
+                groupInstruction: groupInstruction
             )
 
             do {

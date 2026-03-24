@@ -19,6 +19,8 @@ final class P2PNetworkManager: ObservableObject {
     private let server: PeerCatalogServer
     private let browserQueue = DispatchQueue(label: "com.claudpeer.p2p.browser")
     private var modelContext: ModelContext?
+    weak var sidecarManager: SidecarManager?
+    private var previousPeerNames: Set<String> = []
 
     init() {
         let empty = try! JSONEncoder().encode(WireAgentExportList(agents: []))
@@ -28,6 +30,10 @@ final class P2PNetworkManager: ObservableObject {
     func attach(modelContext: ModelContext) {
         self.modelContext = modelContext
         refreshExportCache()
+    }
+
+    func setSidecarWsPort(_ port: Int) {
+        server.sidecarWsPort = port
     }
 
     func start() {
@@ -77,7 +83,9 @@ final class P2PNetworkManager: ObservableObject {
         b.browseResultsChangedHandler = { [weak self] results, _ in
             guard let self else { return }
             Task { @MainActor in
-                self.peers = Self.mapBrowseResults(results)
+                let newPeers = Self.mapBrowseResults(results)
+                self.peers = newPeers
+                self.syncPeersToSidecar(newPeers)
             }
         }
         b.start(queue: browserQueue)
@@ -109,6 +117,56 @@ final class P2PNetworkManager: ObservableObject {
     private static func bonjourNameStatic() -> String {
         let host = ProcessInfo.processInfo.hostName.split(separator: ".").first.map(String.init) ?? "Mac"
         return "\(host)-\(InstanceConfig.name)"
+    }
+
+    // MARK: - Sidecar Peer Sync
+
+    /// Notify sidecar of peer additions/removals so PeerBus tools can see remote agents.
+    private func syncPeersToSidecar(_ currentPeers: [DiscoveredLanPeer]) {
+        guard let manager = sidecarManager else { return }
+        let currentNames = Set(currentPeers.map(\.displayName))
+
+        // Peers that disappeared
+        for removed in previousPeerNames.subtracting(currentNames) {
+            Task {
+                try? await manager.send(.peerRemove(name: removed))
+            }
+        }
+
+        previousPeerNames = currentNames
+        // For new/existing peers, registration happens when agents are fetched (via fetchAndRegisterPeer)
+    }
+
+    /// Fetch a peer's agent catalog and register it with the sidecar.
+    func fetchAndRegisterPeer(_ peer: DiscoveredLanPeer, wsPort: Int) async throws -> [WireAgentExport] {
+        let agents = try await Self.httpGetAgents(endpoint: peer.endpoint)
+        guard let manager = sidecarManager, let ctx = modelContext else { return agents }
+
+        let provisioner = AgentProvisioner(modelContext: ctx)
+        let defs: [AgentDefinitionWire] = agents.map { a in
+            AgentDefinitionWire(
+                name: a.name,
+                config: AgentConfig(
+                    name: a.name,
+                    systemPrompt: a.systemPrompt,
+                    allowedTools: [],
+                    mcpServers: [],
+                    model: a.model,
+                    maxTurns: a.maxTurns,
+                    maxBudget: a.maxBudget,
+                    maxThinkingTokens: a.maxThinkingTokens,
+                    workingDirectory: a.defaultWorkingDirectory ?? "",
+                    skills: [],
+                    instancePolicyKind: a.instancePolicyKind,
+                    instancePolicyPoolMax: a.instancePolicyPoolMax
+                ),
+                instancePolicy: a.instancePolicyKind
+            )
+        }
+
+        let endpoint = "ws://\(peer.displayName):\(wsPort)"
+        try? await manager.send(.peerRegister(name: peer.displayName, endpoint: endpoint, agents: defs))
+        return agents
     }
 
     // MARK: - Export
@@ -149,7 +207,26 @@ final class P2PNetworkManager: ObservableObject {
                 permissionSetName: permName
             )
         }
-        let list = WireAgentExportList(agents: exports)
+        // Export groups
+        let groupDesc = FetchDescriptor<AgentGroup>(sortBy: [SortDescriptor(\.sortOrder)])
+        let groupEntities = (try? modelContext.fetch(groupDesc)) ?? []
+        let agentNameById = Dictionary(uniqueKeysWithValues: agents.map { ($0.id, $0.name) })
+        let groupExports: [WireGroupExport] = groupEntities
+            .filter { $0.originKind != "peer" }
+            .map { g in
+                WireGroupExport(
+                    id: g.id,
+                    name: g.name,
+                    groupDescription: g.groupDescription,
+                    icon: g.icon,
+                    color: g.color,
+                    groupInstruction: g.groupInstruction,
+                    defaultMission: g.defaultMission,
+                    agentNames: g.agentIds.compactMap { agentNameById[$0] }
+                )
+            }
+
+        let list = WireAgentExportList(agents: exports, groups: groupExports)
         return (try? JSONEncoder().encode(list)) ?? Data("{\"agents\":[]}".utf8)
     }
 

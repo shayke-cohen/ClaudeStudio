@@ -15,6 +15,7 @@ final class Conversation {
     var summary: String?
     var isPinned: Bool = false
     var isArchived: Bool = false
+    var sourceGroupId: UUID?
     var startedAt: Date
     var closedAt: Date?
 

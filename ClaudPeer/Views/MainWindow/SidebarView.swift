@@ -6,7 +6,11 @@ struct SidebarView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Conversation.startedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \Agent.name) private var agents: [Agent]
+    @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
+    @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
     @State private var searchText = ""
+    @State private var expandedAgentIds: Set<UUID> = []
+    @State private var editingGroup: AgentGroup?
     @State private var renamingConversation: Conversation?
     @State private var renameText = ""
     @State private var conversationToDelete: Conversation?
@@ -25,6 +29,7 @@ struct SidebarView: View {
                     recentSection
                     archivedSection
                 }
+                groupsSection
                 agentsSection
             }
             .listStyle(.sidebar)
@@ -39,6 +44,9 @@ struct SidebarView: View {
         .sheet(isPresented: $showCatalog) {
             CatalogBrowserView()
                 .frame(minWidth: 700, minHeight: 550)
+        }
+        .sheet(item: $editingGroup) { group in
+            GroupEditorView(group: group)
         }
         .alert("Rename Conversation", isPresented: Binding(
             get: { renamingConversation != nil },
@@ -303,27 +311,67 @@ struct SidebarView: View {
             }
     }
 
+    // MARK: - Groups Section
+
+    @ViewBuilder
+    private var groupsSection: some View {
+        Section {
+            ForEach(groups) { group in
+                GroupSidebarRowView(
+                    group: group,
+                    agentCount: group.agentIds.compactMap { id in agents.first { $0.id == id } }.count
+                )
+                .onTapGesture {
+                    appState.startGroupChat(group: group, modelContext: modelContext)
+                }
+                .contextMenu {
+                    Button("Start Chat") {
+                        appState.startGroupChat(group: group, modelContext: modelContext)
+                    }
+                    Button("Edit") { editingGroup = group }
+                    Button("Duplicate") { duplicateGroup(group) }
+                    Divider()
+                    Button("Delete", role: .destructive) { deleteGroup(group) }
+                }
+            }
+        } header: {
+            HStack {
+                Text("Groups")
+                Spacer()
+                Button {
+                    appState.showGroupLibrary = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.groupsAddButton")
+            }
+        }
+        .accessibilityIdentifier("sidebar.groupsSection")
+    }
+
     // MARK: - Agents Section
 
     @ViewBuilder
     private var agentsSection: some View {
         Section("Agents") {
             ForEach(agents) { agent in
-                HStack {
-                    Image(systemName: agent.icon)
-                        .foregroundStyle(agentColor(agent.color))
-                    Text(agent.name)
-                    Spacer()
-                    if agent.instancePolicy != .spawn {
-                        Text(policyBadge(agent.instancePolicy))
-                            .font(.caption2)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(.quaternary)
-                            .clipShape(Capsule())
+                AgentSidebarRowView(
+                    agent: agent,
+                    conversations: conversationsForAgent(agent),
+                    isExpanded: Binding(
+                        get: { expandedAgentIds.contains(agent.id) },
+                        set: { expanded in
+                            if expanded { expandedAgentIds.insert(agent.id) }
+                            else { expandedAgentIds.remove(agent.id) }
+                        }
+                    ),
+                    onNewChat: { startSession(with: agent) },
+                    onSelectConversation: { conv in
+                        appState.selectedConversationId = conv.id
                     }
-                }
-                .xrayId("sidebar.agentRow.\(agent.id.uuidString)")
+                )
                 .contextMenu {
                     Button("Start Session") {
                         startSession(with: agent)
@@ -524,6 +572,38 @@ struct SidebarView: View {
         case .pool(let max): return "\(max)"
         case .spawn: return ""
         }
+    }
+
+    // MARK: - Agent Chat History
+
+    private func conversationsForAgent(_ agent: Agent) -> [Conversation] {
+        var seen = Set<UUID>()
+        return allSessions
+            .filter { $0.agent?.id == agent.id }
+            .compactMap { $0.conversations.first }
+            .filter { seen.insert($0.id).inserted }
+    }
+
+    // MARK: - Group Actions
+
+    private func duplicateGroup(_ group: AgentGroup) {
+        let copy = AgentGroup(
+            name: "\(group.name) Copy",
+            groupDescription: group.groupDescription,
+            icon: group.icon,
+            color: group.color,
+            groupInstruction: group.groupInstruction,
+            defaultMission: group.defaultMission,
+            agentIds: group.agentIds,
+            sortOrder: groups.count
+        )
+        modelContext.insert(copy)
+        try? modelContext.save()
+    }
+
+    private func deleteGroup(_ group: AgentGroup) {
+        modelContext.delete(group)
+        try? modelContext.save()
     }
 
     // MARK: - Actions

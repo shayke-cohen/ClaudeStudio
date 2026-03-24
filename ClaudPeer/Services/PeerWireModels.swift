@@ -22,6 +22,18 @@ struct WireAgentExport: Codable, Identifiable, Sendable {
     var permissionSetName: String?
 }
 
+struct WireGroupExport: Codable, Identifiable, Sendable {
+    var id: UUID
+    var name: String
+    var groupDescription: String
+    var icon: String
+    var color: String
+    var groupInstruction: String
+    var defaultMission: String?
+    var agentNames: [String]
+}
+
 struct WireAgentExportList: Codable, Sendable {
     var agents: [WireAgentExport]
+    var groups: [WireGroupExport]?
 }

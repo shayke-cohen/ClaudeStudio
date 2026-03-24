@@ -20,7 +20,8 @@ enum GroupPromptBuilder {
         targetSession: Session,
         latestUserMessageText: String,
         participants: [Participant],
-        highlightedMentionAgentNames: [String] = []
+        highlightedMentionAgentNames: [String] = [],
+        groupInstruction: String? = nil
     ) -> String {
         let sessionCount = conversation.sessions.count
         guard shouldUseGroupInjection(sessionCount: sessionCount) else {
@@ -43,6 +44,12 @@ enum GroupPromptBuilder {
         let transcriptBody = deltaLines.joined(separator: "\n")
         let clipped = clipTranscript(transcriptBody)
 
+        let instructionBlock: String = {
+            guard let instr = groupInstruction,
+                  !instr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+            return "[Group Context]\n\(instr)\n---\n"
+        }()
+
         let agentName = targetSession.agent?.name ?? "Assistant"
         let mentionNote: String = {
             let names = highlightedMentionAgentNames
@@ -53,7 +60,7 @@ enum GroupPromptBuilder {
             return "\nThe user specifically mentioned by name: \(joined). Address them directly when appropriate.\n"
         }()
         return """
-        --- Group thread (new since your last reply) ---
+        \(instructionBlock)--- Group thread (new since your last reply) ---
         \(clipped)
         --- End ---
         \(mentionNote)

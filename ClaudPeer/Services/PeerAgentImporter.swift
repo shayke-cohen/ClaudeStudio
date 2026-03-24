@@ -67,6 +67,39 @@ enum PeerAgentImporter {
         }
         return "\(base) (\(n))"
     }
+
+    // MARK: - Group Import
+
+    static func importGroupFromWire(_ w: WireGroupExport, peerDisplayName: String, modelContext: ModelContext) throws -> AgentGroup {
+        let allGroups = (try? modelContext.fetch(FetchDescriptor<AgentGroup>())) ?? []
+        if allGroups.contains(where: { $0.originKind == "peer" && $0.originRemoteId == w.id }) {
+            throw PeerImportError.alreadyImported(name: w.name)
+        }
+
+        let allAgents = (try? modelContext.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentByName = Dictionary(uniqueKeysWithValues: allAgents.map { ($0.name, $0) })
+        let resolvedIds = w.agentNames.compactMap { agentByName[$0]?.id }
+
+        let groupNames = Set(allGroups.map(\.name))
+        let uniqueName = groupNames.contains(w.name) ? "\(w.name) (\(peerDisplayName))" : w.name
+
+        let group = AgentGroup(
+            name: uniqueName,
+            groupDescription: w.groupDescription,
+            icon: w.icon,
+            color: w.color,
+            groupInstruction: w.groupInstruction,
+            defaultMission: w.defaultMission,
+            agentIds: resolvedIds,
+            sortOrder: allGroups.count
+        )
+        group.origin = .peer(peerName: peerDisplayName)
+        group.originRemoteId = w.id
+
+        modelContext.insert(group)
+        try modelContext.save()
+        return group
+    }
 }
 
 enum PeerImportError: LocalizedError {

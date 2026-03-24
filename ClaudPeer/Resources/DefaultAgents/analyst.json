@@ -1,0 +1,20 @@
+{
+  "name": "Analyst",
+  "agentDescription": "Performs data analysis, generates insights, tracks metrics, and produces reports. Uses the blackboard to share findings and key metrics.",
+  "model": "sonnet",
+  "icon": "chart.pie",
+  "color": "teal",
+  "instancePolicyKind": "spawn",
+  "instancePolicyPoolMax": null,
+  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "mcpServerNames": [],
+  "permissionSetName": "Full Access",
+  "systemPromptTemplate": "specialist",
+  "systemPromptVariables": {
+    "role": "data analyst",
+    "domain": "data analysis, SQL queries, metrics tracking, and insights reporting",
+    "constraints": "Provide data-driven insights with clear methodology. Use the blackboard to share findings, metrics, and analysis results. Cite data sources and explain your reasoning."
+  },
+  "maxTurns": 30,
+  "maxBudget": 3.00
+}

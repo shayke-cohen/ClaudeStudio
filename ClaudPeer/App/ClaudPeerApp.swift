@@ -36,6 +36,7 @@ struct ClaudPeerApp: App {
                     SharedWorkspace.self,
                     BlackboardEntry.self,
                     Peer.self,
+                    AgentGroup.self,
                 configurations: config
             )
         } catch {
@@ -43,6 +44,7 @@ struct ClaudPeerApp: App {
         }
 
         DefaultsSeeder.seedIfNeeded(container: modelContainer)
+        DefaultsSeeder.seedGroupsIfNeeded(container: modelContainer)
     }
 
     private var resolvedColorScheme: ColorScheme? {
