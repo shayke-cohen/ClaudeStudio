@@ -37,14 +37,35 @@ struct WorkshopEntityBrowser: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Entity Type", selection: $selectedTab) {
+            HStack(spacing: 4) {
                 ForEach(WorkshopTab.allCases) { tab in
-                    Label(tab.rawValue, systemImage: tab.icon).tag(tab)
+                    let count = countForTab(tab)
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: tab.icon)
+                                .font(.caption2)
+                            Text(tab.rawValue)
+                                .font(.caption)
+                            Text("\(count)")
+                                .font(.caption2)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.quaternary)
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .xrayId("workshop.tab.\(tab.rawValue)")
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .xrayId("workshop.tabPicker")
 
             TextField("Search \(selectedTab.rawValue.lowercased())...", text: $searchText)
@@ -76,6 +97,14 @@ struct WorkshopEntityBrowser: View {
                                 selectedEntityContext = agentContextString(agent)
                             }
                             .xrayId("workshop.agentRow.\(agent.id.uuidString)")
+                            .contextMenu {
+                                if let slug = agent.configSlug {
+                                    Button("Restore Factory Default") {
+                                        appState.configSyncService?.restoreFactoryDefault(entityType: "agents", slug: slug)
+                                    }
+                                    .xrayId("workshop.agentRow.restore.\(agent.id.uuidString)")
+                                }
+                            }
                         }
                     case .groups:
                         ForEach(filteredGroups) { group in
@@ -95,6 +124,14 @@ struct WorkshopEntityBrowser: View {
                                 selectedEntityContext = groupContextString(group)
                             }
                             .xrayId("workshop.groupRow.\(group.id.uuidString)")
+                            .contextMenu {
+                                if let slug = group.configSlug {
+                                    Button("Restore Factory Default") {
+                                        appState.configSyncService?.restoreFactoryDefault(entityType: "groups", slug: slug)
+                                    }
+                                    .xrayId("workshop.groupRow.restore.\(group.id.uuidString)")
+                                }
+                            }
                         }
                     case .skills:
                         ForEach(filteredSkills) { skill in
@@ -114,6 +151,14 @@ struct WorkshopEntityBrowser: View {
                                 selectedEntityContext = skillContextString(skill)
                             }
                             .xrayId("workshop.skillRow.\(skill.id.uuidString)")
+                            .contextMenu {
+                                if let slug = skill.configSlug {
+                                    Button("Restore Factory Default") {
+                                        appState.configSyncService?.restoreFactoryDefault(entityType: "skills", slug: slug)
+                                    }
+                                    .xrayId("workshop.skillRow.restore.\(skill.id.uuidString)")
+                                }
+                            }
                         }
                     case .mcps:
                         ForEach(filteredMCPs) { mcp in
@@ -133,6 +178,14 @@ struct WorkshopEntityBrowser: View {
                                 selectedEntityContext = mcpContextString(mcp)
                             }
                             .xrayId("workshop.mcpRow.\(mcp.id.uuidString)")
+                            .contextMenu {
+                                if let slug = mcp.configSlug {
+                                    Button("Restore Factory Default") {
+                                        appState.configSyncService?.restoreFactoryDefault(entityType: "mcps", slug: slug)
+                                    }
+                                    .xrayId("workshop.mcpRow.restore.\(mcp.id.uuidString)")
+                                }
+                            }
                         }
                     case .permissions:
                         ForEach(filteredPermissions) { perm in
@@ -152,6 +205,14 @@ struct WorkshopEntityBrowser: View {
                                 selectedEntityContext = permContextString(perm)
                             }
                             .xrayId("workshop.permRow.\(perm.id.uuidString)")
+                            .contextMenu {
+                                if let slug = perm.configSlug {
+                                    Button("Restore Factory Default") {
+                                        appState.configSyncService?.restoreFactoryDefault(entityType: "permissions", slug: slug)
+                                    }
+                                    .xrayId("workshop.permRow.restore.\(perm.id.uuidString)")
+                                }
+                            }
                         }
                     }
                 }
@@ -159,6 +220,18 @@ struct WorkshopEntityBrowser: View {
                 .padding(.vertical, 4)
             }
             .xrayId("workshop.entityList")
+        }
+    }
+
+    // MARK: - Tab counts
+
+    private func countForTab(_ tab: WorkshopTab) -> Int {
+        switch tab {
+        case .agents: return agents.count
+        case .groups: return groups.count
+        case .skills: return skills.count
+        case .mcps: return mcps.count
+        case .permissions: return permissions.count
         }
     }
 
