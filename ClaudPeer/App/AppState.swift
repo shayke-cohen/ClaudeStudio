@@ -12,7 +12,42 @@ final class AppState: ObservableObject {
     }
 
     @Published var sidecarStatus: SidecarStatus = .disconnected
-    @Published var selectedConversationId: UUID?
+    @Published var selectedConversationId: UUID? {
+        didSet {
+            if selectedConversationId != nil {
+                selectedGroupId = nil
+                pendingAgentId = nil
+                pendingGroupId = nil
+            }
+        }
+    }
+    @Published var selectedGroupId: UUID? {
+        didSet {
+            if selectedGroupId != nil {
+                selectedConversationId = nil
+                pendingAgentId = nil
+                pendingGroupId = nil
+            }
+        }
+    }
+    @Published var pendingAgentId: UUID? {
+        didSet {
+            if pendingAgentId != nil {
+                selectedConversationId = nil
+                selectedGroupId = nil
+                pendingGroupId = nil
+            }
+        }
+    }
+    @Published var pendingGroupId: UUID? {
+        didSet {
+            if pendingGroupId != nil {
+                selectedConversationId = nil
+                selectedGroupId = nil
+                pendingAgentId = nil
+            }
+        }
+    }
     @Published var showAgentLibrary = false
     @Published var showGroupLibrary = false
     @Published var showNewSessionSheet = false
@@ -37,6 +72,9 @@ final class AppState: ObservableObject {
     @Published var isGeneratingAgent: Bool = false
     @Published var generateAgentError: String?
     @Published var pendingQuestions: [String: AgentQuestion] = [:]
+
+    /// File-based config sync service (set by ClaudPeerApp on appear)
+    var configSyncService: ConfigSyncService?
 
     var createdSessions: Set<String> = []
     var generateAgentRequestId: String?

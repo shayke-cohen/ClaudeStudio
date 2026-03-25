@@ -82,6 +82,7 @@
 		9AE88E597F8D225F88A985E3 /* ConfigSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D110721821D9A245E125973 /* ConfigSyncService.swift */; };
 		9EDD40517114FE6058BDE11B /* AgentSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCE97B018C8576558100F88 /* AgentSuggestions.swift */; };
 		9F1BF2EDEEBA574EC8F77D3D /* StreamingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A4A2675FD0B802EB09CAD7 /* StreamingIndicator.swift */; };
+		9F3F7F1554DB7F068A2B6DA9 /* PendingChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ABE7DC21569488A5F4956DD /* PendingChatView.swift */; };
 		A143B58755FA1EC441E1E50C /* CatalogServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2016CB468A359AF549D79A /* CatalogServiceTests.swift */; };
 		A2FDDE6D95567398E5A6F6F2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A05BE2704B80EEC18221F92 /* SettingsView.swift */; };
 		A3146BCE0C1A54EEB293B9F7 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E4DCE83740204D511E3B0D1 /* MainWindowView.swift */; };
@@ -182,6 +183,7 @@
 		366DFE642C902647403BE941 /* ImagePreviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreviewOverlay.swift; sourceTree = "<group>"; };
 		3881E88C458AB35F661F8F3B /* GroupSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSummaryTests.swift; sourceTree = "<group>"; };
 		38F111E8979D43932412C844 /* GitServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitServiceTests.swift; sourceTree = "<group>"; };
+		3ABE7DC21569488A5F4956DD /* PendingChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingChatView.swift; sourceTree = "<group>"; };
 		3DB65530D86E5D6DCF4CBF50 /* GroupRoleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupRoleTests.swift; sourceTree = "<group>"; };
 		3E4DCE83740204D511E3B0D1 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		3F7B1EC952EBA8591E97378A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -355,6 +357,7 @@
 				3E4DCE83740204D511E3B0D1 /* MainWindowView.swift */,
 				E55639E38311435A165FCF48 /* NewSessionSheet.swift */,
 				68EA4FB151F4238EA55A907E /* PeerNetworkView.swift */,
+				3ABE7DC21569488A5F4956DD /* PendingChatView.swift */,
 				B7E20C232EF0FDCB15C1A11F /* SidebarView.swift */,
 				F699A7551BB3459C5FA21861 /* WelcomeView.swift */,
 				D43747F7AD28D67F8EB351FE /* WorkingDirectoryPicker.swift */,
@@ -799,6 +802,7 @@
 				C6D2BF9D721ACE70596CF7B2 /* PeerCatalogServer.swift in Sources */,
 				0FA50B09FC74F48EA9D216D4 /* PeerNetworkView.swift in Sources */,
 				3E7BEC013C5C2E4D9D8EDD3E /* PeerWireModels.swift in Sources */,
+				9F3F7F1554DB7F068A2B6DA9 /* PendingChatView.swift in Sources */,
 				7A7F6E1699C592B0E2822C90 /* PermissionSet.swift in Sources */,
 				F1151BA284E140621801A6E3 /* RecentDirectories.swift in Sources */,
 				D1BCF026D25D7FCBCF9FAF3E /* RecentRepos.swift in Sources */,
