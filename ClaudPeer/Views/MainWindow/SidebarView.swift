@@ -19,8 +19,11 @@ struct SidebarView: View {
     @State private var conversationToDelete: Conversation?
     @State private var showDeleteConfirmation = false
     @State private var showCatalog = false
-    @State private var isArchivedExpanded = false
+    @State private var isPinnedExpanded = true
+    @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
+    @State private var isArchivedExpanded = false
+    @State private var hoveredConversationId: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,10 +31,12 @@ struct SidebarView: View {
                 if conversations.isEmpty {
                     emptyState
                 } else {
-                    pinnedSection
-                    activeSection
-                    historySection
-                    archivedSection
+                    Section("Chats") {
+                        pinnedSection
+                        activeSection
+                        historySection
+                        archivedSection
+                    }
                 }
                 groupsSection
                 agentsSection
@@ -205,12 +210,22 @@ struct SidebarView: View {
     @ViewBuilder
     private var pinnedSection: some View {
         let pinned = rootConversations.filter { $0.isPinned && !$0.isArchived }
-        if !pinned.isEmpty {
-            Section("Pinned") {
-                ForEach(filteredConversations(pinned)) { convo in
+        let filteredPinned = filteredConversations(pinned)
+        if !filteredPinned.isEmpty {
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isPinnedExpanded || !searchText.isEmpty },
+                    set: { isPinnedExpanded = $0 }
+                )
+            ) {
+                ForEach(filteredPinned) { convo in
                     conversationTreeNode(convo, pinAction: "Unpin")
                 }
+            } label: {
+                Label("Pinned (\(filteredPinned.count))", systemImage: "pin.fill")
+                    .foregroundStyle(.secondary)
             }
+            .xrayId("sidebar.pinnedSection")
         }
     }
 
@@ -221,11 +236,20 @@ struct SidebarView: View {
         let all = rootConversations.filter { !$0.isPinned && !$0.isArchived }
         let visible = filteredConversations(Array(all.prefix(10)))
         if !visible.isEmpty {
-            Section("Active") {
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isActiveExpanded || !searchText.isEmpty },
+                    set: { isActiveExpanded = $0 }
+                )
+            ) {
                 ForEach(visible) { convo in
                     conversationTreeNode(convo, pinAction: "Pin")
                 }
+            } label: {
+                Label("Active (\(visible.count))", systemImage: "bolt.fill")
+                    .foregroundStyle(.secondary)
             }
+            .xrayId("sidebar.activeSection")
         }
     }
 
@@ -237,22 +261,20 @@ struct SidebarView: View {
         let overflow = Array(all.dropFirst(10))
         let visible = filteredConversations(overflow)
         if !visible.isEmpty {
-            Section {
-                DisclosureGroup(
-                    isExpanded: Binding(
-                        get: { isHistoryExpanded || !searchText.isEmpty },
-                        set: { isHistoryExpanded = $0 }
-                    )
-                ) {
-                    ForEach(visible) { convo in
-                        conversationTreeNode(convo, pinAction: "Pin")
-                    }
-                } label: {
-                    Label("History (\(visible.count))", systemImage: "clock.arrow.circlepath")
-                        .foregroundStyle(.secondary)
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isHistoryExpanded || !searchText.isEmpty },
+                    set: { isHistoryExpanded = $0 }
+                )
+            ) {
+                ForEach(visible) { convo in
+                    conversationTreeNode(convo, pinAction: "Pin")
                 }
-                .xrayId("sidebar.historySection")
+            } label: {
+                Label("History (\(visible.count))", systemImage: "clock.arrow.circlepath")
+                    .foregroundStyle(.secondary)
             }
+            .xrayId("sidebar.historySection")
         }
     }
 
@@ -263,34 +285,32 @@ struct SidebarView: View {
         let archived = rootConversations.filter { $0.isArchived }
         let visible = filteredConversations(archived)
         if !visible.isEmpty {
-            Section {
-                DisclosureGroup(
-                    isExpanded: Binding(
-                        get: { isArchivedExpanded || !searchText.isEmpty },
-                        set: { isArchivedExpanded = $0 }
-                    )
-                ) {
-                    ForEach(visible) { convo in
-                        conversationRow(convo)
-                            .tag(convo.id)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) { promptDelete(convo) } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isArchivedExpanded || !searchText.isEmpty },
+                    set: { isArchivedExpanded = $0 }
+                )
+            ) {
+                ForEach(visible) { convo in
+                    conversationRow(convo)
+                        .tag(convo.id)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) { promptDelete(convo) } label: {
+                                Label("Delete", systemImage: "trash")
                             }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button { unarchiveConversation(convo) } label: {
-                                    Label("Unarchive", systemImage: "tray.and.arrow.up")
-                                }
-                                .tint(.blue)
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button { unarchiveConversation(convo) } label: {
+                                Label("Unarchive", systemImage: "tray.and.arrow.up")
                             }
-                    }
-                } label: {
-                    Label("Archived (\(visible.count))", systemImage: "archivebox")
-                        .foregroundStyle(.secondary)
+                            .tint(.blue)
+                        }
                 }
-                .xrayId("sidebar.archivedSection")
+            } label: {
+                Label("Archived (\(visible.count))", systemImage: "archivebox")
+                    .foregroundStyle(.secondary)
             }
+            .xrayId("sidebar.archivedSection")
         }
     }
 
@@ -468,6 +488,7 @@ struct SidebarView: View {
 
     private func conversationRow(_ convo: Conversation) -> some View {
         let activity = appState.conversationActivity(for: convo)
+        let isHovered = hoveredConversationId == convo.id
         return HStack(spacing: 8) {
             conversationIcon(convo)
             VStack(alignment: .leading, spacing: 2) {
@@ -501,45 +522,67 @@ struct SidebarView: View {
                 }
             }
             Spacer()
+            if isHovered {
+                Menu {
+                    conversationMenuContent(convo)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16, height: 16)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .xrayId("sidebar.moreMenu.\(convo.id.uuidString)")
+            }
             SidebarActivityIndicator(
                 summary: activity,
                 conversationStatus: convo.status
             )
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
         }
+        .onHover { isHovering in
+            hoveredConversationId = isHovering ? convo.id : nil
+        }
         .xrayId("sidebar.conversationRow.\(convo.id.uuidString)")
         .contextMenu {
-            Button {
-                renameText = convo.topic ?? ""
-                renamingConversation = convo
-            } label: {
-                Label("Rename...", systemImage: "pencil")
+            conversationMenuContent(convo)
+        }
+    }
+
+    @ViewBuilder
+    private func conversationMenuContent(_ convo: Conversation) -> some View {
+        Button {
+            renameText = convo.topic ?? ""
+            renamingConversation = convo
+        } label: {
+            Label("Rename\u{2026}", systemImage: "pencil")
+        }
+        Button { togglePin(convo) } label: {
+            Label(convo.isPinned ? "Unpin" : "Pin", systemImage: convo.isPinned ? "pin.slash" : "pin")
+        }
+        Divider()
+        if convo.status == .active {
+            Button { closeConversation(convo) } label: {
+                Label("Close Session", systemImage: "stop.circle")
             }
-            Button { togglePin(convo) } label: {
-                Label(convo.isPinned ? "Unpin" : "Pin", systemImage: convo.isPinned ? "pin.slash" : "pin")
+        }
+        Button { duplicateConversation(convo) } label: {
+            Label("Duplicate", systemImage: "doc.on.doc")
+        }
+        if convo.isArchived {
+            Button { unarchiveConversation(convo) } label: {
+                Label("Unarchive", systemImage: "tray.and.arrow.up")
             }
-            Divider()
-            if convo.status == .active {
-                Button { closeConversation(convo) } label: {
-                    Label("Close Session", systemImage: "stop.circle")
-                }
+        } else {
+            Button { archiveConversation(convo) } label: {
+                Label("Archive", systemImage: "archivebox")
             }
-            Button { duplicateConversation(convo) } label: {
-                Label("Duplicate", systemImage: "doc.on.doc")
-            }
-            if convo.isArchived {
-                Button { unarchiveConversation(convo) } label: {
-                    Label("Unarchive", systemImage: "tray.and.arrow.up")
-                }
-            } else {
-                Button { archiveConversation(convo) } label: {
-                    Label("Archive", systemImage: "archivebox")
-                }
-            }
-            Divider()
-            Button(role: .destructive) { promptDelete(convo) } label: {
-                Label("Delete", systemImage: "trash")
-            }
+        }
+        Divider()
+        Button(role: .destructive) { promptDelete(convo) } label: {
+            Label("Delete", systemImage: "trash")
         }
     }
 
