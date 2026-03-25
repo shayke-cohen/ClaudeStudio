@@ -8,6 +8,12 @@ struct AgentSidebarRowView: View {
     let onNewChat: () -> Void
     let onSelectConversation: (Conversation) -> Void
     var onSelectAgent: (() -> Void)?
+    var selectedConversationId: UUID?
+
+    private var isSelected: Bool {
+        guard let selected = selectedConversationId else { return false }
+        return conversations.contains { $0.id == selected }
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -70,6 +76,10 @@ struct AgentSidebarRowView: View {
                 }
             }
             .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString)")
+            .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 

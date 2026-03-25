@@ -382,7 +382,8 @@ struct SidebarView: View {
                         selectOrCreateGroupChat(group)
                     },
                     onEdit: { editingGroup = group },
-                    onDuplicate: { duplicateGroup(group) }
+                    onDuplicate: { duplicateGroup(group) },
+                    selectedConversationId: appState.selectedConversationId
                 )
                 .contextMenu {
                     Button("Start Chat") {
@@ -433,7 +434,8 @@ struct SidebarView: View {
                     },
                     onSelectAgent: {
                         selectOrCreateAgentChat(agent)
-                    }
+                    },
+                    selectedConversationId: appState.selectedConversationId
                 )
                 .contextMenu {
                     Button("Start Session") {
