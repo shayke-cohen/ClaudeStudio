@@ -45,9 +45,48 @@ struct MessageBubble: View {
                 delegationMessage
             case .blackboardUpdate:
                 blackboardMessage
+            case .question:
+                AnsweredQuestionBubble(message: message, agentAppearance: senderAppearance)
+            case .richContent:
+                richContentView
             }
         }
         .xrayId("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")
+    }
+
+    @ViewBuilder
+    private var richContentView: some View {
+        let format = message.toolName ?? "html"
+        let title = message.toolInput
+        let content = message.text
+        let maxHeight = Double(message.toolOutput ?? "400") ?? 400
+
+        switch format {
+        case "mermaid":
+            VStack(alignment: .leading, spacing: 4) {
+                if let title, !title.isEmpty {
+                    Text(title)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+                MermaidDiagramView(source: content)
+                    .frame(height: min(maxHeight, 500))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        case "markdown":
+            VStack(alignment: .leading, spacing: 4) {
+                if let title, !title.isEmpty {
+                    Text(title)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+                MarkdownContent(text: content)
+            }
+        default:
+            InlineHTMLCard(title: title, html: content, maxHeight: maxHeight)
+        }
     }
 
     @ViewBuilder

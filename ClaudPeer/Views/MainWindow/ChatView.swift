@@ -42,9 +42,19 @@ struct ChatView: View {
     @Query private var allConversations: [Conversation]
     @Query private var allAgents: [Agent]
     @Query private var allGroups: [AgentGroup]
+    @Query(sort: \Session.startedAt) private var allSessions: [Session]
 
     private var conversation: Conversation? {
         allConversations.first { $0.id == conversationId }
+    }
+
+    /// Sessions for this conversation — relationship first, manual query fallback.
+    private var conversationSessions: [Session] {
+        let relSessions = conversation?.sessions ?? []
+        if !relSessions.isEmpty { return relSessions }
+        return allSessions.filter { session in
+            session.conversations.contains { $0.id == conversationId }
+        }
     }
 
     private var sortedMessages: [ConversationMessage] {
@@ -56,7 +66,7 @@ struct ChatView: View {
     }
 
     private var primarySession: Session? {
-        conversation?.primarySession
+        conversationSessions.min { $0.startedAt < $1.startedAt }
     }
 
     private var currentModel: String? {
@@ -522,6 +532,21 @@ struct ChatView: View {
                 }
                 .xrayId("chat.moreOptions.attachRepo")
                 Divider()
+                Toggle(isOn: Binding(
+                    get: { AppSettings.store.object(forKey: AppSettings.notificationsEnabledKey) as? Bool ?? true },
+                    set: { AppSettings.store.set($0, forKey: AppSettings.notificationsEnabledKey) }
+                )) {
+                    Label("Notifications", systemImage: "bell")
+                }
+                .xrayId("chat.moreOptions.notificationsToggle")
+                Toggle(isOn: Binding(
+                    get: { AppSettings.store.object(forKey: AppSettings.notificationSoundEnabledKey) as? Bool ?? true },
+                    set: { AppSettings.store.set($0, forKey: AppSettings.notificationSoundEnabledKey) }
+                )) {
+                    Label("Sound", systemImage: "speaker.wave.2")
+                }
+                .xrayId("chat.moreOptions.soundToggle")
+                Divider()
                 Button { showClearConfirmation = true } label: {
                     Label("Clear Messages", systemImage: "trash")
                 }
@@ -599,9 +624,13 @@ struct ChatView: View {
                     }
 
                     if showAllDoneBanner {
-                        AllDoneBanner()
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .id("allDoneBanner")
+                        SessionSummaryCard(
+                            sessions: sessionsForSummary,
+                            toolCalls: toolCallsForSummary,
+                            duration: summaryDuration
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .id("allDoneBanner")
                     }
                 }
                 .padding()
@@ -820,7 +849,7 @@ struct ChatView: View {
 
     @ViewBuilder
     private var delegateMenu: some View {
-        let inChatAgentIds = Set((conversation?.sessions ?? []).compactMap(\.agent?.id))
+        let inChatAgentIds = Set(conversationSessions.compactMap(\.agent?.id))
         let eligibleAgents = allAgents.filter { !inChatAgentIds.contains($0.id) }
 
         Menu {
@@ -1181,6 +1210,32 @@ struct ChatView: View {
         )
     }
 
+    // MARK: - Session Summary Helpers
+
+    private var sessionsForSummary: [AppState.SessionInfo] {
+        guard let convo = conversation else { return [] }
+        return convo.sessions.compactMap { session in
+            appState.activeSessions[session.id]
+        }
+    }
+
+    private var toolCallsForSummary: [String: [AppState.ToolCallInfo]] {
+        guard let convo = conversation else { return [:] }
+        var result: [String: [AppState.ToolCallInfo]] = [:]
+        for session in convo.sessions {
+            let key = session.id.uuidString
+            if let calls = appState.toolCalls[key] {
+                result[key] = calls
+            }
+        }
+        return result
+    }
+
+    private var summaryDuration: TimeInterval? {
+        guard let start = processingStartTime else { return nil }
+        return Date().timeIntervalSince(start)
+    }
+
     // MARK: - Agent Question Helpers
 
     private var pendingQuestionsForCurrentConversation: [AppState.AgentQuestion] {
@@ -1389,7 +1444,7 @@ struct ChatView: View {
         )
         try? modelContext.save()
 
-        var targetSessions: [Session] = convo.sessions.sorted(by: { $0.startedAt < $1.startedAt })
+        var targetSessions: [Session] = conversationSessions.sorted(by: { $0.startedAt < $1.startedAt })
         if targetSessions.isEmpty {
             if let s = ensureFreeformSidecarSession(in: convo) {
                 targetSessions = [s]
@@ -1443,6 +1498,8 @@ struct ChatView: View {
         guard appState.sidecarStatus == .connected,
               let manager = appState.sidecarManager else {
             isProcessing = false
+            mentionErrorDetail = "Sidecar not connected. Check the connection status and try again."
+            showMentionError = true
             return
         }
 

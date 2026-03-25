@@ -6,7 +6,6 @@
   "icon": "arrow.triangle.swap",
   "color": "teal",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

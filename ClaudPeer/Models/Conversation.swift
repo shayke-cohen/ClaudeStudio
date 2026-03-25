@@ -18,6 +18,7 @@ final class Conversation {
     var sourceGroupId: UUID?
     var workflowCurrentStep: Int?
     var workflowCompletedSteps: [Int]?
+    var isUnread: Bool = false
     var isAutonomous: Bool = false
     var startedAt: Date
     var closedAt: Date?

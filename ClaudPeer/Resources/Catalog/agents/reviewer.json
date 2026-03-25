@@ -6,7 +6,6 @@
   "icon": "eye.fill",
   "color": "orange",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",
@@ -15,7 +14,9 @@
     "owasp-top-10",
     "code-audit"
   ],
-  "extraMCPs": ["github"],
+  "extraMCPs": [
+    "github"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Senior Code Reviewer",

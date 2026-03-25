@@ -69,6 +69,7 @@ struct AgentCardView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.quaternary, lineWidth: 1)
         )
+        .opacity(agent.isEnabled ? 1.0 : 0.5)
     }
 
     private var originLabel: String {

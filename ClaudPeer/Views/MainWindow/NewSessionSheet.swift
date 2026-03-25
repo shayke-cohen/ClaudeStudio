@@ -91,19 +91,6 @@ struct NewSessionSheet: View {
                             .foregroundStyle(.secondary)
                             .xrayId("newSession.selectedAgentsSummary")
                     }
-                    if orderedSelectedAgents.count == 1, let agent = orderedSelectedAgents.first {
-                        if agent.instancePolicyKind == "singleton" {
-                            Label("Singleton — new sessions reuse the existing one", systemImage: "1.circle")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                                .xrayId("newSession.policyLabel")
-                        } else if agent.instancePolicyKind == "pool" {
-                            Label("Pool (\(agent.instancePolicyPoolMax ?? 3) max) — sessions are load-balanced", systemImage: "square.3.layers.3d")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                                .xrayId("newSession.policyLabel")
-                        }
-                    }
                     workspaceSection
                     optionsSection
                 }

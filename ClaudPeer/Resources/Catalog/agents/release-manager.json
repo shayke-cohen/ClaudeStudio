@@ -6,7 +6,6 @@
   "icon": "shippingbox.fill",
   "color": "orange",
   "model": "haiku",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

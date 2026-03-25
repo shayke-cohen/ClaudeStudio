@@ -6,7 +6,6 @@
   "icon": "checkmark.shield.fill",
   "color": "teal",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",
@@ -18,7 +17,10 @@
     "exploratory-testing",
     "claudpeer-accessibility"
   ],
-  "extraMCPs": ["argus", "appxray"],
+  "extraMCPs": [
+    "argus",
+    "appxray"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "QA Engineer",

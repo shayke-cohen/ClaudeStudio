@@ -1,12 +1,6 @@
 import Foundation
 import SwiftData
 
-enum InstancePolicy: Sendable, Hashable {
-    case spawn
-    case singleton
-    case pool(max: Int)
-}
-
 enum AgentOrigin: Sendable, Hashable {
     case local
     case peer(peerName: String)
@@ -31,10 +25,6 @@ final class Agent {
     var icon: String
     var color: String
 
-    // InstancePolicy flattened for SwiftData
-    var instancePolicyKind: String
-    var instancePolicyPoolMax: Int?
-
     // AgentOrigin flattened for SwiftData
     var originKind: String
     var originPeerName: String?
@@ -44,36 +34,15 @@ final class Agent {
     var defaultWorkingDirectory: String?
     var githubRepo: String?
     var githubDefaultBranch: String?
+    var githubAutoCreateBranch: Bool
     var isShared: Bool
+    var isEnabled: Bool = true
+    var configSlug: String?
     var createdAt: Date
     var updatedAt: Date
 
     @Relationship(deleteRule: .cascade, inverse: \Session.agent)
     var sessions: [Session] = []
-
-    @Transient
-    var instancePolicy: InstancePolicy {
-        get {
-            switch instancePolicyKind {
-            case "singleton": return .singleton
-            case "pool": return .pool(max: instancePolicyPoolMax ?? 3)
-            default: return .spawn
-            }
-        }
-        set {
-            switch newValue {
-            case .spawn:
-                instancePolicyKind = "spawn"
-                instancePolicyPoolMax = nil
-            case .singleton:
-                instancePolicyKind = "singleton"
-                instancePolicyPoolMax = nil
-            case .pool(let max):
-                instancePolicyKind = "pool"
-                instancePolicyPoolMax = max
-            }
-        }
-    }
 
     @Transient
     var origin: AgentOrigin {
@@ -128,12 +97,13 @@ final class Agent {
         self.maxThinkingTokens = 10000
         self.icon = icon
         self.color = color
-        self.instancePolicyKind = "spawn"
-        self.instancePolicyPoolMax = nil
         self.originKind = "local"
         self.originPeerName = nil
         self.originRemoteId = nil
+        self.githubAutoCreateBranch = false
         self.isShared = false
+        self.isEnabled = true
+        self.configSlug = nil
         self.createdAt = Date()
         self.updatedAt = Date()
     }

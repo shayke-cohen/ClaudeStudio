@@ -6,7 +6,6 @@
   "icon": "person.3.fill",
   "color": "green",
   "model": "haiku",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

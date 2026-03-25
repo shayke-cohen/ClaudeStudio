@@ -15,6 +15,12 @@ struct SettingsView: View {
                 }
                 .xrayId("settings.tab.connection")
 
+            ChatDisplaySettingsTab()
+                .tabItem {
+                    Label("Chat Display", systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .xrayId("settings.tab.chatDisplay")
+
             DeveloperSettingsTab()
                 .tabItem {
                     Label("Developer", systemImage: "wrench.and.screwdriver")
@@ -206,6 +212,79 @@ private struct ConnectionSettingsTab: View {
         case .connecting:
             EmptyView()
         }
+    }
+}
+
+// MARK: - Chat Display
+
+private struct ChatDisplaySettingsTab: View {
+    @AppStorage(AppSettings.renderAdmonitionsKey, store: AppSettings.store) private var renderAdmonitions = true
+    @AppStorage(AppSettings.renderDiffsKey, store: AppSettings.store) private var renderDiffs = true
+    @AppStorage(AppSettings.renderTerminalKey, store: AppSettings.store) private var renderTerminal = true
+    @AppStorage(AppSettings.renderMermaidKey, store: AppSettings.store) private var renderMermaid = true
+    @AppStorage(AppSettings.renderHTMLKey, store: AppSettings.store) private var renderHTML = true
+    @AppStorage(AppSettings.renderPDFKey, store: AppSettings.store) private var renderPDF = true
+    @AppStorage(AppSettings.showSessionSummaryKey, store: AppSettings.store) private var showSessionSummary = true
+    @AppStorage(AppSettings.showSuggestionChipsKey, store: AppSettings.store) private var showSuggestionChips = true
+
+    var body: some View {
+        Form {
+            Section("Rich Content") {
+                Toggle("Callout Cards", isOn: $renderAdmonitions)
+                    .xrayId("settings.chatDisplay.renderAdmonitions")
+                Text("Render > [!info], > [!warning], etc. as styled cards")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Inline HTML", isOn: $renderHTML)
+                    .xrayId("settings.chatDisplay.renderHTML")
+                Text("Render HTML file cards inline via WebView")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Mermaid Diagrams", isOn: $renderMermaid)
+                    .xrayId("settings.chatDisplay.renderMermaid")
+                Text("Render ```mermaid``` blocks as visual diagrams")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Inline PDF", isOn: $renderPDF)
+                    .xrayId("settings.chatDisplay.renderPDF")
+                Text("Show PDF pages inline instead of file card icon")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Tool Output") {
+                Toggle("Inline Diffs", isOn: $renderDiffs)
+                    .xrayId("settings.chatDisplay.renderDiffs")
+                Text("Show file edits as colored diffs instead of raw JSON")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Terminal Output", isOn: $renderTerminal)
+                    .xrayId("settings.chatDisplay.renderTerminal")
+                Text("Style bash/shell output with terminal appearance")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Session") {
+                Toggle("Session Summary Card", isOn: $showSessionSummary)
+                    .xrayId("settings.chatDisplay.showSessionSummary")
+                Text("Show cost, tokens, and files touched when a session completes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Suggestion Chips", isOn: $showSuggestionChips)
+                    .xrayId("settings.chatDisplay.showSuggestionChips")
+                Text("Show follow-up action chips after agent responses")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }
 

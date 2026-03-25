@@ -89,7 +89,6 @@ struct CatalogDetailView: View {
             case .agent(let agent):
                 chip(agent.category, color: .purple)
                 chip(agent.model, color: .blue)
-                chip(agent.instancePolicy, color: .orange)
             case .skill(let skill):
                 chip(skill.category, color: .blue)
             case .mcp(let mcp):

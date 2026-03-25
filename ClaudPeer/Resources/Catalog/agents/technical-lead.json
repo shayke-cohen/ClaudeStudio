@@ -6,7 +6,6 @@
   "icon": "star.fill",
   "color": "blue",
   "model": "opus",
-  "instancePolicy": "singleton",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

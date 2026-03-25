@@ -1,11 +1,10 @@
 {
   "name": "Product Manager",
+  "enabled": true,
   "agentDescription": "Defines product strategy, writes requirements, prioritizes features, and aligns the team on goals. Uses the blackboard to share specs and decisions.",
   "model": "sonnet",
   "icon": "chart.bar.doc.horizontal",
   "color": "indigo",
-  "instancePolicyKind": "spawn",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",

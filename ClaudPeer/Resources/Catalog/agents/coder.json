@@ -5,8 +5,7 @@
   "category": "Core Team",
   "icon": "chevron.left.forwardslash.chevron.right",
   "color": "blue",
-  "model": "sonnet",
-  "instancePolicy": "spawn",
+  "model": "opus",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

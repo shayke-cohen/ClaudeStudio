@@ -9,6 +9,7 @@ struct AgentSidebarRowView: View {
     let onSelectConversation: (Conversation) -> Void
     var onSelectAgent: (() -> Void)?
     var selectedConversationId: UUID?
+    var hasActiveSession: Bool = false
 
     private var isSelected: Bool {
         guard let selected = selectedConversationId else { return false }
@@ -22,11 +23,16 @@ struct AgentSidebarRowView: View {
                     onSelectConversation(conv)
                 } label: {
                     HStack(spacing: 6) {
+                        if conv.isUnread {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 6, height: 6)
+                        }
                         Image(systemName: "bubble.left")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                         Text(conv.topic ?? "Untitled")
-                            .font(.caption)
+                            .font(conv.isUnread ? .caption.bold() : .caption)
                             .lineLimit(1)
                         Spacer()
                         Text(conv.startedAt, style: .relative)
@@ -40,14 +46,25 @@ struct AgentSidebarRowView: View {
 
         } label: {
             HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: agent.icon)
-                        .foregroundStyle(Color.fromAgentColor(agent.color))
-                    Text(agent.name)
+                Button {
+                    onSelectAgent?()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: agent.icon)
+                            .foregroundStyle(Color.fromAgentColor(agent.color))
+                        Text(agent.name)
+                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { onSelectAgent?() }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).selectButton")
                 Spacer()
+                if hasActiveSession {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 6, height: 6)
+                        .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).activityDot")
+                }
                 if !conversations.isEmpty {
                     Text("\(conversations.count)")
                         .font(.caption2)
@@ -66,28 +83,12 @@ struct AgentSidebarRowView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).newChatButton")
-                if agent.instancePolicy != .spawn {
-                    Text(policyBadge(agent.instancePolicy))
-                        .font(.caption2)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(.quaternary)
-                        .clipShape(Capsule())
-                }
             }
             .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString)")
             .padding(.vertical, 2)
             .padding(.horizontal, 4)
             .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        }
-    }
-
-    private func policyBadge(_ policy: InstancePolicy) -> String {
-        switch policy {
-        case .singleton: return "1"
-        case .pool(let max): return "\(max)"
-        case .spawn: return ""
         }
     }
 }

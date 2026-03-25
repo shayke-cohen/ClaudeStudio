@@ -1,11 +1,10 @@
 {
   "name": "Researcher",
+  "enabled": true,
   "agentDescription": "Research specialist that gathers information from the web, documentation, and codebases. Writes structured findings to the blackboard with namespaced keys. Never modifies code.",
   "model": "sonnet",
   "icon": "magnifyingglass",
   "color": "green",
-  "instancePolicyKind": "spawn",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Read Only",

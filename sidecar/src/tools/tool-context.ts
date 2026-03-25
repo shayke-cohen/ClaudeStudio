@@ -3,6 +3,8 @@ import type { SessionRegistry } from "../stores/session-registry.js";
 import type { MessageStore } from "../stores/message-store.js";
 import type { ChatChannelStore } from "../stores/chat-channel-store.js";
 import type { WorkspaceStore } from "../stores/workspace-store.js";
+import type { PeerRegistry } from "../stores/peer-registry.js";
+import type { RelayClient } from "../relay-client.js";
 import type { SidecarEvent, AgentConfig } from "../types.js";
 
 export interface ToolContext {
@@ -11,6 +13,8 @@ export interface ToolContext {
   messages: MessageStore;
   channels: ChatChannelStore;
   workspaces: WorkspaceStore;
+  peerRegistry: PeerRegistry;
+  relayClient: RelayClient;
   broadcast: (event: SidecarEvent) => void;
 
   /**

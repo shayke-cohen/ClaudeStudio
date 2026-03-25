@@ -6,7 +6,6 @@
   "icon": "cylinder",
   "color": "orange",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

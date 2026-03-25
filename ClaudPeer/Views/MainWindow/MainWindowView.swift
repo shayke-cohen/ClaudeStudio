@@ -286,24 +286,21 @@ struct MainWindowView: View {
     }
 
     private func startSessionWithAgent(_ agent: Agent) {
-        let conversation = Conversation(topic: agent.name)
-        let userParticipant = Participant(type: .user, displayName: "You")
-        userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
-
         let session = Session(agent: agent, mode: .interactive)
         session.workingDirectory = agent.defaultWorkingDirectory ?? ""
-        modelContext.insert(conversation)
-        modelContext.insert(session)
-        conversation.sessions.append(session)
-
+        let conversation = Conversation(topic: agent.name, sessions: [session])
+        let userParticipant = Participant(type: .user, displayName: "You")
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: agent.name
         )
+        userParticipant.conversation = conversation
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = [userParticipant, agentParticipant]
+        session.conversations = [conversation]
 
+        modelContext.insert(session)
+        modelContext.insert(conversation)
         try? modelContext.save()
         appState.selectedConversationId = conversation.id
     }

@@ -432,7 +432,21 @@ Parameters:
 - \`multi_select\` (optional): Allow multiple selections (default: false)
 - \`private\` (optional): Hide from other agents in group chat (default: true)
 
-IMPORTANT: Never write questions as plain text output. Always use the ask_user tool so the user gets an interactive prompt.\n`;
+IMPORTANT: Never write questions as plain text output. Always use the ask_user tool so the user gets an interactive prompt.
+
+## Rich Output
+
+Your chat supports rich rendering. You have these additional tools:
+
+- \`render_content\`: Display rich HTML, mermaid diagrams, or styled markdown inline in chat. Use for charts, reports, visualizations.
+- \`confirm_action\`: Request user approval before destructive operations (git push, rm, etc.). Blocks until user responds.
+- \`show_progress\`: Display/update a step-by-step progress tracker. Call multiple times with same id to update.
+- \`suggest_actions\`: Show clickable follow-up chips after completing a task.
+
+You can also use these markdown features that render as rich cards:
+- \`> [!info]\`, \`> [!success]\`, \`> [!warning]\`, \`> [!error]\` — callout cards
+- \`\`\`mermaid\`\`\` — rendered as visual diagrams
+- Markdown tables render as native tables\n`;
     }
 
     if (config.skills && config.skills.length > 0) {

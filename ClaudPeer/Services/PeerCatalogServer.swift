@@ -7,6 +7,8 @@ final class PeerCatalogServer: @unchecked Sendable {
     private var listener: NWListener?
     private let lock = NSLock()
     private var cachedBody: Data
+    /// Sidecar WebSocket port to advertise in Bonjour TXT for relay connections.
+    var sidecarWsPort: Int?
 
     init(initialJSON: Data) {
         self.cachedBody = initialJSON
@@ -30,10 +32,14 @@ final class PeerCatalogServer: @unchecked Sendable {
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true
         let l = try NWListener(using: params, on: NWEndpoint.Port.any)
-        let txt = NWTXTRecord([
+        var txtEntries: [String: String] = [
             "ver": "1",
             "instance": InstanceConfig.name,
-        ])
+        ]
+        if let wsPort = sidecarWsPort {
+            txtEntries["ws"] = "\(wsPort)"
+        }
+        let txt = NWTXTRecord(txtEntries)
         l.service = NWListener.Service(
             name: PeerCatalogServer.bonjourName(),
             type: PeerCatalogServer.serviceType,

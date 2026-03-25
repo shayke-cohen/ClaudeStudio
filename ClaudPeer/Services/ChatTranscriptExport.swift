@@ -102,6 +102,22 @@ enum ChatTranscriptExport {
                     timestampISO: ts,
                     text: message.text
                 )))
+            case .question:
+                let answerText = message.toolInput ?? ""
+                rows.append(ChatTranscriptSnapshot.Row(kind: .labeled(
+                    kindLabel: "Question",
+                    sender: sender,
+                    timestampISO: ts,
+                    text: "\(message.text)\nAnswer: \(answerText)"
+                )))
+            case .richContent:
+                let format = message.toolName ?? "html"
+                rows.append(ChatTranscriptSnapshot.Row(kind: .labeled(
+                    kindLabel: "Rich Content (\(format))",
+                    sender: sender,
+                    timestampISO: ts,
+                    text: message.text
+                )))
             }
         }
 

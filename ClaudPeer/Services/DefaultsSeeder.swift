@@ -406,7 +406,8 @@ enum DefaultsSeeder {
             "blackboard-patterns",
             "delegation-patterns",
             "workspace-collaboration",
-            "agent-identity"
+            "agent-identity",
+            "config-editing"
         ]
 
         var map: [String: Skill] = [:]
@@ -457,7 +458,7 @@ enum DefaultsSeeder {
         skills: [String: Skill],
         templates: [String: String]
     ) {
-        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer"]
+        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent"]
 
         for fileName in agentFiles {
             guard let data = loadAgentResource(name: fileName) else {
@@ -480,8 +481,6 @@ enum DefaultsSeeder {
                 color: dto.color
             )
 
-            agent.instancePolicyKind = dto.instancePolicyKind
-            agent.instancePolicyPoolMax = dto.instancePolicyPoolMax
             agent.maxTurns = dto.maxTurns
             agent.maxBudget = dto.maxBudget
             agent.origin = .builtin
@@ -522,8 +521,6 @@ enum DefaultsSeeder {
         let model: String
         let icon: String
         let color: String
-        let instancePolicyKind: String
-        let instancePolicyPoolMax: Int?
         let skillNames: [String]
         let mcpServerNames: [String]
         let permissionSetName: String

@@ -50,7 +50,6 @@ struct CatalogAgent: Codable, Identifiable {
     let icon: String
     let color: String
     let model: String
-    let instancePolicy: String
     let requiredSkills: [String]
     let extraMCPs: [String]
     let systemPromptTemplate: String
@@ -62,7 +61,7 @@ struct CatalogAgent: Codable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case catalogId, name, description, category, icon, color, model
-        case instancePolicy, requiredSkills, extraMCPs
+        case requiredSkills, extraMCPs
         case systemPromptTemplate, systemPromptVariables, tags
     }
 }
@@ -316,13 +315,6 @@ final class CatalogService {
         agent.extraMCPServerIds = extraMCPUUIDs
         agent.catalogId = catalogId
         agent.origin = .builtin
-
-        if entry.instancePolicy == "singleton" {
-            agent.instancePolicy = .singleton
-        } else if entry.instancePolicy.hasPrefix("pool:") {
-            let max = Int(entry.instancePolicy.replacingOccurrences(of: "pool:", with: "")) ?? 3
-            agent.instancePolicy = .pool(max: max)
-        }
 
         context.insert(agent)
         return agent

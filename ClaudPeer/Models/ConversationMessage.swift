@@ -8,6 +8,8 @@ enum MessageType: String, Codable, Sendable {
     case system
     case delegation
     case blackboardUpdate
+    case question
+    case richContent
 }
 
 @Model

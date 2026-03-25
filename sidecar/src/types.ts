@@ -12,6 +12,7 @@ export type SidecarCommand =
   | { type: "peer.remove"; name: string }
   | { type: "generate.agent"; requestId: string; prompt: string; availableSkills: SkillCatalogEntry[]; availableMCPs: MCPCatalogEntry[] }
   | { type: "session.questionAnswer"; sessionId: string; questionId: string; answer: string; selectedOptions?: string[] }
+  | { type: "session.confirmationAnswer"; sessionId: string; confirmationId: string; approved: boolean; modifiedAction?: string }
   | { type: "session.updateCwd"; sessionId: string; workingDirectory: string };
 
 export interface PeerAgentWire {
@@ -28,7 +29,6 @@ export interface BulkResumeEntry {
 export interface AgentDefinition {
   name: string;
   config: AgentConfig;
-  instancePolicy: "spawn" | "singleton" | { pool: number };
 }
 
 export interface AgentConfig {
@@ -42,8 +42,6 @@ export interface AgentConfig {
   maxThinkingTokens?: number;
   workingDirectory: string;
   skills: SkillContent[];
-  instancePolicy?: "spawn" | "singleton" | "pool";
-  instancePolicyPoolMax?: number;
   interactive?: boolean;
 }
 
@@ -111,11 +109,48 @@ export type SidecarEvent =
   | { type: "sidecar.ready"; port: number; version: string }
   | { type: "generate.agent.result"; requestId: string; spec: GeneratedAgentSpec }
   | { type: "generate.agent.error"; requestId: string; error: string }
-  | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean };
+  | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig }
+  | { type: "agent.confirmation"; sessionId: string; confirmationId: string; action: string; reason: string; riskLevel: "low" | "medium" | "high"; details?: string }
+  | { type: "stream.richContent"; sessionId: string; format: "html" | "mermaid" | "markdown"; title?: string; content: string; height?: number }
+  | { type: "stream.progress"; sessionId: string; progressId: string; title: string; steps: ProgressStep[] }
+  | { type: "stream.suggestions"; sessionId: string; suggestions: SuggestionItem[] };
 
 export interface QuestionOption {
   label: string;
   description?: string;
+}
+
+export type QuestionInputType = "text" | "options" | "rating" | "slider" | "toggle" | "dropdown" | "form";
+
+export interface QuestionInputConfig {
+  // rating
+  maxRating?: number;        // default 5
+  ratingLabels?: string[];   // e.g. ["Poor", "Fair", "Good", "Great", "Excellent"]
+  // slider
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;             // e.g. "%" or "ms"
+  // form
+  fields?: FormField[];
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: "text" | "number" | "toggle";
+  placeholder?: string;
+  required?: boolean;
+}
+
+export interface ProgressStep {
+  label: string;
+  status: "pending" | "running" | "done" | "error" | "skipped";
+}
+
+export interface SuggestionItem {
+  label: string;
+  message?: string;
 }
 
 // Session state

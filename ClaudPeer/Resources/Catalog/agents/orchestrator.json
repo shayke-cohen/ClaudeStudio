@@ -6,7 +6,6 @@
   "icon": "gear.2",
   "color": "purple",
   "model": "opus",
-  "instancePolicy": "singleton",
   "requiredSkills": [
     "peer-collaboration",
     "delegation-patterns",

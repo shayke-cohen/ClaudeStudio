@@ -6,7 +6,6 @@
   "icon": "hand.wave.fill",
   "color": "green",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

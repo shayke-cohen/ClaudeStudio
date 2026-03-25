@@ -1,11 +1,10 @@
 {
   "name": "Designer",
+  "enabled": true,
   "agentDescription": "Provides UX/UI design guidance, reviews interfaces for usability, and maintains design system consistency. Uses the blackboard to share design decisions.",
   "model": "sonnet",
   "icon": "paintpalette",
   "color": "pink",
-  "instancePolicyKind": "spawn",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",

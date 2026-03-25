@@ -6,7 +6,6 @@
   "icon": "wrench.and.screwdriver",
   "color": "gray",
   "model": "haiku",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",
@@ -15,7 +14,9 @@
     "ci-pipeline",
     "monitoring-setup"
   ],
-  "extraMCPs": ["github"],
+  "extraMCPs": [
+    "github"
+  ],
   "systemPromptTemplate": "worker",
   "systemPromptVariables": {
     "role": "DevOps Engineer",

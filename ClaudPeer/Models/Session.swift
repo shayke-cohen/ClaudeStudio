@@ -20,6 +20,7 @@ enum WorkspaceType: Sendable, Hashable {
     case githubClone(repoUrl: String)
     case ephemeral
     case shared(workspaceId: UUID)
+    case worktree(repoUrl: String, branch: String)
 }
 
 @Model
@@ -44,6 +45,9 @@ final class Session {
     var workspaceTypeKind: String
     var workspaceTypeValue: String?
 
+    /// Filesystem path of a git worktree created for this session (used for cleanup).
+    var worktreePath: String?
+
     /// Watermark for group transcript injection: last `ConversationMessage.id` included in a prompt to this session.
     var lastInjectedMessageId: UUID?
 
@@ -60,6 +64,9 @@ final class Session {
             case "githubClone": return .githubClone(repoUrl: workspaceTypeValue ?? "")
             case "shared":
                 return .shared(workspaceId: UUID(uuidString: workspaceTypeValue ?? "") ?? UUID())
+            case "worktree":
+                let parts = (workspaceTypeValue ?? "").split(separator: "\n", maxSplits: 1).map(String.init)
+                return .worktree(repoUrl: parts.first ?? "", branch: parts.count > 1 ? parts[1] : "")
             default: return .ephemeral
             }
         }
@@ -80,6 +87,9 @@ final class Session {
             case .shared(let workspaceId):
                 workspaceTypeKind = "shared"
                 workspaceTypeValue = workspaceId.uuidString
+            case .worktree(let repoUrl, let branch):
+                workspaceTypeKind = "worktree"
+                workspaceTypeValue = "\(repoUrl)\n\(branch)"
             }
         }
     }

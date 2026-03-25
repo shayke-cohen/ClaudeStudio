@@ -156,11 +156,8 @@ final class P2PNetworkManager: ObservableObject {
                     maxBudget: a.maxBudget,
                     maxThinkingTokens: a.maxThinkingTokens,
                     workingDirectory: a.defaultWorkingDirectory ?? "",
-                    skills: [],
-                    instancePolicyKind: a.instancePolicyKind,
-                    instancePolicyPoolMax: a.instancePolicyPoolMax
-                ),
-                instancePolicy: a.instancePolicyKind
+                    skills: []
+                )
             )
         }
 
@@ -197,8 +194,6 @@ final class P2PNetworkManager: ObservableObject {
                 maxThinkingTokens: a.maxThinkingTokens,
                 icon: a.icon,
                 color: a.color,
-                instancePolicyKind: a.instancePolicyKind,
-                instancePolicyPoolMax: a.instancePolicyPoolMax,
                 defaultWorkingDirectory: a.defaultWorkingDirectory,
                 githubRepo: a.githubRepo,
                 githubDefaultBranch: a.githubDefaultBranch,

@@ -6,7 +6,6 @@
   "icon": "lock.shield.fill",
   "color": "red",
   "model": "opus",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

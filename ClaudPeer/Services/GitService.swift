@@ -24,8 +24,8 @@ enum GitService {
 
     static func isGitRepo(at directory: URL) -> Bool {
         let gitDir = directory.appendingPathComponent(".git")
-        var isDir: ObjCBool = false
-        return FileManager.default.fileExists(atPath: gitDir.path, isDirectory: &isDir) && isDir.boolValue
+        // .git can be a directory (normal repo) or a file (worktree with gitdir: pointer)
+        return FileManager.default.fileExists(atPath: gitDir.path)
     }
 
     static func status(in directory: URL) -> [String: GitFileStatus] {
@@ -94,6 +94,15 @@ enum GitService {
             return workTree
         }
         return diffCached(file: file, in: directory)
+    }
+
+    /// Initializes a new git repo with an initial commit. Returns true on success.
+    @discardableResult
+    static func initializeRepo(at directory: URL) -> Bool {
+        guard runGit(["init"], in: directory) != nil else { return false }
+        _ = runGit(["add", "-A"], in: directory)
+        _ = runGit(["commit", "-m", "Initial commit", "--allow-empty"], in: directory)
+        return true
     }
 
     // MARK: - Private

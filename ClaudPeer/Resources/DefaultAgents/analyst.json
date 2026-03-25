@@ -1,11 +1,10 @@
 {
   "name": "Analyst",
+  "enabled": true,
   "agentDescription": "Performs data analysis, generates insights, tracks metrics, and produces reports. Uses the blackboard to share findings and key metrics.",
   "model": "sonnet",
   "icon": "chart.pie",
   "color": "teal",
-  "instancePolicyKind": "spawn",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",

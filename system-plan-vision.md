@@ -1624,21 +1624,41 @@ All seeded records have `origin: .builtin`. Users can modify them freely -- edit
 22. **First-launch seeding** -- `DefaultsSeeder` seeds all 5 categories (permissions, MCPs, skills, agents, templates) into SwiftData on first launch, with cross-entity linking (agents reference seeded skills, MCPs, and permissions by name)
 23. **Catalog PeerBus alignment** -- All 30 catalog agents include PeerBus system skills (peer-collaboration, blackboard-patterns, agent-identity) in their `requiredSkills` -- every agent in ClaudPeer can collaborate via PeerBus out of the box
 
-### Phase 5: Persistence and Polish
+### Phase 5: Persistence and Polish ✅ (partial)
 
-23. **Session persistence** -- Save to SwiftData, resume via SDK, crash recovery
-24. **GitHub integration** -- Clone repos, branch from issues, gh CLI permissions
-25. **Conversation forking** -- Fork from any point in history
+23. **Session persistence** -- SwiftData persistence with `claudeSessionId` for SDK resume; `lastInjectedMessageId` watermark for group chat recovery. ⚠️ Missing: automatic crash recovery / sidecar watchdog
+24. **GitHub integration** -- `GitHubIntegration.swift` clones repos (shallow `--depth 1`, branch tracking, multi-path git detection); `WorkspaceResolver.swift` normalises repo URLs and resolves clone paths to `~/.claudpeer/repos/`. ⚠️ Missing: branch-from-issue workflow, `gh` CLI integration
+25. **Conversation forking** -- Fork entire conversation or from any pivot message; clones sessions, participants, and message history; tracks lineage via `parentConversationId`
 
-### Phase 6: P2P Networking (v1)
+### Phase 5.5: UX and Quality-of-Life ✅
 
-26. **Bonjour discovery** -- Advertise/browse `_claudpeer._tcp`
-27. **Definition sharing** -- Browse/import agents and skills from peers
-28. **P2P Network panel** -- UI for peer management
+26. **Chat export/share** -- `ChatTranscriptExport` renders Markdown, HTML, and PDF (via WKWebView); `ChatExportPresenters` provides NSSavePanel and macOS share sheet; includes thinking blocks, tool calls, and attachments
+27. **File and image attachments** -- `MessageAttachment` SwiftData model; drag-drop support; images (png/jpg/gif/webp) and documents (txt/md/pdf); thumbnail previews in chat bubbles
+28. **Streaming images and file cards** -- `streamImage`, `streamFileCard`, `streamThinking` sidecar events; AppState buffers for live rendering during agent work
+29. **Inspector file tree** -- `FileTreeView` with hierarchical directory display, git status colour coding, changed-only filter, click-to-view file content, hidden-file toggle
+30. **Resizable chat/inspector split** -- NSSplitView with `autosaveName` for persistent divider position across launches
+31. **Conversation archive** -- `isArchived` flag on Conversation; sidebar archive section with archive/unarchive actions; auto-clears pin on archive
+32. **Multi-instance support** -- `InstanceConfig` per-instance namespacing (`--instance` flag); isolated SwiftData, blackboard, logs, UserDefaults suite, and WebSocket port per instance
+33. **Catalog browser** -- `CatalogBrowserView` and `CatalogDetailView` for browsing agents, skills, and MCPs with search/filter
+34. **Group peer fan-out** -- `GroupPeerFanOutContext` auto-delivers messages to all agent participants in group chats; budget limiter (12 max turns); deduplication via (sessionId, messageId)
+35. **Full accessibility coverage** -- 347+ `accessibilityIdentifier` values across all views; dot-separated camelCase convention; documented prefix map in CLAUDE.md and TESTING.md
+
+### Phase 6: P2P Networking (v1) ✅
+
+36. **Bonjour discovery** -- `P2PNetworkManager` with `NWBrowser` for `_claudpeer._tcp`; auto-filters self; published `peers` array for UI
+37. **Peer catalog server** -- `PeerCatalogServer` TCP HTTP server on dynamic port; Bonjour TXT record with version and instance name; serves `GET /claudpeer/v1/agents` JSON
+38. **Definition sharing** -- `PeerAgentImporter` imports remote agents with duplicate detection via `originKind`/`originRemoteId`; tracks missing dependencies (skills, MCPs, permissions); disambiguates name collisions
+39. **P2P Network panel** -- `PeerNetworkView` two-pane layout: discovered peers on left, agent list on right; browse/import/refresh actions; import status feedback with missing-dependency reporting
 
 ### Future: P2P v2
 
-29. **Peer registry in sidecar** -- Remote agent awareness
-30. **PeerBus routing layer** -- Local vs remote detection
-31. **Swift P2P bridge** -- Cross-machine message relay
-32. **Blackboard as MCP server** -- Universal AI tool integration
+40. **Peer registry in sidecar** -- Remote agent awareness in session-registry
+41. **PeerBus routing layer** -- Local vs remote detection for `peer_delegate_task` and messaging tools
+42. **Swift P2P bridge** -- Cross-machine message relay via WebSocket
+43. **Blackboard as MCP server** -- Expose blackboard HTTP API as MCP for universal AI tool integration
+
+### Future: Robustness
+
+44. **Crash recovery** -- Sidecar watchdog, automatic reconnect of in-flight sessions on restart
+45. **Instance policy enforcement** -- Full `.singleton` and `.pool(max:)` enforcement with load balancing
+46. **GitHub CLI integration** -- `gh` CLI permissions, branch-from-issue, PR/issue linking in UI

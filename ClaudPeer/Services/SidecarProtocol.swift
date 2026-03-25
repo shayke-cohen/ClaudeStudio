@@ -13,6 +13,7 @@ enum SidecarCommand: Sendable {
     case peerRemove(name: String)
     case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
     case questionAnswer(sessionId: String, questionId: String, answer: String, selectedOptions: [String]?)
+    case confirmationAnswer(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
 
     func encodeToJSON() throws -> Data {
@@ -72,6 +73,10 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 QuestionAnswerWire(type: "session.questionAnswer", sessionId: sessionId, questionId: questionId, answer: answer, selectedOptions: selectedOptions)
             )
+        case .confirmationAnswer(let sessionId, let confirmationId, let approved, let modifiedAction):
+            return try encoder.encode(
+                ConfirmationAnswerWire(type: "session.confirmationAnswer", sessionId: sessionId, confirmationId: confirmationId, approved: approved, modifiedAction: modifiedAction)
+            )
         case .sessionUpdateCwd(let sessionId, let workingDirectory):
             return try encoder.encode(
                 SessionUpdateCwdWire(type: "session.updateCwd", sessionId: sessionId, workingDirectory: workingDirectory)
@@ -83,7 +88,6 @@ enum SidecarCommand: Sendable {
 struct AgentDefinitionWire: Codable, Sendable {
     let name: String
     let config: AgentConfig
-    let instancePolicy: String
 }
 
 private struct AgentRegisterWire: Encodable {
@@ -174,6 +178,14 @@ private struct QuestionAnswerWire: Encodable {
     let selectedOptions: [String]?
 }
 
+private struct ConfirmationAnswerWire: Encodable {
+    let type: String
+    let sessionId: String
+    let confirmationId: String
+    let approved: Bool
+    let modifiedAction: String?
+}
+
 private struct GenerateAgentWire: Encodable {
     let type: String
     let requestId: String
@@ -219,8 +231,6 @@ struct AgentConfig: Codable, Sendable {
     let maxThinkingTokens: Int?
     let workingDirectory: String
     let skills: [SkillContent]
-    var instancePolicyKind: String?
-    var instancePolicyPoolMax: Int?
     var interactive: Bool?
 
     struct MCPServerConfig: Codable, Sendable {
@@ -253,7 +263,11 @@ enum SidecarEvent: Sendable {
     case sessionReused(originalSessionId: String, reusedSessionId: String)
     case generatedAgent(requestId: String, spec: GeneratedAgentSpec)
     case generateAgentError(requestId: String, error: String)
-    case agentQuestion(sessionId: String, questionId: String, question: String, options: [QuestionOption]?, multiSelect: Bool, isPrivate: Bool)
+    case agentQuestion(sessionId: String, questionId: String, question: String, options: [QuestionOption]?, multiSelect: Bool, isPrivate: Bool, inputType: String?, inputConfig: QuestionInputConfig?)
+    case agentConfirmation(sessionId: String, confirmationId: String, action: String, reason: String, riskLevel: String, details: String?)
+    case streamRichContent(sessionId: String, format: String, title: String?, content: String, height: Int?)
+    case streamProgress(sessionId: String, progressId: String, title: String, steps: [ProgressStep])
+    case streamSuggestions(sessionId: String, suggestions: [SuggestionItem])
     case connected
     case disconnected
 }
@@ -261,6 +275,37 @@ enum SidecarEvent: Sendable {
 struct QuestionOption: Codable, Sendable, Identifiable {
     let label: String
     let description: String?
+    var id: String { label }
+}
+
+struct QuestionInputConfig: Codable, Sendable {
+    let maxRating: Int?
+    let ratingLabels: [String]?
+    let min: Double?
+    let max: Double?
+    let step: Double?
+    let unit: String?
+    let fields: [FormFieldConfig]?
+}
+
+struct FormFieldConfig: Codable, Sendable, Identifiable {
+    let name: String
+    let label: String
+    let type: String  // "text", "number", "toggle"
+    let placeholder: String?
+    let required: Bool?
+    var id: String { name }
+}
+
+struct ProgressStep: Codable, Sendable, Identifiable {
+    let label: String
+    let status: String
+    var id: String { label }
+}
+
+struct SuggestionItem: Codable, Sendable, Identifiable {
+    let label: String
+    let message: String?
     var id: String { label }
 }
 
@@ -303,6 +348,20 @@ struct IncomingWireMessage: Codable, Sendable {
     let options: [QuestionOption]?
     let multiSelect: Bool?
     let `private`: Bool?
+    let inputType: String?
+    let inputConfig: QuestionInputConfig?
+    let confirmationId: String?
+    let action: String?
+    let reason: String?
+    let riskLevel: String?
+    let details: String?
+    let format: String?
+    let title: String?
+    let content: String?
+    let height: Int?
+    let progressId: String?
+    let steps: [ProgressStep]?
+    let suggestions: [SuggestionItem]?
 
     func toEvent() -> SidecarEvent? {
         switch type {
@@ -355,7 +414,19 @@ struct IncomingWireMessage: Codable, Sendable {
             return .generateAgentError(requestId: rid, error: error ?? "Unknown error")
         case "agent.question":
             guard let sid = sessionId, let qid = questionId, let q = question else { return nil }
-            return .agentQuestion(sessionId: sid, questionId: qid, question: q, options: options, multiSelect: multiSelect ?? false, isPrivate: `private` ?? true)
+            return .agentQuestion(sessionId: sid, questionId: qid, question: q, options: options, multiSelect: multiSelect ?? false, isPrivate: `private` ?? true, inputType: inputType, inputConfig: inputConfig)
+        case "agent.confirmation":
+            guard let sid = sessionId, let cid = confirmationId, let act = action, let rsn = reason, let rl = riskLevel else { return nil }
+            return .agentConfirmation(sessionId: sid, confirmationId: cid, action: act, reason: rsn, riskLevel: rl, details: details)
+        case "stream.richContent":
+            guard let sid = sessionId, let fmt = format, let cnt = content else { return nil }
+            return .streamRichContent(sessionId: sid, format: fmt, title: title, content: cnt, height: height)
+        case "stream.progress":
+            guard let sid = sessionId, let pid = progressId, let t = title, let s = steps else { return nil }
+            return .streamProgress(sessionId: sid, progressId: pid, title: t, steps: s)
+        case "stream.suggestions":
+            guard let sid = sessionId, let s = suggestions else { return nil }
+            return .streamSuggestions(sessionId: sid, suggestions: s)
         default:
             return nil
         }

@@ -8,6 +8,7 @@ import AppXray
 struct ClaudPeerApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var p2pNetworkManager = P2PNetworkManager()
+    @State private var configSyncService = ConfigSyncService()
     @AppStorage(AppSettings.appearanceKey, store: AppSettings.store) private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
 
@@ -45,8 +46,9 @@ struct ClaudPeerApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
 
-        DefaultsSeeder.seedIfNeeded(container: modelContainer)
-        DefaultsSeeder.seedGroupsIfNeeded(container: modelContainer)
+        // Config sync replaces DefaultsSeeder — copies factory defaults on first launch,
+        // then watches ~/.claudpeer/config/ for file changes and syncs to SwiftData.
+        // Actual start() is called in .onAppear since it needs @MainActor.
     }
 
     private var resolvedColorScheme: ColorScheme? {
@@ -77,6 +79,8 @@ struct ClaudPeerApp: App {
             .preferredColorScheme(resolvedColorScheme)
             .onAppear {
                 appState.modelContext = modelContainer.mainContext
+                appState.configSyncService = configSyncService
+                configSyncService.start(container: modelContainer)
                 appState.loadInstanceWorkingDirectory()
                 if autoConnectSidecar {
                     appState.connectSidecar()

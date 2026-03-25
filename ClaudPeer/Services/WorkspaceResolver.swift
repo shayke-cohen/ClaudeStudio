@@ -45,6 +45,15 @@ enum WorkspaceResolver {
         return "\(NSHomeDirectory())/.claudpeer/repos/\(name)"
     }
 
+    /// Path for a git worktree: `~/.claudpeer/worktrees/{repo-name}/{sanitized-branch}`
+    static func worktreeDestinationPath(repoInput: String, branch: String) -> String {
+        let repoName = repositoryDirectoryName(repoInput: repoInput)
+        let safeBranch = branch
+            .replacingOccurrences(of: "refs/heads/", with: "")
+            .replacingOccurrences(of: "/", with: "-")
+        return "\(NSHomeDirectory())/.claudpeer/worktrees/\(repoName)/\(safeBranch)"
+    }
+
     /// Whether `session` should use automatic GitHub clone for `agent` (no unrelated explicit directory override).
     static func shouldManageGitHubClone(agent: Agent, sessionWorkingDirectory: String) -> Bool {
         guard let repo = agent.githubRepo?.trimmingCharacters(in: .whitespacesAndNewlines), !repo.isEmpty else {

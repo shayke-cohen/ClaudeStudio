@@ -19,8 +19,6 @@ struct AgentEditorView: View {
     @State private var model: String
     @State private var maxTurns: String
     @State private var maxBudget: String
-    @State private var instancePolicyType: Int
-    @State private var poolMax: String
     @State private var workingDirectory: String
     @State private var githubRepo: String
     @State private var githubBranch: String
@@ -57,23 +55,6 @@ struct AgentEditorView: View {
         _selectedPermissionId = State(initialValue: agent?.permissionSetId)
         _systemPrompt = State(initialValue: agent?.systemPrompt ?? "")
 
-        let policyType: Int
-        if let policy = agent?.instancePolicy {
-            switch policy {
-            case .spawn: policyType = 0
-            case .singleton: policyType = 1
-            case .pool: policyType = 2
-            }
-        } else {
-            policyType = 0
-        }
-        _instancePolicyType = State(initialValue: policyType)
-
-        if case .pool(let max) = agent?.instancePolicy {
-            _poolMax = State(initialValue: String(max))
-        } else {
-            _poolMax = State(initialValue: "3")
-        }
     }
 
     private let steps = ["Identity", "Capabilities", "System Prompt"]
@@ -184,18 +165,6 @@ struct AgentEditorView: View {
                     .xrayId("agentEditor.maxBudgetField")
             }
 
-            Section("Instance Policy") {
-                Picker("Policy", selection: $instancePolicyType) {
-                    Text("Spawn (fresh per task)").tag(0)
-                    Text("Singleton (one instance)").tag(1)
-                    Text("Pool (multiple instances)").tag(2)
-                }
-                .xrayId("agentEditor.instancePolicyPicker")
-                if instancePolicyType == 2 {
-                    TextField("Max Instances", text: $poolMax)
-                        .xrayId("agentEditor.poolMaxField")
-                }
-            }
 
             Section("Workspace") {
                 TextField("Working Directory", text: $workingDirectory)
@@ -639,11 +608,6 @@ struct AgentEditorView: View {
         target.githubAutoCreateBranch = githubAutoCreateBranch
         target.updatedAt = Date()
 
-        switch instancePolicyType {
-        case 1: target.instancePolicy = .singleton
-        case 2: target.instancePolicy = .pool(max: Int(poolMax) ?? 3)
-        default: target.instancePolicy = .spawn
-        }
 
         try? modelContext.save()
         onSave(target)

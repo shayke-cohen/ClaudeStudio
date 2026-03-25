@@ -1,12 +1,19 @@
-import { BlackboardStore } from "./stores/blackboard-store.js";
-import { SessionManager } from "./session-manager.js";
+import type { BlackboardStore } from "./stores/blackboard-store.js";
+import type { ApiContext } from "./types.js";
+import { handleApiRequest } from "./api-router.js";
 
 export class HttpServer {
   private server: ReturnType<typeof Bun.serve> | null = null;
   private blackboard: BlackboardStore;
+  private apiContext: ApiContext | null = null;
 
   constructor(private port: number, blackboard: BlackboardStore) {
     this.blackboard = blackboard;
+  }
+
+  /** Set the API context after all components are initialized. */
+  setApiContext(ctx: ApiContext): void {
+    this.apiContext = ctx;
   }
 
   start(): void {
@@ -22,6 +29,12 @@ export class HttpServer {
     const url = new URL(req.url);
     const path = url.pathname;
 
+    // Try REST API routes first
+    if (this.apiContext && path.startsWith("/api/v1/")) {
+      const apiResponse = await handleApiRequest(req, this.apiContext);
+      if (apiResponse) return apiResponse;
+    }
+
     // CORS headers for local development
     const headers = {
       "Content-Type": "application/json",
@@ -32,8 +45,8 @@ export class HttpServer {
       return new Response(null, {
         headers: {
           ...headers,
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, X-ClaudPeer-Client",
         },
       });
     }

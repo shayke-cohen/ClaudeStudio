@@ -106,7 +106,7 @@ final class AppStateEventTests: XCTestCase {
         appState.activeSessions[sid] = AppState.SessionInfo(id: sid, agentName: "Bot", isStreaming: true)
         appState.thinkingText[sid.uuidString] = "thinking..."
 
-        appState.handleEventForTesting(.sessionResult(sessionId: sid.uuidString, result: "done", cost: 0.01))
+        appState.handleEventForTesting(.sessionResult(sessionId: sid.uuidString, result: "done", cost: 0.01, tokenCount: 100, toolCallCount: 5))
 
         XCTAssertFalse(appState.activeSessions[sid]?.isStreaming ?? true)
         XCTAssertNil(appState.thinkingText[sid.uuidString])
@@ -136,31 +136,6 @@ final class AppStateEventTests: XCTestCase {
         appState.handleEventForTesting(.sessionForked(parentSessionId: "parent-uuid", childSessionId: "child-uuid"))
         XCTAssertEqual(appState.commsEvents.count, before)
         XCTAssertTrue(appState.streamingText.isEmpty)
-    }
-
-    // MARK: - DW: Delegation Wiring
-
-    func testDW2_registerAgentDefinitions_serializesPoolPolicy() {
-        let agent = Agent(
-            name: "TestCoder",
-            agentDescription: "coder",
-            systemPrompt: "code",
-            model: "sonnet",
-            icon: "chevron.left.forwardslash.chevron.right",
-            color: "blue"
-        )
-        agent.instancePolicyKind = "pool"
-        agent.instancePolicyPoolMax = 3
-
-        XCTAssertEqual(agent.instancePolicy, .pool(max: 3))
-
-        let policyStr: String
-        switch agent.instancePolicy {
-        case .spawn: policyStr = "spawn"
-        case .singleton: policyStr = "singleton"
-        case .pool(let max): policyStr = "pool:\(max)"
-        }
-        XCTAssertEqual(policyStr, "pool:3")
     }
 
     // MARK: - CF: Comms Filtering

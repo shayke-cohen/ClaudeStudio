@@ -13,7 +13,10 @@ final class AppState: ObservableObject {
 
     @Published var sidecarStatus: SidecarStatus = .disconnected
     @Published var selectedConversationId: UUID? {
-        didSet { if selectedConversationId != nil { selectedGroupId = nil } }
+        didSet {
+            if selectedConversationId != nil { selectedGroupId = nil }
+            if let id = selectedConversationId { markConversationRead(id: id) }
+        }
     }
     @Published var selectedGroupId: UUID? {
         didSet { if selectedGroupId != nil { selectedConversationId = nil } }
@@ -43,6 +46,9 @@ final class AppState: ObservableObject {
     @Published var isGeneratingAgent: Bool = false
     @Published var generateAgentError: String?
     @Published var pendingQuestions: [String: AgentQuestion] = [:]
+    @Published var pendingConfirmations: [String: AgentConfirmation] = [:]
+    @Published var progressTrackers: [String: ProgressTracker] = [:]
+    @Published var pendingSuggestions: [String: [SuggestionItem]] = [:]
 
     /// File-based config sync service (set by ClaudPeerApp on appear)
     var configSyncService: ConfigSyncService?
@@ -58,6 +64,24 @@ final class AppState: ObservableObject {
         let multiSelect: Bool
         let isPrivate: Bool
         let timestamp: Date
+        let inputType: String?
+        let inputConfig: QuestionInputConfig?
+    }
+
+    struct AgentConfirmation: Identifiable {
+        let id: String  // confirmationId
+        let sessionId: String
+        let action: String
+        let reason: String
+        let riskLevel: String
+        let details: String?
+        let timestamp: Date
+    }
+
+    struct ProgressTracker: Identifiable {
+        let id: String  // progressId
+        let title: String
+        let steps: [ProgressStep]
     }
 
     enum SessionEventKind {
@@ -368,8 +392,8 @@ final class AppState: ObservableObject {
         pendingQuestions.removeValue(forKey: sessionId)
         sessionActivity[sessionId] = .waitingForResult
 
-        // Persist non-private Q&A as conversation messages so other agents see them
-        if let q = question, !q.isPrivate {
+        // Always persist Q&A so the user can see what was asked/answered
+        if let q = question {
             persistQuestionAnswer(sessionId: sessionId, question: q.question, answer: answer)
         }
     }
@@ -381,19 +405,88 @@ final class AppState: ObservableObject {
               let convo = session.conversations.first else { return }
 
         let agentName = session.agent?.name ?? "Agent"
-        let qMsg = ConversationMessage(
-            text: "[\(agentName) asked the user] \(question)",
-            type: .chat,
-            conversation: convo
-        )
-        ctx.insert(qMsg)
+        let agentParticipant = convo.participants.first { p in
+            if case .agentSession(let sid) = p.type { return sid == uuid }
+            return false
+        }
 
-        let aMsg = ConversationMessage(
-            text: "[User answered \(agentName)] \(answer)",
+        let msg = ConversationMessage(
+            senderParticipantId: agentParticipant?.id,
+            text: question,
+            type: .question,
+            conversation: convo
+        )
+        msg.toolName = agentName
+        msg.toolInput = answer
+        ctx.insert(msg)
+        try? ctx.save()
+    }
+
+    /// Flush any accumulated streaming text/thinking into a persisted ConversationMessage
+    /// so intermediate agent output between ask_user calls is visible in the chat.
+    private func flushStreamingContent(sessionId: String) {
+        let text = streamingText[sessionId] ?? ""
+        let thinking = thinkingText[sessionId]
+        guard !text.isEmpty || (thinking != nil && !thinking!.isEmpty) else { return }
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first else { return }
+
+        let agentParticipant = convo.participants.first { p in
+            if case .agentSession(let sid) = p.type { return sid == uuid }
+            return false
+        }
+
+        let msg = ConversationMessage(
+            senderParticipantId: agentParticipant?.id,
+            text: text,
             type: .chat,
             conversation: convo
         )
-        ctx.insert(aMsg)
+        if let thinking, !thinking.isEmpty {
+            msg.thinkingText = thinking
+        }
+        ctx.insert(msg)
+        try? ctx.save()
+
+        streamingText.removeValue(forKey: sessionId)
+        thinkingText.removeValue(forKey: sessionId)
+    }
+
+    func answerConfirmation(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String? = nil) {
+        sendToSidecar(.confirmationAnswer(
+            sessionId: sessionId,
+            confirmationId: confirmationId,
+            approved: approved,
+            modifiedAction: modifiedAction
+        ))
+        pendingConfirmations.removeValue(forKey: sessionId)
+        sessionActivity[sessionId] = .waitingForResult
+    }
+
+    private func persistRichContent(sessionId: String, format: String, title: String?, content: String, height: Int?) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first else { return }
+
+        let agentParticipant = convo.participants.first { p in
+            if case .agentSession(let sid) = p.type { return sid == uuid }
+            return false
+        }
+
+        let msg = ConversationMessage(
+            senderParticipantId: agentParticipant?.id,
+            text: content,
+            type: .richContent,
+            conversation: convo
+        )
+        msg.toolName = format
+        msg.toolInput = title
+        msg.toolOutput = height.map { String($0) }
+        ctx.insert(msg)
         try? ctx.save()
     }
 
@@ -419,13 +512,7 @@ final class AppState: ObservableObject {
         let provisioner = AgentProvisioner(modelContext: ctx)
         let defs: [AgentDefinitionWire] = agents.compactMap { agent in
             let (config, _) = provisioner.provision(agent: agent, mission: nil)
-            let policyStr: String
-            switch agent.instancePolicy {
-            case .spawn: policyStr = "spawn"
-            case .singleton: policyStr = "singleton"
-            case .pool(let max): policyStr = "pool:\(max)"
-            }
-            return AgentDefinitionWire(name: agent.name, config: config, instancePolicy: policyStr)
+            return AgentDefinitionWire(name: agent.name, config: config)
         }
 
         sendToSidecar(.agentRegister(agents: defs))
@@ -535,6 +622,10 @@ final class AppState: ObservableObject {
             lastSessionEvent[sessionId] = .result
             thinkingText.removeValue(forKey: sessionId)
             sessionActivity[sessionId] = .done
+            markConversationUnreadIfNeeded(sessionId: sessionId)
+            notifyIfNeeded(sessionId: sessionId) { name, topic in
+                ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
+            }
             persistSessionUsage(sessionId: sessionId, tokenCount: tokenCount, cost: cost, toolCallCount: toolCallCount)
             cleanupWorktreeIfNeeded(sessionId: sessionId)
 
@@ -545,6 +636,9 @@ final class AppState: ObservableObject {
             streamingImages.removeValue(forKey: sessionId)
             streamingFileCards.removeValue(forKey: sessionId)
             sessionActivity[sessionId] = .error(error)
+            notifyIfNeeded(sessionId: sessionId) { name, _ in
+                ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
+            }
             print("[AppState] Session \(sessionId) error: \(error)")
             cleanupWorktreeIfNeeded(sessionId: sessionId)
 
@@ -581,7 +675,8 @@ final class AppState: ObservableObject {
         case .streamFileCard(let sessionId, let filePath, let fileType, let fileName):
             streamingFileCards[sessionId, default: []].append((path: filePath, type: fileType, name: fileName))
 
-        case .agentQuestion(let sessionId, let questionId, let question, let options, let multiSelect, let isPrivate):
+        case .agentQuestion(let sessionId, let questionId, let question, let options, let multiSelect, let isPrivate, let inputType, let inputConfig):
+            flushStreamingContent(sessionId: sessionId)
             pendingQuestions[sessionId] = AgentQuestion(
                 id: questionId,
                 sessionId: sessionId,
@@ -589,9 +684,38 @@ final class AppState: ObservableObject {
                 options: options,
                 multiSelect: multiSelect,
                 isPrivate: isPrivate,
+                timestamp: Date(),
+                inputType: inputType,
+                inputConfig: inputConfig
+            )
+            sessionActivity[sessionId] = .askingUser
+            markConversationUnreadIfNeeded(sessionId: sessionId)
+            notifyIfNeeded(sessionId: sessionId) { name, _ in
+                ChatNotificationManager.shared.notifyAgentQuestion(agentName: name, question: question)
+            }
+
+        case .agentConfirmation(let sessionId, let confirmationId, let action, let reason, let riskLevel, let details):
+            flushStreamingContent(sessionId: sessionId)
+            pendingConfirmations[sessionId] = AgentConfirmation(
+                id: confirmationId,
+                sessionId: sessionId,
+                action: action,
+                reason: reason,
+                riskLevel: riskLevel,
+                details: details,
                 timestamp: Date()
             )
             sessionActivity[sessionId] = .askingUser
+
+        case .streamRichContent(let sessionId, let format, let title, let content, let height):
+            print("[AppState] stream.richContent format=\(format) session=\(sessionId)")
+            persistRichContent(sessionId: sessionId, format: format, title: title, content: content, height: height)
+
+        case .streamProgress(let sessionId, let progressId, let title, let steps):
+            progressTrackers[sessionId] = ProgressTracker(id: progressId, title: title, steps: steps)
+
+        case .streamSuggestions(let sessionId, let suggestions):
+            pendingSuggestions[sessionId] = suggestions
 
         case .generatedAgent(let requestId, let spec):
             guard requestId == generateAgentRequestId else { return }
@@ -695,6 +819,38 @@ final class AppState: ObservableObject {
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first else { return }
         Task { await WorktreeCleanup.cleanupIfNeeded(session: session) }
+    }
+
+    // MARK: - Unread state
+
+    private func markConversationRead(id: UUID) {
+        guard let ctx = modelContext else { return }
+        let descriptor = FetchDescriptor<Conversation>(predicate: #Predicate { c in c.id == id })
+        guard let convo = try? ctx.fetch(descriptor).first, convo.isUnread else { return }
+        convo.isUnread = false
+        try? ctx.save()
+    }
+
+    private func markConversationUnreadIfNeeded(sessionId: String) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first,
+              convo.id != selectedConversationId else { return }
+        convo.isUnread = true
+        try? ctx.save()
+    }
+
+    /// Fire a notification only when the session's conversation is not currently viewed or app is in background.
+    private func notifyIfNeeded(sessionId: String, _ action: (String, String?) -> Void) {
+        let appIsActive = NSApplication.shared.isActive
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first else { return }
+        guard convo.id != selectedConversationId || !appIsActive else { return }
+        let agentName = session.agent?.name ?? "Agent"
+        action(agentName, convo.topic)
     }
 
     // MARK: - Session usage persistence

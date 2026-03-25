@@ -114,12 +114,22 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
         const registered = Array.from(ctx.agentDefinitions.entries()).map(([name]) => ({
           name,
           type: "registered_definition",
+          location: "local",
         }));
+
+        const remoteAgents = ctx.peerRegistry.listConnected().flatMap((peer) =>
+          peer.agents.map((a) => ({
+            name: a.name,
+            type: "remote_agent",
+            location: "remote",
+            peer: peer.name,
+          }))
+        );
 
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ activeSessions: agents, registeredAgents: registered }),
+            text: JSON.stringify({ activeSessions: agents, registeredAgents: registered, remoteAgents }),
           }],
         };
       },
@@ -127,7 +137,7 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
 
     tool(
       "peer_delegate_task",
-      "Delegate a task to another agent. Spawns a new session (or routes to existing one based on instance policy). If wait_for_result is true, blocks until the delegate finishes and returns the result.",
+      "Delegate a task to another agent. Spawns a new session for the delegate. If wait_for_result is true, blocks until the delegate finishes and returns the result.",
       {
         to_agent: z.string().describe("Agent definition name to delegate to (e.g. 'Coder', 'Reviewer')"),
         task: z.string().describe("Task description - what the agent should do"),
@@ -157,6 +167,36 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
               }],
             };
           }
+          // Check remote peers before giving up
+          const remotePeer = ctx.peerRegistry.findAgentOwner(args.to_agent);
+          if (remotePeer) {
+            try {
+              if (!ctx.relayClient.isConnected(remotePeer.peer.name)) {
+                await ctx.relayClient.connect(remotePeer.peer.name, remotePeer.peer.endpoint);
+              }
+              const result = await ctx.relayClient.sendCommand(remotePeer.peer.name, {
+                type: "delegate.task",
+                sessionId: callingSessionId,
+                toAgent: args.to_agent,
+                task: args.task,
+                context: args.context,
+                waitForResult: args.wait_for_result ?? false,
+              });
+              return {
+                content: [{
+                  type: "text" as const,
+                  text: JSON.stringify({ delegated: true, method: "remote_relay", peer: remotePeer.peer.name, result }),
+                }],
+              };
+            } catch (err: any) {
+              return {
+                content: [{
+                  type: "text" as const,
+                  text: JSON.stringify({ error: "remote_relay_failed", peer: remotePeer.peer.name, message: err.message }),
+                }],
+              };
+            }
+          }
           return {
             content: [{
               type: "text" as const,
@@ -171,32 +211,6 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
 
         const senderState = ctx.sessions.get(callingSessionId);
         const waitForResult = args.wait_for_result ?? false;
-        const policy = config.instancePolicy ?? "spawn";
-
-        let targetSessionId: string | undefined;
-        let method = "spawned";
-
-        if (policy === "singleton") {
-          const existing = ctx.sessions.findByAgentName(args.to_agent);
-          if (existing.length > 0) {
-            targetSessionId = existing[0].id;
-            method = "reused_singleton";
-          }
-        } else if (policy === "pool") {
-          const existing = ctx.sessions.findByAgentName(args.to_agent);
-          const poolMax = config.instancePolicyPoolMax ?? 3;
-          if (existing.length >= poolMax) {
-            let minMessages = Infinity;
-            for (const s of existing) {
-              const count = ctx.messages.peek(s.id);
-              if (count < minMessages) {
-                minMessages = count;
-                targetSessionId = s.id;
-              }
-            }
-            method = "pool_routed";
-          }
-        }
 
         ctx.broadcast({
           type: "peer.delegate",
@@ -204,25 +218,6 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
           to: args.to_agent,
           task: args.task,
         });
-
-        if (targetSessionId) {
-          ctx.messages.push(targetSessionId, {
-            id: randomUUID(),
-            from: callingSessionId,
-            fromAgent: senderState?.agentName ?? callingSessionId,
-            to: targetSessionId,
-            text: `[Delegated Task] ${prompt}`,
-            priority: "urgent",
-            timestamp: new Date().toISOString(),
-            read: false,
-          });
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ delegated: true, method, sessionId: targetSessionId }),
-            }],
-          };
-        }
 
         const delegateSessionId = randomUUID();
         try {
@@ -237,7 +232,7 @@ export function createMessagingTools(ctx: ToolContext, callingSessionId: string)
               type: "text" as const,
               text: JSON.stringify({
                 delegated: true,
-                method,
+                method: "spawned",
                 sessionId: result.sessionId,
                 waitedForResult: waitForResult,
                 result: result.result,

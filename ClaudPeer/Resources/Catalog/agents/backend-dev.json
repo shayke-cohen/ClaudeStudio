@@ -6,7 +6,6 @@
   "icon": "server.rack",
   "color": "green",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

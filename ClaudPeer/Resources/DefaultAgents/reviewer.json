@@ -1,11 +1,10 @@
 {
   "name": "Reviewer",
+  "enabled": true,
   "agentDescription": "Senior code reviewer that examines code for correctness, security, performance, and style. Never writes production code. Writes findings to the blackboard or replies to the requesting agent.",
   "model": "sonnet",
   "icon": "eye",
   "color": "orange",
-  "instancePolicyKind": "singleton",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": ["GitHub"],
   "permissionSetName": "Read Only",

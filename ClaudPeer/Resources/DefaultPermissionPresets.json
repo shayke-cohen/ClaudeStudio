@@ -61,5 +61,21 @@
     "denyRules": [],
     "additionalDirectories": ["~/.claudpeer/sandboxes/"],
     "permissionMode": "default"
+  },
+  {
+    "name": "Config Editing",
+    "allowRules": [
+      "Read",
+      "Write(*.json)",
+      "Write(*.md)",
+      "Grep",
+      "Glob",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(cp *)"
+    ],
+    "denyRules": ["Bash(rm *)", "Bash(mv *)"],
+    "additionalDirectories": [],
+    "permissionMode": "default"
   }
 ]

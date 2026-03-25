@@ -19,6 +19,8 @@ final class AgentGroup {
     var defaultMission: String?
     var agentIds: [UUID]
     var sortOrder: Int
+    var isEnabled: Bool = true
+    var configSlug: String?
     var createdAt: Date
 
     // Feature: Auto-Reply toggle
@@ -121,6 +123,8 @@ final class AgentGroup {
         self.defaultMission = defaultMission
         self.agentIds = agentIds
         self.sortOrder = sortOrder
+        self.isEnabled = true
+        self.configSlug = nil
         self.createdAt = Date()
         self.autoReplyEnabled = true
         self.autonomousCapable = false

@@ -20,6 +20,20 @@ enum AppSettings {
     // MARK: - Layout
     static let inspectorWidthKey = "claudpeer.inspectorWidth"
 
+    // MARK: - Notifications
+    static let notificationsEnabledKey = "claudpeer.notifications.enabled"
+    static let notificationSoundEnabledKey = "claudpeer.notifications.sound"
+
+    // MARK: - Chat Display
+    static let renderMermaidKey = "claudpeer.chat.renderMermaid"
+    static let renderHTMLKey = "claudpeer.chat.renderHTML"
+    static let renderDiffsKey = "claudpeer.chat.renderDiffs"
+    static let renderTerminalKey = "claudpeer.chat.renderTerminal"
+    static let renderAdmonitionsKey = "claudpeer.chat.renderAdmonitions"
+    static let renderPDFKey = "claudpeer.chat.renderPDF"
+    static let showSessionSummaryKey = "claudpeer.chat.showSessionSummary"
+    static let showSuggestionChipsKey = "claudpeer.chat.showSuggestionChips"
+
     // MARK: - Advanced
     static let dataDirectoryKey = "claudpeer.dataDirectory"
     static let logLevelKey = "claudpeer.logLevel"
@@ -42,6 +56,9 @@ enum AppSettings {
             defaultMaxBudgetKey, autoConnectSidecarKey,
             instanceWorkingDirectoryKey,
             wsPortKey, httpPortKey, bunPathOverrideKey, sidecarPathKey,
+            notificationsEnabledKey, notificationSoundEnabledKey,
+            renderMermaidKey, renderHTMLKey, renderDiffsKey, renderTerminalKey,
+            renderAdmonitionsKey, renderPDFKey, showSessionSummaryKey, showSuggestionChipsKey,
             dataDirectoryKey, logLevelKey,
         ]
     }
@@ -79,7 +96,7 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 enum ClaudeModel: String, CaseIterable, Identifiable {
     case sonnet = "claude-sonnet-4-6"
     case opus = "claude-opus-4-6"
-    case haiku = "claude-haiku-4-6"
+    case haiku = "claude-haiku-4-5-20251001"
 
     var id: String { rawValue }
 
@@ -87,7 +104,7 @@ enum ClaudeModel: String, CaseIterable, Identifiable {
         switch self {
         case .sonnet: "Claude Sonnet 4.6"
         case .opus: "Claude Opus 4.6"
-        case .haiku: "Claude Haiku 4.6"
+        case .haiku: "Claude Haiku 4.5"
         }
     }
 }

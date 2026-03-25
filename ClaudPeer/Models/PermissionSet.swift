@@ -9,6 +9,8 @@ final class PermissionSet {
     var denyRules: [String]
     var additionalDirectories: [String]
     var permissionMode: String
+    var isEnabled: Bool = true
+    var configSlug: String?
     var createdAt: Date
 
     init(name: String, allowRules: [String] = [], denyRules: [String] = [], permissionMode: String = "default") {
@@ -18,6 +20,8 @@ final class PermissionSet {
         self.denyRules = denyRules
         self.additionalDirectories = []
         self.permissionMode = permissionMode
+        self.isEnabled = true
+        self.configSlug = nil
         self.createdAt = Date()
     }
 }

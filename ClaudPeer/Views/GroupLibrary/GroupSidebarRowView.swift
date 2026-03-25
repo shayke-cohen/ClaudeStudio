@@ -14,6 +14,7 @@ struct GroupSidebarRowView: View {
     var onEdit: (() -> Void)?
     var onDuplicate: (() -> Void)?
     var selectedConversationId: UUID?
+    var hasActiveSession: Bool = false
 
     private var isSelected: Bool {
         guard let selected = selectedConversationId else { return false }
@@ -27,11 +28,16 @@ struct GroupSidebarRowView: View {
                     onSelectConversation(conv)
                 } label: {
                     HStack(spacing: 6) {
+                        if conv.isUnread {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 6, height: 6)
+                        }
                         Image(systemName: "bubble.left")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                         Text(conv.topic ?? "Untitled")
-                            .font(.caption)
+                            .font(conv.isUnread ? .caption.bold() : .caption)
                             .lineLimit(1)
                         Spacer()
                         Text(conv.startedAt, style: .relative)
@@ -59,6 +65,13 @@ struct GroupSidebarRowView: View {
                 .onTapGesture { onSelectGroup?() }
 
                 Spacer()
+
+                if hasActiveSession {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 6, height: 6)
+                        .accessibilityIdentifier("sidebar.groupRow.\(group.id.uuidString).activityDot")
+                }
 
                 if !conversations.isEmpty {
                     Text("\(conversations.count)")

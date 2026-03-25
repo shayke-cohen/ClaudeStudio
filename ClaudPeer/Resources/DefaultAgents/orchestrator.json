@@ -1,11 +1,10 @@
 {
   "name": "Orchestrator",
+  "enabled": true,
   "agentDescription": "Team lead that breaks complex requests into subtasks and delegates to specialist agents. Monitors progress via the blackboard. Synthesizes final results. Never does implementation itself.",
   "model": "opus",
   "icon": "gear.2",
   "color": "purple",
-  "instancePolicyKind": "singleton",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "delegation-patterns", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",

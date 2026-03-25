@@ -490,11 +490,17 @@ struct SidebarView: View {
         let activity = appState.conversationActivity(for: convo)
         let isHovered = hoveredConversationId == convo.id
         return HStack(spacing: 8) {
+            if convo.isUnread {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 8, height: 8)
+                    .accessibilityIdentifier("sidebar.unreadBadge.\(convo.id.uuidString)")
+            }
             conversationIcon(convo)
             VStack(alignment: .leading, spacing: 2) {
                 Text(convo.topic ?? "Untitled")
                     .lineLimit(1)
-                    .font(.callout)
+                    .font(convo.isUnread ? .callout.bold() : .callout)
                 HStack(spacing: 4) {
                     Text(relativeTime(convo.startedAt))
                         .font(.caption2)
@@ -561,6 +567,10 @@ struct SidebarView: View {
         }
         Button { togglePin(convo) } label: {
             Label(convo.isPinned ? "Unpin" : "Pin", systemImage: convo.isPinned ? "pin.slash" : "pin")
+        }
+        Button { toggleUnread(convo) } label: {
+            Label(convo.isUnread ? "Mark as Read" : "Mark as Unread",
+                  systemImage: convo.isUnread ? "envelope.open" : "envelope.badge")
         }
         Divider()
         if convo.status == .active {
@@ -757,6 +767,11 @@ struct SidebarView: View {
 
     private func togglePin(_ convo: Conversation) {
         convo.isPinned.toggle()
+        try? modelContext.save()
+    }
+
+    private func toggleUnread(_ convo: Conversation) {
+        convo.isUnread.toggle()
         try? modelContext.save()
     }
 

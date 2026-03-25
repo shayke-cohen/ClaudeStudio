@@ -14,6 +14,7 @@ struct InspectorView: View {
     let conversationId: UUID
     @Environment(\.modelContext) private var modelContext
     @Query private var allConversations: [Conversation]
+    @Query(sort: \Session.startedAt) private var allSessions: [Session]
     @EnvironmentObject private var appState: AppState
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
@@ -43,12 +44,21 @@ struct InspectorView: View {
         return tabs
     }
 
+    /// Sessions for this conversation — uses the relationship first, falls back to
+    /// a manual query when the SwiftData many-to-many inverse returns empty.
     private var orderedSessions: [Session] {
-        (conversation?.sessions ?? []).sorted { $0.startedAt < $1.startedAt }
+        let relSessions = conversation?.sessions ?? []
+        if !relSessions.isEmpty {
+            return relSessions.sorted { $0.startedAt < $1.startedAt }
+        }
+        // Fallback: find sessions whose conversations include this one
+        return allSessions.filter { session in
+            session.conversations.contains { $0.id == conversationId }
+        }
     }
 
     private var primarySession: Session? {
-        conversation?.primarySession
+        orderedSessions.first
     }
 
     private func liveInfo(for session: Session) -> AppState.SessionInfo? {
@@ -126,7 +136,10 @@ struct InspectorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if orderedSessions.isEmpty {
-                    EmptyView()
+                    if let convo = conversation {
+                        InfoRow(label: "Topic", value: convo.topic ?? "Untitled")
+                        InfoRow(label: "Started", value: convo.startedAt.formatted(.dateTime))
+                    }
                 } else if orderedSessions.count == 1, let session = orderedSessions.first {
                     sessionSection(session: session)
                     usageSection(session: session, agent: session.agent)
@@ -185,7 +198,35 @@ struct InspectorView: View {
             ForEach(orderedSessions, id: \.id) { session in
                 multiSessionRow(session: session)
             }
+
+            sessionTotalsRow
         }
+    }
+
+    @ViewBuilder
+    private var sessionTotalsRow: some View {
+        let totalTokens = orderedSessions.reduce(0) { sum, s in
+            sum + (liveInfo(for: s)?.tokenCount ?? s.tokenCount)
+        }
+        let totalCost = orderedSessions.reduce(0.0) { sum, s in
+            sum + (liveInfo(for: s)?.cost ?? s.totalCost)
+        }
+        let totalToolCalls = orderedSessions.reduce(0) { sum, s in
+            sum + (liveInfo(for: s)?.toolCallCount ?? s.toolCallCount)
+        }
+
+        Divider()
+
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Totals")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            InfoRow(label: "Sessions", value: "\(orderedSessions.count)")
+            InfoRow(label: "Tokens", value: formatNumber(totalTokens))
+            InfoRow(label: "Cost", value: String(format: "$%.4f", totalCost))
+            InfoRow(label: "Tool Calls", value: "\(totalToolCalls)")
+        }
+        .xrayId("inspector.sessionTotals")
     }
 
     @ViewBuilder
@@ -333,17 +374,34 @@ struct InspectorView: View {
             Button {
                 appState.showAgentLibrary = true
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: agent.icon)
+                        .font(.title3)
+                        .frame(width: 32, height: 32)
                         .foregroundStyle(Color.fromAgentColor(agent.color))
-                    Text(agent.name)
-                        .font(.callout)
-                        .fontWeight(.medium)
+                        .background(Color.fromAgentColor(agent.color).opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(agent.name)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                        Text(agentOriginLabel(agent))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
             .buttonStyle(.plain)
             .help("Open \(agent.name) in editor")
             .xrayId("inspector.agentNameButton")
+
+            if !agent.agentDescription.isEmpty {
+                Text(agent.agentDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(4)
+                    .xrayId("inspector.agentDescription")
+            }
 
             HStack(spacing: 12) {
                 Label("\(agent.skillIds.count) skills", systemImage: "book")
@@ -355,7 +413,12 @@ struct InspectorView: View {
             }
             .xrayId("inspector.agentCapabilities")
 
-            InfoRow(label: "Policy", value: policyLabel(agent.instancePolicy))
+            if let maxTurns = agent.maxTurns {
+                InfoRow(label: "Max Turns", value: "\(maxTurns)")
+            }
+            if let maxBudget = agent.maxBudget {
+                InfoRow(label: "Budget", value: String(format: "$%.2f", maxBudget))
+            }
         }
     }
 
@@ -649,6 +712,15 @@ struct InspectorView: View {
 
     // MARK: - Helpers
 
+    private func agentOriginLabel(_ agent: Agent) -> String {
+        switch agent.origin {
+        case .local: "Local"
+        case .peer: "Shared"
+        case .imported: "Imported"
+        case .builtin: "Built-in"
+        }
+    }
+
     private func durationString(from start: Date) -> String {
         let interval = now.timeIntervalSince(start)
         let hours = Int(interval) / 3600
@@ -672,14 +744,6 @@ struct InspectorView: View {
         if model.contains("opus") { return "Opus 4.6" }
         if model.contains("haiku") { return "Haiku 4.5" }
         return model
-    }
-
-    private func policyLabel(_ policy: InstancePolicy) -> String {
-        switch policy {
-        case .spawn: return "Spawn"
-        case .singleton: return "Singleton"
-        case .pool(let max): return "Pool(\(max))"
-        }
     }
 
     private func formatNumber(_ n: Int) -> String {

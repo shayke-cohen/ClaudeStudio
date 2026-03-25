@@ -205,7 +205,6 @@ struct AgentLibraryView: View {
         copy.permissionSetId = agent.permissionSetId
         copy.maxTurns = agent.maxTurns
         copy.maxBudget = agent.maxBudget
-        copy.instancePolicy = agent.instancePolicy
         copy.defaultWorkingDirectory = agent.defaultWorkingDirectory
         copy.githubRepo = agent.githubRepo
         copy.githubDefaultBranch = agent.githubDefaultBranch

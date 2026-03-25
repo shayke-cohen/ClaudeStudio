@@ -288,7 +288,7 @@ struct WorkshopEntityBrowser: View {
         [Context: User selected agent "\(a.name)" (slug: \(a.configSlug ?? "unknown"))]
         Model: \(a.model), Icon: \(a.icon), Color: \(a.color)
         Skills: \(a.skillIds.count), MCPs: \(a.extraMCPServerIds.count)
-        Enabled: \(a.isEnabled), Policy: \(a.instancePolicyKind)
+        Enabled: \(a.isEnabled)
         Budget: $\(String(format: "%.2f", a.maxBudget ?? 0)), Max turns: \(a.maxTurns ?? 0)
         Description: \(a.agentDescription)
         """

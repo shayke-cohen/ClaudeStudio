@@ -126,7 +126,6 @@ final class CatalogModelTests: XCTestCase {
             "icon": "brain.head.profile",
             "color": "purple",
             "model": "opus",
-            "instancePolicy": "singleton",
             "requiredSkills": ["peer-collaboration", "delegation-patterns"],
             "extraMCPs": [],
             "systemPromptTemplate": "coordinator",
@@ -142,7 +141,6 @@ final class CatalogModelTests: XCTestCase {
         XCTAssertEqual(agent.id, "orchestrator")
         XCTAssertEqual(agent.model, "opus")
         XCTAssertEqual(agent.color, "purple")
-        XCTAssertEqual(agent.instancePolicy, "singleton")
         XCTAssertEqual(agent.requiredSkills, ["peer-collaboration", "delegation-patterns"])
         XCTAssertEqual(agent.extraMCPs, [])
         XCTAssertEqual(agent.tags, ["leadership", "planning"])
@@ -159,7 +157,6 @@ final class CatalogModelTests: XCTestCase {
             "icon": "chevron.left.forwardslash.chevron.right",
             "color": "blue",
             "model": "sonnet",
-            "instancePolicy": "spawn",
             "requiredSkills": [],
             "extraMCPs": ["github"],
             "systemPromptTemplate": "specialist",
@@ -187,7 +184,6 @@ final class CatalogModelTests: XCTestCase {
             "icon": "star",
             "color": "blue",
             "model": "sonnet",
-            "instancePolicy": "spawn",
             "requiredSkills": [],
             "extraMCPs": [],
             "systemPromptTemplate": "",

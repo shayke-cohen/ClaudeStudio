@@ -2,9 +2,40 @@ import SwiftUI
 
 struct ToolCallView: View {
     let message: ConversationMessage
+    @AppStorage(AppSettings.renderDiffsKey, store: AppSettings.store) private var renderDiffs = true
+    @AppStorage(AppSettings.renderTerminalKey, store: AppSettings.store) private var renderTerminal = true
     @State private var isExpanded = false
 
+    private static let editTools: Set<String> = ["edit", "multiedit", "write"]
+    private static let bashTools: Set<String> = ["bash", "shell", "execute_command"]
+
     var body: some View {
+        if let richView = richContentView {
+            AnyView(richView)
+        } else {
+            AnyView(defaultToolCallView)
+        }
+    }
+
+    // MARK: - Rich Content Routing
+
+    private var richContentView: (any View)? {
+        let tool = (message.toolName ?? "").lowercased()
+
+        if renderDiffs, Self.editTools.contains(tool), message.type == .toolCall,
+           let diffView = InlineDiffView.fromEditToolCall(message) {
+            return diffView
+        } else if renderTerminal, Self.bashTools.contains(tool), message.type == .toolResult,
+                  let termView = TerminalOutputView.fromBashToolCall(input: message.toolInput, output: message.toolOutput) {
+            return termView
+        }
+        return nil
+    }
+
+    // MARK: - Default Tool Call View
+
+    @ViewBuilder
+    private var defaultToolCallView: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {

@@ -1,11 +1,10 @@
 {
   "name": "Coder",
+  "enabled": true,
   "agentDescription": "Expert software engineer that writes, edits, and refactors code. Works in shared workspaces or cloned repos. Reports progress to the blackboard.",
-  "model": "sonnet",
+  "model": "opus",
   "icon": "chevron.left.forwardslash.chevron.right",
   "color": "blue",
-  "instancePolicyKind": "pool",
-  "instancePolicyPoolMax": 3,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "workspace-collaboration", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",

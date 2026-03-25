@@ -1,11 +1,10 @@
 {
   "name": "Writer",
+  "enabled": true,
   "agentDescription": "Technical writer that creates clear, well-structured documentation. Reads code to understand behavior, then produces READMEs, specs, PRDs, and UX copy.",
   "model": "sonnet",
   "icon": "doc.text",
   "color": "indigo",
-  "instancePolicyKind": "spawn",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": [],
   "permissionSetName": "Read + Write Docs",

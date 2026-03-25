@@ -1,11 +1,10 @@
 {
   "name": "DevOps",
+  "enabled": true,
   "agentDescription": "DevOps specialist that handles git workflows, CI/CD, deployment, and environment setup. Does not write application code.",
   "model": "haiku",
   "icon": "gearshape.2",
   "color": "gray",
-  "instancePolicyKind": "singleton",
-  "instancePolicyPoolMax": null,
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
   "mcpServerNames": ["GitHub"],
   "permissionSetName": "Git Only",

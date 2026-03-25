@@ -6,7 +6,6 @@
   "icon": "person.2.fill",
   "color": "blue",
   "model": "sonnet",
-  "instancePolicy": "spawn",
   "requiredSkills": [
     "peer-collaboration",
     "blackboard-patterns",

@@ -1,15 +1,27 @@
 import SwiftUI
 import MarkdownUI
+import WebKit
 
 struct CodeBlockView: View {
     let configuration: CodeBlockConfiguration
+    @AppStorage(AppSettings.renderMermaidKey, store: AppSettings.store) private var renderMermaid = true
     @State private var isCopied = false
+    @State private var showMermaidSource = false
+
+    private var isMermaid: Bool {
+        configuration.language?.lowercased() == "mermaid" && renderMermaid
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider().opacity(0.3)
-            codeContent
+            if isMermaid && !showMermaidSource {
+                MermaidDiagramView(source: configuration.content)
+                    .frame(minHeight: 100, maxHeight: 500)
+            } else {
+                codeContent
+            }
         }
         .background(Color(.textBackgroundColor).opacity(0.4))
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -32,6 +44,23 @@ struct CodeBlockView: View {
             }
 
             Spacer()
+
+            if isMermaid {
+                Button {
+                    showMermaidSource.toggle()
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: showMermaidSource ? "wand.and.stars" : "chevron.left.forwardslash.chevron.right")
+                            .font(.caption2)
+                        Text(showMermaidSource ? "Diagram" : "Source")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(showMermaidSource ? "Show diagram" : "Show source")
+                .xrayId("codeBlock.mermaidToggle")
+            }
 
             Button {
                 copyToClipboard()

@@ -12,8 +12,6 @@ struct WireAgentExport: Codable, Identifiable, Sendable {
     var maxThinkingTokens: Int?
     var icon: String
     var color: String
-    var instancePolicyKind: String
-    var instancePolicyPoolMax: Int?
     var defaultWorkingDirectory: String?
     var githubRepo: String?
     var githubDefaultBranch: String?
