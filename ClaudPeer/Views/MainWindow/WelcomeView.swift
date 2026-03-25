@@ -242,7 +242,7 @@ struct WelcomeView: View {
 
     private func welcomeGroupCard(_ group: AgentGroup) -> some View {
         Button {
-            appState.pendingGroupId = group.id
+            appState.selectPendingGroup(group.id)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {

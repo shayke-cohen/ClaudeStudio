@@ -38,6 +38,12 @@ struct SidebarView: View {
             .listStyle(.sidebar)
             .searchable(text: $searchText, prompt: "Search conversations...")
             .xrayId("sidebar.conversationList")
+            .onChange(of: appState.selectedConversationId) { _, newValue in
+                // When List selection clears to nil but we have a pending agent/group, keep it
+                if newValue == nil, appState.pendingAgentId != nil || appState.pendingGroupId != nil {
+                    // Pending state is still valid, do nothing
+                }
+            }
 
             Divider()
 
@@ -364,10 +370,11 @@ struct SidebarView: View {
                         appState.selectedConversationId = conv.id
                     },
                     onSelectGroup: {
-                        appState.pendingGroupId = group.id
+                        appState.selectPendingGroup(group.id)
                     },
                     onEdit: { editingGroup = group },
-                    onDuplicate: { duplicateGroup(group) }
+                    onDuplicate: { duplicateGroup(group) },
+                    isSelected: appState.pendingGroupId == group.id
                 )
                 .contextMenu {
                     Button("Start Chat") {
@@ -417,8 +424,9 @@ struct SidebarView: View {
                         appState.selectedConversationId = conv.id
                     },
                     onSelectAgent: {
-                        appState.pendingAgentId = agent.id
-                    }
+                        appState.selectPendingAgent(agent.id)
+                    },
+                    isSelected: appState.pendingAgentId == agent.id
                 )
                 .contextMenu {
                     Button("Start Session") {

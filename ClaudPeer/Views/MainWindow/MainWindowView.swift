@@ -145,7 +145,7 @@ struct MainWindowView: View {
         } else {
             WelcomeView(
                 onQuickChat: { createQuickChat() },
-                onStartAgent: { agent in appState.pendingAgentId = agent.id }
+                onStartAgent: { agent in appState.selectPendingAgent(agent.id) }
             )
             .xrayId("mainWindow.welcomeView")
         }

@@ -30,23 +30,22 @@ final class AppState: ObservableObject {
             }
         }
     }
-    @Published var pendingAgentId: UUID? {
-        didSet {
-            if pendingAgentId != nil {
-                selectedConversationId = nil
-                selectedGroupId = nil
-                pendingGroupId = nil
-            }
-        }
+    @Published var pendingAgentId: UUID?
+    @Published var pendingGroupId: UUID?
+
+    /// Set pending agent/group and clear other selections.
+    func selectPendingAgent(_ id: UUID) {
+        selectedConversationId = nil
+        selectedGroupId = nil
+        pendingGroupId = nil
+        pendingAgentId = id
     }
-    @Published var pendingGroupId: UUID? {
-        didSet {
-            if pendingGroupId != nil {
-                selectedConversationId = nil
-                selectedGroupId = nil
-                pendingAgentId = nil
-            }
-        }
+
+    func selectPendingGroup(_ id: UUID) {
+        selectedConversationId = nil
+        selectedGroupId = nil
+        pendingAgentId = nil
+        pendingGroupId = id
     }
     @Published var showAgentLibrary = false
     @Published var showGroupLibrary = false
