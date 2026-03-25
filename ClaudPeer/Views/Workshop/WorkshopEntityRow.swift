@@ -7,6 +7,7 @@ struct WorkshopEntityRow: View {
     let subtitle: String
     let isEnabled: Bool
     let badges: [String]
+    var entityId: String = ""
     var onToggleEnabled: (() -> Void)?
     let onTap: () -> Void
 
@@ -55,7 +56,7 @@ struct WorkshopEntityRow: View {
                     }
                     .buttonStyle(.borderless)
                     .help(isEnabled ? "Disable" : "Enable")
-                    .xrayId("workshop.toggleEnabled")
+                    .xrayId("workshop.toggleEnabled.\(entityId)")
                 }
 
                 HStack(spacing: 6) {

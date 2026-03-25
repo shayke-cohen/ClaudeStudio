@@ -11,7 +11,6 @@ struct WorkshopView: View {
     @State private var selectedTab: WorkshopTab = .agents
     @State private var selectedEntityContext: String?
     @State private var configConversationId: UUID?
-    @State private var pendingContextMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {

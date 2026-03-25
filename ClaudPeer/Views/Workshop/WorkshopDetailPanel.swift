@@ -1,14 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct WorkshopDetailPanel: View {
     let entityContext: String?
-
-    @Query(sort: \Agent.name) private var agents: [Agent]
-    @Query(sort: \AgentGroup.name) private var groups: [AgentGroup]
-    @Query(sort: \Skill.name) private var skills: [Skill]
-    @Query(sort: \MCPServer.name) private var mcps: [MCPServer]
-    @Query(sort: \PermissionSet.name) private var permissions: [PermissionSet]
 
     var body: some View {
         Group {

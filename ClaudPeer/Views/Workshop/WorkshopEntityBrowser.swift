@@ -88,6 +88,7 @@ struct WorkshopEntityBrowser: View {
                                 subtitle: agent.agentDescription,
                                 isEnabled: agent.isEnabled,
                                 badges: [agent.model, "\(agent.skillIds.count) skills"],
+                                entityId: agent.id.uuidString,
                                 onToggleEnabled: {
                                     agent.isEnabled.toggle()
                                     try? modelContext.save()
@@ -115,6 +116,7 @@ struct WorkshopEntityBrowser: View {
                                 subtitle: group.groupDescription,
                                 isEnabled: group.isEnabled,
                                 badges: ["\(group.agentIds.count) agents"],
+                                entityId: group.id.uuidString,
                                 onToggleEnabled: {
                                     group.isEnabled.toggle()
                                     try? modelContext.save()
@@ -142,6 +144,7 @@ struct WorkshopEntityBrowser: View {
                                 subtitle: skill.skillDescription,
                                 isEnabled: skill.isEnabled,
                                 badges: [skill.category, "v\(skill.version)"],
+                                entityId: skill.id.uuidString,
                                 onToggleEnabled: {
                                     skill.isEnabled.toggle()
                                     try? modelContext.save()
@@ -169,6 +172,7 @@ struct WorkshopEntityBrowser: View {
                                 subtitle: mcp.serverDescription,
                                 isEnabled: mcp.isEnabled,
                                 badges: [mcp.transportKind],
+                                entityId: mcp.id.uuidString,
                                 onToggleEnabled: {
                                     mcp.isEnabled.toggle()
                                     try? modelContext.save()
@@ -196,6 +200,7 @@ struct WorkshopEntityBrowser: View {
                                 subtitle: "\(perm.allowRules.count) allow, \(perm.denyRules.count) deny",
                                 isEnabled: perm.isEnabled,
                                 badges: [perm.permissionMode],
+                                entityId: perm.id.uuidString,
                                 onToggleEnabled: {
                                     perm.isEnabled.toggle()
                                     try? modelContext.save()
