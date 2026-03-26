@@ -2,12 +2,225 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import AppKit
+import OSLog
+
+// MARK: - Quick Actions
+
+enum QuickAction: String, CaseIterable, Identifiable {
+    case fixIt
+    case continueWork
+    case commitAndPush
+    case runTests
+    case undo
+    case tldr
+    case doubleCheck
+    case openIt
+    case visualOptions
+    case showVisual
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .tldr: return "TL;DR"
+        case .visualOptions: return "Visual Options"
+        case .doubleCheck: return "Double Check"
+        case .showVisual: return "Show Visual"
+        case .openIt: return "Open It"
+        case .commitAndPush: return "Commit & Push"
+        case .fixIt: return "Fix It"
+        case .runTests: return "Run Tests"
+        case .continueWork: return "Continue"
+        case .undo: return "Undo"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .tldr: return "bolt.fill"
+        case .visualOptions: return "paintpalette.fill"
+        case .doubleCheck: return "checkmark.seal.fill"
+        case .showVisual: return "eye.fill"
+        case .openIt: return "link"
+        case .commitAndPush: return "paperplane.fill"
+        case .fixIt: return "wrench.and.screwdriver.fill"
+        case .runTests: return "flask.fill"
+        case .continueWork: return "play.fill"
+        case .undo: return "arrow.uturn.backward"
+        }
+    }
+
+    var prompt: String {
+        switch self {
+        case .tldr: return "Give me a TL;DR summary of what we've done and where we are"
+        case .visualOptions: return "Show me visual options for this — present alternatives I can choose from"
+        case .doubleCheck: return "Double check your last response — verify it's correct and nothing is missing"
+        case .showVisual: return "Show me this in a visual way — diagram, mockup, or illustration"
+        case .openIt: return "Open it — launch, run, or preview what we just built"
+        case .commitAndPush: return "Commit all changes and push to the remote"
+        case .fixIt: return "Fix the error above"
+        case .runTests: return "Run the tests and show me the results"
+        case .continueWork: return "Continue where you left off"
+        case .undo: return "Undo the last changes you made — revert them"
+        }
+    }
+
+    /// Default popularity order (used until 10 total uses accumulated)
+    static let defaultPopularityOrder: [QuickAction] = [
+        .fixIt, .continueWork, .commitAndPush, .runTests, .undo,
+        .tldr, .doubleCheck, .openIt, .visualOptions, .showVisual,
+    ]
+
+    /// Minimum total uses before switching to usage-based ordering
+    static let usageThreshold = 10
+}
+
+// MARK: - Quick Action Usage Tracker
+
+@MainActor
+final class QuickActionUsageTracker: ObservableObject {
+    @Published private(set) var orderedActions: [QuickAction] = QuickAction.defaultPopularityOrder
+    @AppStorage(AppSettings.quickActionUsageOrderKey, store: AppSettings.store) private var usageOrderEnabled = true
+
+    private let defaults = AppSettings.store
+
+    init() {
+        recomputeOrder()
+    }
+
+    var isUsageOrderEnabled: Bool {
+        get { usageOrderEnabled }
+        set {
+            usageOrderEnabled = newValue
+            recomputeOrder()
+        }
+    }
+
+    func recordUsage(_ action: QuickAction) {
+        var counts = loadCounts()
+        counts[action.rawValue, default: 0] += 1
+        defaults.set(counts, forKey: AppSettings.quickActionUsageCountsKey)
+        recomputeOrder()
+    }
+
+    func recomputeOrder() {
+        guard usageOrderEnabled else {
+            orderedActions = QuickAction.defaultPopularityOrder
+            return
+        }
+
+        let counts = loadCounts()
+        let total = counts.values.reduce(0, +)
+
+        guard total >= QuickAction.usageThreshold else {
+            orderedActions = QuickAction.defaultPopularityOrder
+            return
+        }
+
+        // Sort by usage count descending, break ties by default popularity
+        let defaultOrder = QuickAction.defaultPopularityOrder
+        orderedActions = QuickAction.allCases.sorted { a, b in
+            let ca = counts[a.rawValue] ?? 0
+            let cb = counts[b.rawValue] ?? 0
+            if ca != cb { return ca > cb }
+            let ia = defaultOrder.firstIndex(of: a) ?? 0
+            let ib = defaultOrder.firstIndex(of: b) ?? 0
+            return ia < ib
+        }
+    }
+
+    private func loadCounts() -> [String: Int] {
+        (defaults.dictionary(forKey: AppSettings.quickActionUsageCountsKey) as? [String: Int]) ?? [:]
+    }
+}
+
+// MARK: - Quick Actions Row (Hybrid Layout)
+
+/// Shows quick action buttons in a single row. Left-side buttons show icon+text labels;
+/// once horizontal space runs out, remaining buttons fold to icon-only with tooltips.
+private struct QuickActionsRow: View {
+    let actions: [QuickAction]
+    let isProcessing: Bool
+    let onAction: (QuickAction) -> Void
+
+    /// Approximate width of a text-label capsule (icon + text + padding)
+    private func estimatedLabelWidth(for action: QuickAction) -> CGFloat {
+        // ~7pt per character + 22pt icon + 22pt horizontal padding
+        CGFloat(action.label.count) * 7 + 44
+    }
+
+    /// Width of an icon-only button
+    private let iconOnlyWidth: CGFloat = 30
+
+    /// Horizontal padding + spacing overhead
+    private let rowPadding: CGFloat = 28 + 10 // 14px each side + some buffer
+
+    /// Compute how many actions get text labels given available width
+    private func textLabelCount(for totalWidth: CGFloat) -> Int {
+        var remaining = totalWidth - rowPadding
+        var textCount = 0
+        for (i, action) in actions.enumerated() {
+            let labelW = estimatedLabelWidth(for: action)
+            let iconW = iconOnlyWidth + 4 // icon + spacing
+            let restAsIcons = CGFloat(actions.count - i - 1) * iconW
+            if remaining >= labelW + restAsIcons {
+                remaining -= labelW + 5 // 5pt spacing
+                textCount += 1
+            } else {
+                break
+            }
+        }
+        return textCount
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let textCount = textLabelCount(for: geo.size.width)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                        let showText = index < textCount
+                        Button {
+                            onAction(action)
+                        } label: {
+                            if showText {
+                                Label(action.label, systemImage: action.icon)
+                                    .font(.caption)
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 5)
+                                    .background(Color.purple.opacity(0.12))
+                                    .foregroundStyle(Color.purple)
+                                    .clipShape(Capsule())
+                            } else {
+                                Image(systemName: action.icon)
+                                    .font(.system(size: 11))
+                                    .frame(width: 26, height: 26)
+                                    .background(Color.purple.opacity(0.12))
+                                    .foregroundStyle(Color.purple)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .xrayId("chat.quickAction.\(action.rawValue)")
+                        .accessibilityLabel(action.label)
+                        .help(action.prompt)
+                        .disabled(isProcessing)
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+        }
+        .frame(height: 30)
+    }
+}
 
 struct ChatView: View {
     let conversationId: UUID
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var appState: AppState
+    @StateObject private var quickActionTracker = QuickActionUsageTracker()
     @State private var inputText = ""
+    @State private var inputHeight: CGFloat = PasteableTextField.minHeight
     @State private var isProcessing = false
     @State private var lastTokenTime: Date?
     @State private var processingStartTime: Date?
@@ -33,7 +246,9 @@ struct ChatView: View {
     @State private var shareCoordinator: ShareTempFileCoordinator?
     @State private var showAllDoneBanner = false
     @State private var allDoneBannerTimer: Task<Void, Never>?
-    @State private var planModeEnabled = false
+    private var planModeEnabled: Bool {
+        conversation?.planModeEnabled ?? false
+    }
     /// The ID of the last assistant message produced while plan mode was active (for showing the Execute Plan action bar).
     @State private var lastPlanResponseMessageId: UUID?
     @State private var showAttachRepoSheet = false
@@ -202,7 +417,7 @@ struct ChatView: View {
             let key = streamSessionKeyForUI ?? ""
             let hasStreamingText = !(appState.streamingText[key]?.isEmpty ?? true)
             if elapsed > 120 && !hasStreamingText {
-                print("[ChatView] Timeout: no response after \(Int(elapsed))s for \(key)")
+                Log.chat.warning("Timeout: no response after \(Int(elapsed))s for \(key, privacy: .public)")
                 isProcessing = false
                 processingStartTime = nil
                 if !key.isEmpty {
@@ -705,12 +920,39 @@ struct ChatView: View {
                 actionChipsStrip
             }
 
-            HStack(alignment: .bottom, spacing: 8) {
+            // Taller text input
+            PasteableTextField(
+                text: $inputText,
+                desiredHeight: $inputHeight,
+                onImagePaste: { data, mediaType in
+                    guard AttachmentStore.validate(data: data, mediaType: mediaType) else { return }
+                    pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: "pasted.png"))
+                },
+                onSubmit: { if canSend { sendMessage() } },
+                canSubmitOnReturn: { canSend }
+            )
+            .frame(height: inputHeight)
+            .xrayId("chat.messageInput")
+            .help("Return sends when there is text or attachments. Shift-Return inserts a new line. ⌘↩ also sends.")
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            // Row 1: Quick action capsules (hybrid: left=text labels, right=icon-only)
+            QuickActionsRow(
+                actions: quickActionTracker.orderedActions,
+                isProcessing: isProcessing,
+                onAction: { sendQuickAction($0) }
+            )
+            .xrayId("chat.quickActions")
+
+            // Row 2: Input tools + Send
+            HStack(spacing: 6) {
                 Button {
                     showFileImporter = true
                 } label: {
-                    Image(systemName: "paperclip")
-                        .font(.body)
+                    Label("Attach", systemImage: "paperclip")
+                        .font(.caption)
                 }
                 .buttonStyle(.borderless)
                 .xrayId("chat.attachButton")
@@ -721,10 +963,11 @@ struct ChatView: View {
                 delegateMenu
 
                 Button {
-                    planModeEnabled.toggle()
+                    conversation?.planModeEnabled.toggle()
+                    try? modelContext.save()
                 } label: {
-                    Image(systemName: planModeEnabled ? "doc.text.magnifyingglass" : "doc.text.magnifyingglass")
-                        .font(.body)
+                    Label("Plan", systemImage: "doc.text.magnifyingglass")
+                        .font(.caption)
                         .foregroundStyle(planModeEnabled ? .orange : .secondary)
                 }
                 .buttonStyle(.borderless)
@@ -733,32 +976,29 @@ struct ChatView: View {
                 .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
                 .disabled(isProcessing)
 
-                PasteableTextField(
-                    text: $inputText,
-                    onImagePaste: { data, mediaType in
-                        guard AttachmentStore.validate(data: data, mediaType: mediaType) else { return }
-                        pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: "pasted.png"))
-                    },
-                    onSubmit: { if canSend { sendMessage() } },
-                    canSubmitOnReturn: { canSend }
-                )
-                .xrayId("chat.messageInput")
-                .help("Return sends when there is text or attachments. Shift-Return inserts a new line. ⌘↩ also sends.")
+                Spacer()
 
                 Button {
                     sendMessage()
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
+                    Text("Send ↵")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
+                        .background(Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.plain)
                 .xrayId("chat.sendButton")
                 .accessibilityLabel("Send message")
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send message (Return or ⌘Return)")
             }
-            .padding(12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .padding(.bottom, 4)
         }
         .background(.bar)
         .onDrop(of: [.image, .fileURL, .plainText, .pdf], isTargeted: nil) { providers in
@@ -767,32 +1007,93 @@ struct ChatView: View {
         }
     }
 
+    /// The completed plan for the current session, if the agent called ExitPlanMode.
+    private var completedPlan: AppState.CompletedPlan? {
+        guard let key = streamSessionKeyForUI else { return nil }
+        return appState.completedPlans[key]
+    }
+
     @ViewBuilder
     private var planActionBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                executePlan()
-            } label: {
-                Label("Execute Plan", systemImage: "play.fill")
-                    .font(.caption)
-                    .fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 8) {
+            // Show plan text if captured from ExitPlanMode
+            if let planText = completedPlan?.plan, !planText.isEmpty {
+                DisclosureGroup {
+                    ScrollView {
+                        Text(LocalizedStringKey(planText))
+                            .font(.caption)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 200)
+                } label: {
+                    Label("Plan", systemImage: "doc.text")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+                .xrayId("chat.planCard")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.orange)
-            .xrayId("chat.executePlanButton")
 
-            Button {
-                // Keep plan mode on, just clear the action bar so user can type a follow-up
-                lastPlanResponseMessageId = nil
-            } label: {
-                Label("Refine Plan", systemImage: "pencil")
-                    .font(.caption)
+            // Show allowed prompts as pills
+            if let prompts = completedPlan?.allowedPrompts, !prompts.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        Text("Needs:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        ForEach(prompts) { prompt in
+                            Text(prompt.prompt)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(.orange.opacity(0.15))
+                                .foregroundStyle(.orange)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .xrayId("chat.planCard.allowedPrompts")
             }
-            .buttonStyle(.bordered)
-            .xrayId("chat.refinePlanButton")
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button {
+                    executePlan()
+                } label: {
+                    Label("Execute Plan", systemImage: "play.fill")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .xrayId("chat.executePlanButton")
+
+                Button {
+                    // Keep plan mode on, just clear the action bar so user can type a follow-up
+                    lastPlanResponseMessageId = nil
+                } label: {
+                    Label("Refine Plan", systemImage: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .xrayId("chat.refinePlanButton")
+
+                Button {
+                    discardPlan()
+                } label: {
+                    Label("Discard", systemImage: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .foregroundStyle(.secondary)
+                .xrayId("chat.discardPlanButton")
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -865,11 +1166,10 @@ struct ChatView: View {
                 }
             }
         } label: {
-            Image(systemName: "arrow.triangle.branch")
-                .font(.body)
+            Label("Delegate", systemImage: "arrow.triangle.branch")
+                .font(.caption)
         }
         .menuStyle(.borderlessButton)
-        .frame(width: 20)
         .xrayId("chat.delegateButton")
         .accessibilityLabel("Delegate to agent")
         .help("Delegate task to another agent")
@@ -1363,13 +1663,34 @@ struct ChatView: View {
         }
     }
 
+    // MARK: - Quick Actions
+
+    private func sendQuickAction(_ action: QuickAction) {
+        quickActionTracker.recordUsage(action)
+        inputText = action.prompt
+        sendMessage()
+    }
+
     // MARK: - Plan Mode Actions
 
     private func executePlan() {
-        planModeEnabled = false
+        conversation?.planModeEnabled = false
+        try? modelContext.save()
         lastPlanResponseMessageId = nil
-        inputText = "Go ahead and execute the plan above."
+        if let key = streamSessionKeyForUI {
+            appState.completedPlans.removeValue(forKey: key)
+        }
+        inputText = "Execute the plan above. Proceed with implementation."
         sendMessage()
+    }
+
+    private func discardPlan() {
+        conversation?.planModeEnabled = false
+        try? modelContext.save()
+        lastPlanResponseMessageId = nil
+        if let key = streamSessionKeyForUI {
+            appState.completedPlans.removeValue(forKey: key)
+        }
     }
 
     // MARK: - Auto-Send from Launch Intent
@@ -1947,7 +2268,7 @@ struct ChatView: View {
             do {
                 try Data(md.utf8).write(to: url, options: .atomic)
             } catch {
-                print("[ChatView] Export markdown failed: \(error)")
+                Log.chat.error("Export markdown failed: \(error)")
             }
         case (.html, .save):
             let html = ChatTranscriptExport.html(snap)
@@ -1958,7 +2279,7 @@ struct ChatView: View {
             do {
                 try Data(html.utf8).write(to: url, options: .atomic)
             } catch {
-                print("[ChatView] Export HTML failed: \(error)")
+                Log.chat.error("Export HTML failed: \(error)")
             }
         case (.pdf, .save):
             let html = ChatTranscriptExport.html(snap)
@@ -1971,7 +2292,7 @@ struct ChatView: View {
                 ) else { return }
                 try data.write(to: url, options: .atomic)
             } catch {
-                print("[ChatView] Export PDF failed: \(error)")
+                Log.chat.error("Export PDF failed: \(error)")
             }
         case (.markdown, .share):
             let md = ChatTranscriptExport.markdown(snap)
@@ -1983,7 +2304,7 @@ struct ChatView: View {
                 shareCoordinator = coord
                 ChatExportPresenters.presentSharePicker(for: temp, coordinator: coord)
             } catch {
-                print("[ChatView] Share markdown failed: \(error)")
+                Log.chat.error("Share markdown failed: \(error)")
             }
         case (.html, .share):
             let html = ChatTranscriptExport.html(snap)
@@ -1995,7 +2316,7 @@ struct ChatView: View {
                 shareCoordinator = coord
                 ChatExportPresenters.presentSharePicker(for: temp, coordinator: coord)
             } catch {
-                print("[ChatView] Share HTML failed: \(error)")
+                Log.chat.error("Share HTML failed: \(error)")
             }
         case (.pdf, .share):
             let html = ChatTranscriptExport.html(snap)
@@ -2008,7 +2329,7 @@ struct ChatView: View {
                 shareCoordinator = coord
                 ChatExportPresenters.presentSharePicker(for: temp, coordinator: coord)
             } catch {
-                print("[ChatView] Share PDF failed: \(error)")
+                Log.chat.error("Share PDF failed: \(error)")
             }
         }
     }
