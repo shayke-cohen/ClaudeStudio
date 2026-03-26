@@ -31,6 +31,7 @@ ClaudeStudio is a native macOS app (Swift 6 / SwiftUI / SwiftData) with a TypeSc
 - Claude Agent SDK: use `query()` from `@anthropic-ai/claude-agent-sdk`
 - Session manager uses `permissionMode: "bypassPermissions"` for development
 - Blackboard persists to `~/.claudestudio/blackboard/{scope}.json`
+- Structured JSON logging via `logger.ts` — use `logger.info/warn/error/debug()` with categories, not `console.log()`
 
 ### Wire Protocol
 
@@ -44,6 +45,8 @@ When adding a new command or event:
 3. Add handling in `ws-server.ts` (sidecar side)
 4. Add decoding in `IncomingWireMessage.toEvent()` (Swift side, for events)
 5. Add handling in `AppState.handleEvent()` (Swift side, for events)
+
+Note: recent wire additions include `stream.image`, `stream.fileCard`, `stream.thinking`, `session.planComplete`, `task.created`, `task.updated`, `task.list.result`, `conversation.inviteAgent`, `config.setLogLevel` (command).
 
 ## File System Rules
 
@@ -68,6 +71,8 @@ When adding a new command or event:
 | 9849 | WebSocket (Swift ↔ Sidecar) | `CLAUDESTUDIO_WS_PORT` |
 | 9850 | Blackboard HTTP API | `CLAUDESTUDIO_HTTP_PORT` |
 
+The Task Board REST API is served on the same HTTP port (9850) under `/api/v1/tasks`.
+
 ## Data Model (SwiftData)
 
 Core entities (all in `ClaudeStudio/Models/`):
@@ -79,6 +84,7 @@ Core entities (all in `ClaudeStudio/Models/`):
 - `ConversationMessage` — message with type enum (text, toolCall, toolResult, delegation, blackboard)
 - `Skill`, `MCPServer`, `PermissionSet` — composable building blocks
 - `SharedWorkspace`, `BlackboardEntry`, `Peer` — collaboration primitives
+- `TaskItem` — task board item with lifecycle (backlog/ready/inProgress/done/failed/blocked), priority, labels, agent assignment
 
 ## What's Implemented vs Planned
 
@@ -109,6 +115,14 @@ Core entities (all in `ClaudeStudio/Models/`):
 - Group peer fan-out (`GroupPeerFanOutContext`, budget limiter, deduplication)
 - P2P LAN networking (Bonjour discovery, `PeerCatalogServer`, `PeerAgentImporter`, `PeerNetworkView`)
 - Full accessibility coverage (347+ identifiers)
+- Rich display tools (ask_user with form/options/toggle/rating input types, render_content, show_progress, suggest_actions) as in-process MCP
+- Auto-expanding chat input with Shift+Enter newlines
+- Task board system (TaskItem model, TaskBoardStore, PeerBus tools, REST API, sidebar integration)
+- Plan mode (custom system prompt injection, Opus override, interactive planning workflow)
+- Structured logging infrastructure (sidecar JSON logger, Swift OSLog with categories, UnifiedLogEntry, LogAggregator, DebugLogView)
+- Sidebar bottom bar refactoring (SidebarBottomBarItem enum, adaptive layout)
+- group_invite_agent chat tool for dynamic agent invitation to conversations
+- Config file management and sync services
 
 **Not yet implemented (specified in vision doc):**
 
@@ -180,6 +194,9 @@ Dot-separated `viewName.elementName` in camelCase:
 | FileTreeView | `inspector.fileTree.*` |
 | WorkingDirectoryPicker | `directoryPicker.*` |
 | AttachRepoSheet | `attachRepo.*` |
+| DebugLogView | `debugLog.*` |
+| TaskCreationSheet | `taskCreation.*` |
+| TaskEditSheet | `taskEdit.*` |
 
 When adding new views, pick a unique camelCase prefix and annotate every interactive element.
 
@@ -226,3 +243,12 @@ See `TESTING.md` for the complete testing guide, including:
 - **Prompt queue**: `AppState.pendingAutoPrompt` — drained on sidecar `.connected` event via `drainPendingAutoPrompt()`
 - **Errors**: `AppState.launchError` — shown as alert in `MainWindowView`
 - **URL scheme**: `claudestudio://` registered in `ClaudeStudio/Resources/Info.plist`
+
+### Adding a new task board tool
+
+1. Add the tool schema in `sidecar/src/tools/task-board-tools.ts`
+2. Add the task type/fields in `sidecar/src/stores/task-board-store.ts`
+3. Add wire types in `sidecar/src/types.ts`
+4. Add REST endpoint in `sidecar/src/api-router.ts` if needed
+5. Add Swift wire structs in `SidecarProtocol.swift`
+6. Add event handling in `AppState.handleEvent()`

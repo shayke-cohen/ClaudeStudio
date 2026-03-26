@@ -2,8 +2,8 @@
 
 Living specification tracking implemented features, user flows, and requirements.
 
-**Version:** 0.9.0
-**Status:** Phase 9 — GitHub workspace clone/update, LAN peer network (Bonjour + agent export/import)
+**Version:** 0.12.0
+**Status:** Phase 12 — Task board, plan mode, logging infrastructure, rich display tools
 
 ---
 
@@ -554,6 +554,92 @@ The app accepts CLI arguments and `claudestudio://` URLs to open directly into a
 | FR-21.13: Pending prompt drained on sidecar `.connected` event | Done |
 | FR-21.14: Combinable with `--instance` for per-instance launch | Done |
 
+### FR-22: Task Board System
+
+**Status:** Implemented
+
+Shared task queue that agents can create, claim, and update. Supports decomposition into subtasks and lifecycle tracking from backlog through completion.
+
+| Requirement | Status |
+|---|---|
+| FR-22.1: TaskItem SwiftData model with status (backlog/ready/inProgress/done/failed/blocked) and priority (low/medium/high/critical) | Done |
+| FR-22.2: TaskBoardStore in sidecar (in-memory + persistent JSON at ~/.claudestudio/taskboard/) | Done |
+| FR-22.3: task_board_list tool — list tasks with optional status/assigned_to filters | Done |
+| FR-22.4: task_board_create tool — create tasks (defaults to "ready" for agents) | Done |
+| FR-22.5: task_board_claim tool — atomically claim a ready task | Done |
+| FR-22.6: task_board_update tool — update status, result, conversation link, assignee | Done |
+| FR-22.7: REST API: GET/POST /api/v1/tasks, PATCH /api/v1/tasks/{id}, POST /api/v1/tasks/{id}/claim | Done |
+| FR-22.8: TaskCreationSheet with title, description, priority picker, labels, "Start with Orchestrator" toggle | Done |
+| FR-22.9: TaskEditSheet with dual-mode (editable backlog/ready, read-only in-progress/done) | Done |
+| FR-22.10: Sidebar tasks section with active/completed groups | Done |
+| FR-22.11: task-board-patterns skill with polling, subtask decomposition, best practices | Done |
+| FR-22.12: Wire protocol events: task.created, task.updated, task.list.result | Done |
+| FR-22.13: Subtask support (parentTaskId) for task decomposition | Done |
+
+### FR-23: Plan Mode
+
+**Status:** Implemented
+
+Interactive planning mode where agents gather requirements, explore the codebase, and present a visual plan before implementing. Uses system prompt injection (not SDK's restrictive "plan" mode) with Opus model override.
+
+| Requirement | Status |
+|---|---|
+| FR-23.1: Plan mode toggle per-conversation (planModeEnabled on Conversation model) | Done |
+| FR-23.2: Plan mode uses Opus model override for better reasoning | Done |
+| FR-23.3: PLAN_MODE_APPEND system prompt injected when planMode=true | Done |
+| FR-23.4: Mandatory requirement gathering via ask_user (form, options, toggle, rating) | Done |
+| FR-23.5: Progress tracking via show_progress tool | Done |
+| FR-23.6: Visual plan presentation via render_content (Mermaid + HTML) | Done |
+| FR-23.7: User confirmation with ask_user options | Done |
+| FR-23.8: Follow-up actions via suggest_actions | Done |
+| FR-23.9: Plan mode uses bypassPermissions (not SDK's restrictive "plan" mode) | Done |
+| FR-23.10: session.planComplete event with plan text and allowedPrompts | Done |
+| FR-23.11: CompletedPlan tracking in AppState | Done |
+| FR-23.12: Increased maxTurns (≥30) for plan mode sessions | Done |
+
+### FR-24: Logging & Debug Infrastructure
+
+**Status:** Implemented
+
+Structured logging across both Swift app and TypeScript sidecar, with a unified debug view for real-time troubleshooting.
+
+| Requirement | Status |
+|---|---|
+| FR-24.1: Structured JSON-line logger in sidecar (logger.ts) with level, category, message, data | Done |
+| FR-24.2: Dynamic log level control via config.setLogLevel command | Done |
+| FR-24.3: Swift Log enum with OSLog subsystem com.claudestudio.app and categories | Done |
+| FR-24.4: UnifiedLogEntry model normalizing Swift (OSLog) and sidecar (JSON) logs | Done |
+| FR-24.5: LogAggregator with OSLogStore polling (5s) and file tail for sidecar.log (300ms throttle) | Done |
+| FR-24.6: DebugLogView standalone window with level/source/category filters and search | Done |
+| FR-24.7: Auto-scroll toggle and copy-to-clipboard for filtered logs | Done |
+| FR-24.8: 500 visible entry cap for SwiftUI diffing, 10K full buffer | Done |
+
+### FR-25: Rich Display Tools (MCP)
+
+**Status:** Implemented
+
+Rich display tools injected as MCP into every Agent SDK session, enabling interactive forms, visual content, progress indicators, and follow-up action suggestions.
+
+| Requirement | Status |
+|---|---|
+| FR-25.1: ask_user tool with input_type variants (text, options, form, toggle, rating) | Done |
+| FR-25.2: render_content tool with format options (html, mermaid) | Done |
+| FR-25.3: show_progress tool for multi-step progress display | Done |
+| FR-25.4: suggest_actions tool for follow-up action buttons | Done |
+| FR-25.5: Tools injected as MCP into every Agent SDK session | Done |
+
+### FR-26: Group Invite Agent
+
+**Status:** Implemented
+
+Chat tool allowing agents to dynamically invite other agents into an ongoing conversation.
+
+| Requirement | Status |
+|---|---|
+| FR-26.1: group_invite_agent chat tool — invites an agent to join current conversation | Done |
+| FR-26.2: Invited agent sees full transcript and can participate | Done |
+| FR-26.3: conversation.inviteAgent event broadcast to Swift | Done |
+
 ### Phase 9 — UX principles
 
 - **Workspace truth** — Clone path and repo/branch shown in New Session and Agent Editor before tools run; failures show inline with retry (Validate / update clone).
@@ -807,6 +893,37 @@ The app accepts CLI arguments and `claudestudio://` URLs to open directly into a
 - [x] User messages remain plain text (not rendered as markdown)
 - [x] Streaming text appears live as it arrives (not just animated dots)
 - [x] Can copy any message via hover copy button
+
+### US-21: Manage Tasks on a Board
+**As a** developer, **I want to** create and manage tasks that agents can claim and work on, **so that** I can orchestrate work through a shared task queue.
+
+**Acceptance criteria:**
+- [x] Can create tasks with title, description, priority, and labels
+- [x] Tasks flow through lifecycle (backlog → ready → inProgress → done/failed)
+- [x] Agents can list, claim, and update tasks via PeerBus tools
+- [x] Sidebar shows active and completed tasks
+- [x] Can "Run with Orchestrator" to auto-assign tasks
+- [x] Subtask decomposition supported
+
+### US-22: Use Plan Mode for Interactive Planning
+**As a** developer, **I want to** toggle plan mode for a conversation so the agent gathers requirements, explores the codebase, and presents a visual plan before implementing anything.
+
+**Acceptance criteria:**
+- [x] Plan mode toggle persisted per conversation
+- [x] Agent uses Opus model for better reasoning
+- [x] Agent gathers requirements via interactive ask_user forms
+- [x] Agent presents plans with Mermaid diagrams and HTML
+- [x] Agent does NOT write files in plan mode
+- [x] Plan can be approved, refined, or rejected
+
+### US-23: View Unified Debug Logs
+**As a** developer, **I want to** see both Swift app logs and sidecar logs in one unified debug view, **so I can** troubleshoot issues without switching between tools.
+
+**Acceptance criteria:**
+- [x] Debug Log View shows combined Swift + sidecar logs
+- [x] Can filter by level, source, category, and free text
+- [x] Logs stream in real-time with auto-scroll
+- [x] Can copy filtered logs to clipboard
 
 ---
 
@@ -1166,3 +1283,6 @@ flowchart TD
 | 2026-03-22 | Group chat peer fan-out: each user turn messages **all** sessions; after each assistant reply, automatic `session.message` to other agents (`Group chat: peer message`) with `GroupPeerFanOutContext` turn budget + dedup; skip fan-out to sessions still pending their user-turn message. Extended `GroupPromptBuilderTests`; sidecar E2E GC-2; docs in README, TESTING.md, AGENTS.md, CLAUDE.md. | FR-4.9, FR-5.10, NFR (tests) |
 | 2026-03-22 | Phase 9: GitHub workspace (`WorkspaceResolver`, `GitHubIntegration`, `GitWorkspacePreparer`), New Session GitHub mode + Agent Editor validate/update clone, `ChatView` pre-provision clone; P2P v1 (`P2PNetworkManager`, `PeerCatalogServer`, `PeerNetworkView`, `PeerAgentImporter`, wire DTOs), toolbar ⌘⇧P; `WorkspaceResolverTests`; `xcodegen` for new Swift files. Flows 14–16, FR-19–20, US-18–19. | FR-19, FR-20, US-18, US-19, Flow 14–16, NFR |
 | 2026-03-25 | Launch parameters & URL scheme: `LaunchIntent` type with CLI (`--chat`, `--agent`, `--group`, `--prompt`, `--workdir`, `--autonomous`) and `claudestudio://` URL parsers. `AppState.executeLaunchIntent()` creates session from SwiftData lookup. Auto-send prompt queued and drained on sidecar connect. `Info.plist` registers URL scheme. Error alert for missing agent/group. Combinable with `--instance`. | FR-21, US-20, Flow 17 |
+| 2026-03-25 | Phase 10: Rich display tools (ask_user, render_content, show_progress, suggest_actions) as MCP injected into all sessions. Auto-expanding chat input with Shift+Enter newlines. | FR-25, FR-5 |
+| 2026-03-26 | Phase 11: Task Board system. TaskItem SwiftData model, TaskBoardStore in sidecar with persistence, 4 PeerBus tools (task_board_list/create/claim/update), REST API endpoints, TaskCreationSheet and TaskEditSheet in UI, sidebar tasks section, task-board-patterns skill, wire protocol events. group_invite_agent chat tool. | FR-22, FR-26, US-21 |
+| 2026-03-26 | Phase 12: Plan mode and logging. Custom plan mode via system prompt injection (not SDK plan mode). Opus override, interactive planning workflow (ask_user → show_progress → render_content → suggest_actions). Structured JSON logging in sidecar (logger.ts), Swift Log enum with OSLog, UnifiedLogEntry, LogAggregator, DebugLogView. Sidebar bottom bar refactored with SidebarBottomBarItem enum and adaptive layout. | FR-23, FR-24, US-22, US-23 |

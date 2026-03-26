@@ -2,6 +2,8 @@
 
 A native macOS developer tool for orchestrating multiple Claude AI agent sessions. Agents chat with users and with each other, share knowledge through a blackboard, collaborate on files through shared workspaces, and discover each other across the local network.
 
+![ClaudeStudio](docs/welcome-screen.png)
+
 ## Architecture
 
 ClaudeStudio is a **two-process** app:
@@ -13,7 +15,7 @@ ClaudeStudio is a **two-process** app:
 │  • SwiftUI + SwiftData          │                          │  • Bun runtime                   │
 │  • UI, persistence, P2P         │                          │  • Claude Agent SDK sessions     │
 │  • Agent provisioning           │                          │  • Blackboard (HTTP + disk)      │
-│  • Conversation model           │                          │  • PeerBus tools (planned)       │
+│  • Conversation model           │                          │  • PeerBus tools + Task Board    │
 └─────────────────────────────────┘                          └─────────────────────────────────┘
 ```
 
@@ -40,7 +42,8 @@ ClaudeStudio/
 ├── ClaudeStudio/                    # Swift macOS App
 │   ├── App/
 │   │   ├── ClaudeStudioApp.swift    # @main, WindowGroup, model container
-│   │   └── AppState.swift        # Global state: sidecar status, selections, streaming
+│   │   ├── AppState.swift        # Global state: sidecar status, selections, streaming
+│   │   └── Log.swift             # Centralized OSLog logger with categories
 │   ├── Models/                   # SwiftData @Model types
 │   │   ├── Agent.swift           # Agent template (skills, MCPs, permissions, instance policy)
 │   │   ├── Session.swift         # Running agent instance (status, mode, workspace)
@@ -52,27 +55,36 @@ ClaudeStudio/
 │   │   ├── PermissionSet.swift   # Reusable permission presets
 │   │   ├── SharedWorkspace.swift # Shared directory for multi-agent collaboration
 │   │   ├── BlackboardEntry.swift # Key-value knowledge store entry
-│   │   └── Peer.swift            # Discovered network peer
+│   │   ├── Peer.swift            # Discovered network peer
+│   │   ├── TaskItem.swift        # Task board item (status, priority, lifecycle)
+│   │   └── UnifiedLogEntry.swift # Normalized log entry (Swift + sidecar)
 │   ├── Services/
 │   │   ├── SidecarManager.swift  # Launch Bun, WebSocket client, reconnect
 │   │   ├── SidecarProtocol.swift # Wire types: commands, events, AgentConfig
 │   │   ├── AgentProvisioner.swift# Compose AgentConfig from SwiftData models
 │   │   ├── GroupPromptBuilder.swift   # Group transcript + user-line prompts; peer-notify text
-│   │   └── GroupPeerFanOutContext.swift # Budget/dedup for automatic peer fan-out
+│   │   ├── GroupPeerFanOutContext.swift # Budget/dedup for automatic peer fan-out
+│   │   ├── LogAggregator.swift  # Real-time log streaming (OSLog + file tail)
+│   │   ├── ConfigFileManager.swift # Bundle resource loading for defaults
+│   │   └── ConfigSyncService.swift # Config synchronization service
 │   ├── Views/
 │   │   ├── MainWindow/           # NavigationSplitView: sidebar, chat, inspector, new session sheet
+│   │   │   ├── TaskCreationSheet.swift
+│   │   │   └── TaskEditSheet.swift
 │   │   ├── AgentLibrary/         # Agent grid + editor
+│   │   ├── Debug/                # DebugLogView — unified log viewer with filters
 │   │   └── Components/           # MessageBubble, ToolCallView, TreeNode, etc.
 │   └── Resources/
 │       ├── Assets.xcassets
 │       ├── ClaudeStudio.entitlements
 │       ├── DefaultAgents/           # 7 built-in agent definitions (JSON)
-│       ├── DefaultSkills/           # 5 ClaudeStudio-specific skills (SKILL.md)
+│       ├── DefaultSkills/           # 6 ClaudeStudio-specific skills (SKILL.md)
 │       │   ├── peer-collaboration/
 │       │   ├── blackboard-patterns/
 │       │   ├── delegation-patterns/
 │       │   ├── workspace-collaboration/
-│       │   └── agent-identity/
+│       │   ├── agent-identity/
+│       │   └── task-board-patterns/
 │       ├── DefaultMCPs.json         # Pre-registered MCP server configs
 │       ├── DefaultPermissionPresets.json  # 5 permission presets
 │       └── SystemPromptTemplates/   # 3 reusable prompt templates
@@ -86,11 +98,31 @@ ClaudeStudio/
     │   ├── http-server.ts        # Blackboard REST API
     │   ├── session-manager.ts    # Agent SDK query() lifecycle
     │   ├── types.ts              # Shared command/event types
-    │   └── stores/
-    │       ├── blackboard-store.ts   # In-memory + JSON disk persistence
-    │       └── session-registry.ts   # Per-session state tracking
+    │   ├── logger.ts             # Structured JSON-line logger
+    │   ├── api-router.ts         # REST API router (tasks, future endpoints)
+    │   ├── relay-client.ts       # Relay client for remote connections
+    │   ├── webhook-manager.ts    # Webhook event delivery
+    │   ├── prompts/              # plan-mode.ts — plan mode system prompt
+    │   ├── stores/
+    │   │   ├── blackboard-store.ts   # In-memory + JSON disk persistence
+    │   │   ├── session-registry.ts   # Per-session state tracking
+    │   │   └── task-board-store.ts   # Task persistence + atomic claiming
+    │   └── tools/
+    │       ├── tool-context.ts       # Shared context (stores, broadcast, spawnSession)
+    │       ├── peerbus-server.ts     # MCP server factory for PeerBus tools
+    │       ├── ask-user-tool.ts      # Interactive input (form, options, toggle, rating)
+    │       ├── rich-display-tools.ts # render_content, show_progress, suggest_actions
+    │       ├── chat-tools.ts         # peer_chat_start/reply/listen/close/invite, group_invite_agent
+    │       ├── messaging-tools.ts    # peer_send/broadcast/receive/list/delegate
+    │       └── task-board-tools.ts   # task_board_list/create/claim/update
     └── test/
-        └── sidecar-api.test.ts   # Integration tests (requires running sidecar)
+        ├── integration/
+        │   ├── peerbus-tools.test.ts
+        │   └── task-board-tools.test.ts
+        ├── unit/
+        │   └── task-board-store.test.ts
+        └── api/
+            └── ws-protocol.test.ts
 ```
 
 ## Prerequisites
@@ -198,6 +230,8 @@ Where `<mode>` is `chat`, `agent`, or `group`. Query parameters are optional.
 | `session.resume` | Resume a previous session by Claude session ID |
 | `session.fork` | Fork a conversation at the current point |
 | `session.pause` | Pause/abort a running session |
+| `config.setLogLevel` | Set sidecar log level dynamically |
+| `delegate.task` | User-initiated task delegation to agent |
 
 ### Sidecar → Swift (events)
 
@@ -208,9 +242,16 @@ Where `<mode>` is `chat`, `agent`, or `group`. Query parameters are optional.
 | `stream.toolResult` | Tool call completed |
 | `session.result` | Agent turn completed (with cost) |
 | `session.error` | Error in session |
-| `peer.chat` | Inter-agent chat message (planned) |
-| `peer.delegate` | Task delegation event (planned) |
+| `stream.image` | Streaming image from agent |
+| `stream.fileCard` | File card display from agent |
+| `stream.thinking` | Extended thinking content |
+| `session.planComplete` | Plan mode plan completed |
+| `peer.chat` | Inter-agent chat message |
+| `peer.delegate` | Task delegation event |
 | `blackboard.update` | Blackboard key changed |
+| `task.created` | Task board task created |
+| `task.updated` | Task board task updated |
+| `conversation.inviteAgent` | Agent invited to join conversation |
 
 ## Blackboard HTTP API
 
@@ -235,22 +276,47 @@ curl http://localhost:9850/blackboard/keys
 curl http://localhost:9850/blackboard/health
 ```
 
+## Task Board REST API
+
+The sidecar exposes task management endpoints on the same HTTP port:
+
+```bash
+# List tasks (with optional filters)
+curl http://localhost:9850/api/v1/tasks?status=ready
+
+# Create a task
+curl -X POST http://localhost:9850/api/v1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Fix login bug", "priority": "high"}'
+
+# Update a task
+curl -X PATCH http://localhost:9850/api/v1/tasks/TASK_ID \
+  -H 'Content-Type: application/json' \
+  -d '{"status": "done", "result": "Fixed null check in auth.swift"}'
+
+# Claim a task (atomic)
+curl -X POST http://localhost:9850/api/v1/tasks/TASK_ID/claim \
+  -H 'Content-Type: application/json' \
+  -d '{"assignedTo": "Coder-session-1"}'
+```
+
 ## Data Model
 
 The app uses SwiftData with these core entities:
 
 - **Agent** — reusable template (like a class): skills, MCPs, permissions, model, instance policy
 - **Session** — running instance (like an object): status, mode, workspace, cost tracking
-- **Conversation** — unified communication primitive for user↔agent and agent↔agent; **group chats** attach multiple `Session`s, send each user message to every agent, and **fan out** each assistant reply to other agents via extra `session.message` calls (see `SPEC.md` FR-4.9)
+- **Conversation** — unified communication primitive for user↔agent and agent↔agent; supports `planModeEnabled` for interactive planning; **group chats** attach multiple `Session`s, send each user message to every agent, and **fan out** each assistant reply to other agents via extra `session.message` calls (see `SPEC.md` FR-4.9)
 - **Participant** — member of a conversation (`.user` or `.agentSession`)
 - **Skill / MCPServer / PermissionSet** — composable building blocks for agents
 - **BlackboardEntry** — shared structured knowledge (key-value + metadata)
 - **SharedWorkspace** — directory shared between multiple agent sessions
 - **Peer** — discovered network peer (P2P, planned)
+- **TaskItem** — task board item with lifecycle (backlog → ready → inProgress → done/failed), priority, labels, agent assignment
 
 ## Built-in Ecosystem
 
-ClaudeStudio ships with 7 default agents, 5 multi-agent skills, MCP integrations, permission presets, and system prompt templates -- all designed to work together out of the box. Users can modify, duplicate, or delete any default.
+ClaudeStudio ships with 7 default agents, 6 multi-agent skills, MCP integrations, permission presets, and system prompt templates -- all designed to work together out of the box. Users can modify, duplicate, or delete any default.
 
 ### Default Agents
 
@@ -271,6 +337,7 @@ ClaudeStudio ships with 7 default agents, 5 multi-agent skills, MCP integrations
 - **`delegation-patterns`** -- Task decomposition, wait strategies, pipeline templates (sequential, parallel, iterative)
 - **`workspace-collaboration`** -- Multi-agent file conventions, locking, readiness signaling
 - **`agent-identity`** -- ClaudeStudio context injection, peer discovery, self-introduction protocol
+- **`task-board-patterns`** -- Task polling, subtask decomposition, atomic claiming, result reporting
 
 ### MCP Integrations (pre-registered, user-enabled per agent)
 
@@ -284,7 +351,7 @@ See [`system-plan-vision.md` Section 11](system-plan-vision.md#11-built-in-ecosy
 
 ## Current Status
 
-**Implemented (Phase 1-2):**
+**Implemented (Phase 1-12):**
 - Swift project with SwiftData models for all core entities
 - Bun sidecar with Agent SDK `query()` integration
 - WebSocket communication (commands + streaming events)
@@ -295,21 +362,29 @@ See [`system-plan-vision.md` Section 11](system-plan-vision.md#11-built-in-ecosy
 - Blackboard with HTTP REST API and disk persistence
 - Working directory resolution (explicit, GitHub clone, agent default, ephemeral)
 - New Session sheet with agent picker, model/mode/mission/directory options (Cmd+N)
-- Smart conversation auto-naming from first message
-- Conversation management: rename, pin, archive, close, delete, duplicate via context menus
-- Sidebar polish: pinned section, archived section (collapsible), relative timestamps, message previews, agent icons, swipe actions, empty state
-- Chat header: inline rename, close/resume, clear, model pill, live cost display
-- Inspector actions: pause/resume/stop buttons, editable topic, "Open in Editor" link
-- Group chat: shared transcript per session, sequential user-turn replies, automatic peer notify (`Group chat: peer message`) with bounded extra turns
+- Conversation management: rename, pin, archive, close, delete, duplicate
+- Group chat: shared transcript per session, sequential replies, automatic peer fan-out
+- PeerBus custom tools: peer_chat, peer_delegate, peer_send/broadcast/receive, blackboard, workspace (17 tools)
+- Agent-to-agent conversations and delegation with instance policy enforcement
+- Built-in ecosystem: 7 default agents, 6 skills, MCP configs, permission presets, prompt templates
+- First-launch SwiftData seeding from bundled resources
+- P2P LAN networking via Bonjour (agent export/import)
+- Inspector file tree with git status, syntax highlighting, diff view
+- Chat export (Markdown, HTML, PDF), file/image attachments
+- Streaming images, file cards, and extended thinking from sidecar
+- Multi-instance support (isolated data, ports, settings per instance)
+- Launch parameters (CLI args + `claudestudio://` URL scheme)
+- Catalog system: 30 agents, 101 skills, 100 MCPs with cascading install
+- Full accessibility coverage (347+ identifiers)
+- Rich display tools: ask_user (form/options/toggle/rating), render_content, show_progress, suggest_actions
+- Task board: task lifecycle management, PeerBus tools, REST API, sidebar integration
+- Plan mode: interactive planning with Opus, requirement gathering, visual plan presentation
+- Structured logging: sidecar JSON logger + Swift OSLog + unified DebugLogView
 
 **Planned (see `system-plan-vision.md`):**
-- PeerBus custom tools (peer_chat, peer_delegate, blackboard SDK tools)
-- Hook engine (PreToolUse/PostToolUse → real-time UI events)
-- Agent-to-agent conversations and delegation
-- Shared workspaces
-- Built-in ecosystem: 7 default agents, 5 multi-agent skills, MCP configs, permission presets, prompt templates
-- First-launch SwiftData seeding from bundled resources
-- P2P networking via Bonjour (agent/skill sharing, cross-machine collaboration)
+- Crash recovery (sidecar watchdog, automatic session reconnect on restart)
+- P2P v2: peer registry in sidecar, PeerBus remote routing, cross-machine relay
+- Blackboard as MCP server (universal AI tool integration)
 
 ## Runtime Paths
 

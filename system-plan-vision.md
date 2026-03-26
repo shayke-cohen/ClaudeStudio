@@ -1264,6 +1264,8 @@ ClaudeStudio/
     App/
       ClaudeStudioApp.swift              -- @main entry, WindowGroup, sidecar lifecycle
       AppState.swift                  -- Global app state (ObservableObject)
+      AppSettings.swift               -- UserDefaults keys and quick action tracking
+      Log.swift                       -- Centralized OSLog logger enum with categories
     Models/
       Agent.swift                     -- SwiftData @Model (+ instancePolicy, githubRepo)
       Session.swift                   -- SwiftData @Model (+ mode, conversations)
@@ -1275,6 +1277,8 @@ ClaudeStudio/
       SharedWorkspace.swift           -- SwiftData @Model
       BlackboardEntry.swift           -- SwiftData @Model
       Peer.swift                      -- SwiftData @Model
+      TaskItem.swift                  -- SwiftData @Model (task board lifecycle, priority, labels)
+      UnifiedLogEntry.swift           -- Normalized log entry (Swift OSLog + sidecar JSON)
     Services/
       SidecarManager.swift            -- Launch/monitor Bun sidecar process
       SidecarProtocol.swift           -- WebSocket message types (Swift <-> Sidecar)
@@ -1284,12 +1288,19 @@ ClaudeStudio/
       P2PNetworkManager.swift         -- Bonjour discovery + WebSocket relay
       SkillPoolManager.swift          -- Import/sync skills from filesystem and peers
       MCPPoolManager.swift            -- Manage MCP server pool
+      LogAggregator.swift             -- Real-time log streaming (OSLogStore + file tail)
+      ConfigFileManager.swift         -- Bundle resource loading with fallbacks
+      ConfigSyncService.swift         -- Config synchronization between app and sidecar
     Views/
+      Debug/
+        DebugLogView.swift            -- Unified log viewer with filters
       MainWindow/
         MainWindowView.swift          -- NavigationSplitView root
         SidebarView.swift             -- Conversation tree
         ChatView.swift                -- Message list + input
         InspectorView.swift           -- Session metadata panel
+        TaskCreationSheet.swift       -- New task creation form
+        TaskEditSheet.swift           -- Task edit / detail form
       AgentLibrary/
         AgentLibraryView.swift        -- Grid of agent cards
         AgentEditorView.swift         -- Multi-step agent creation wizard
@@ -1322,12 +1333,13 @@ ClaudeStudio/
         tester.json
         devops.json
         writer.json
-      DefaultSkills/                  -- 5 ClaudeStudio-specific skills
+      DefaultSkills/                  -- 6 ClaudeStudio-specific skills
         peer-collaboration/SKILL.md
         blackboard-patterns/SKILL.md
         delegation-patterns/SKILL.md
         workspace-collaboration/SKILL.md
         agent-identity/SKILL.md
+        task-board-patterns/SKILL.md
       DefaultMCPs.json                -- Pre-registered MCP server configs
       DefaultPermissionPresets.json   -- 5 permission presets
       SystemPromptTemplates/          -- 3 reusable system prompt templates
@@ -1344,6 +1356,12 @@ ClaudeStudio/
       ws-server.ts                    -- WebSocket server (Swift <-> sidecar), routes commands including agent.register
       http-server.ts                  -- HTTP REST API (external integration: blackboard, health)
       session-manager.ts              -- SDK query() lifecycle, PeerBus MCP injection, autonomous spawn for delegation
+      logger.ts                       -- Structured JSON-line logger with categories
+      api-router.ts                   -- REST API router (tasks)
+      relay-client.ts                 -- Remote relay client
+      webhook-manager.ts              -- Webhook event delivery
+      prompts/
+        plan-mode.ts                  -- Plan mode system prompt injection
       tools/
         tool-context.ts               -- Shared ToolContext interface (stores, broadcast, spawnSession, agentDefinitions)
         peerbus-server.ts             -- createPeerBusServer() factory using createSdkMcpServer()
@@ -1351,12 +1369,17 @@ ClaudeStudio/
         messaging-tools.ts            -- peer_send_message, peer_broadcast, peer_receive_messages, peer_list_agents, peer_delegate_task
         chat-tools.ts                 -- peer_chat_start, peer_chat_reply, peer_chat_listen, peer_chat_close, peer_chat_invite
         workspace-tools.ts            -- workspace_create, workspace_join, workspace_list
+        ask-user-tool.ts              -- Interactive input MCP tool
+        rich-display-tools.ts         -- render_content, show_progress, suggest_actions
+        task-board-tools.ts           -- Task board PeerBus tools
       stores/
         blackboard-store.ts           -- In-memory + JSON disk persistence, glob-pattern query
         session-registry.ts           -- Track all active sessions + their agents + registered definitions
         message-store.ts              -- Per-session inboxes for async messages
         chat-channel-store.ts         -- Active chat channels, blocking wait, deadlock detection
         workspace-store.ts            -- Shared workspace directories
+        task-board-store.ts           -- Task persistence + atomic claiming
+        peer-registry.ts              -- Track discovered peers and remote agents
       types.ts                        -- Shared types (SidecarCommand, SidecarEvent, AgentConfig, AgentDefinition)
     bun.lockb
 ```
@@ -1650,15 +1673,50 @@ All seeded records have `origin: .builtin`. Users can modify them freely -- edit
 38. **Definition sharing** -- `PeerAgentImporter` imports remote agents with duplicate detection via `originKind`/`originRemoteId`; tracks missing dependencies (skills, MCPs, permissions); disambiguates name collisions
 39. **P2P Network panel** -- `PeerNetworkView` two-pane layout: discovered peers on left, agent list on right; browse/import/refresh actions; import status feedback with missing-dependency reporting
 
+### Phase 7: Agent Communication Wiring + Delegation UI ✅
+
+40. **AgentCommsView wiring** -- Toolbar button with antenna icon + event badge (⌘⇧A), sheet presentation, real-time event updates
+41. **User-initiated delegation** -- Delegate menu in chat input, agent picker, DelegateSheet (task editor, context, wait-for-result), delegate.task sidecar command
+42. **Instance policy enforcement** -- peer_delegate_task and delegate.task respect singleton/pool/spawn policies
+
+### Phase 8: Group Conversations ✅
+
+43. **Group chat model** -- Conversation.sessions for multi-agent, per-session transcript watermarks, GroupPromptBuilder injection
+44. **Sequential multi-agent sends** -- Each user message goes to all sessions in order, peer fan-out with GroupPeerFanOutContext budget/dedup
+45. **Slash commands and @-mentions** -- /help, /topic, /rename, /agents; @-mention routing with add-on-send; ⌘↩ to send
+
+### Phase 9: GitHub Workspace + P2P v1 ✅
+
+46. **GitHub workspace** -- WorkspaceResolver, GitHubIntegration, GitWorkspacePreparer; New Session GitHub mode; Agent Editor clone validate
+47. **P2P v1** -- P2PNetworkManager (Bonjour), PeerCatalogServer (HTTP), PeerAgentImporter, PeerNetworkView
+
+### Phase 10: Rich Display Tools ✅
+
+48. **MCP display tools** -- ask_user (text/options/form/toggle/rating), render_content (html/mermaid), show_progress, suggest_actions injected into all sessions
+49. **Chat UX** -- Auto-expanding input with Shift+Enter newlines, rich HTML/mermaid rendering in chat
+
+### Phase 11: Task Board ✅
+
+50. **Task board model** -- TaskItem SwiftData model with lifecycle (backlog/ready/inProgress/done/failed/blocked), priority, labels
+51. **Task board sidecar** -- TaskBoardStore (in-memory + JSON persistence), 4 PeerBus tools (list/create/claim/update), REST API endpoints
+52. **Task board UI** -- TaskCreationSheet, TaskEditSheet, sidebar tasks section with active/completed groups
+53. **group_invite_agent** -- Chat tool for dynamic agent invitation to conversations
+
+### Phase 12: Plan Mode + Logging ✅
+
+54. **Plan mode** -- Custom plan mode via PLAN_MODE_APPEND system prompt (not SDK plan mode); Opus override, interactive workflow (ask_user → show_progress → render_content → suggest_actions); planModeEnabled per conversation; session.planComplete event
+55. **Structured logging** -- Sidecar JSON logger (logger.ts) with categories/levels; Swift Log enum with OSLog; UnifiedLogEntry normalizer; LogAggregator (OSLogStore + file tail); DebugLogView with filters
+56. **Sidebar refactoring** -- SidebarBottomBarItem enum with adaptive layout (ViewThatFits); task management integration
+
 ### Future: P2P v2
 
-40. **Peer registry in sidecar** -- Remote agent awareness in session-registry
-41. **PeerBus routing layer** -- Local vs remote detection for `peer_delegate_task` and messaging tools
-42. **Swift P2P bridge** -- Cross-machine message relay via WebSocket
-43. **Blackboard as MCP server** -- Expose blackboard HTTP API as MCP for universal AI tool integration
+57. **Peer registry in sidecar** -- Remote agent awareness in session-registry
+58. **PeerBus routing layer** -- Local vs remote detection for `peer_delegate_task` and messaging tools
+59. **Swift P2P bridge** -- Cross-machine message relay via WebSocket
+60. **Blackboard as MCP server** -- Expose blackboard HTTP API as MCP for universal AI tool integration
 
 ### Future: Robustness
 
-44. **Crash recovery** -- Sidecar watchdog, automatic reconnect of in-flight sessions on restart
-45. **Instance policy enforcement** -- Full `.singleton` and `.pool(max:)` enforcement with load balancing
+61. **Crash recovery** -- Sidecar watchdog, automatic reconnect of in-flight sessions on restart
+62. **Instance policy enforcement** -- Full `.singleton` and `.pool(max:)` enforcement with load balancing
 46. **GitHub CLI integration** -- `gh` CLI permissions, branch-from-issue, PR/issue linking in UI
