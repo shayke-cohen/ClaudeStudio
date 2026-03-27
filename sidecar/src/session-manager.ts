@@ -99,7 +99,12 @@ export class SessionManager {
         mkdirSync(options.cwd, { recursive: true });
       }
 
-      const prompt = this.buildPrompt(text, attachments);
+      let prompt = this.buildPrompt(text, attachments);
+      // Inject plan mode instructions into the user message (not system prompt)
+      // — proven by A/B test to be more effective than system prompt append
+      if (planMode === true) {
+        prompt = PLAN_MODE_APPEND + "\n\nUser request: " + prompt;
+      }
       const attachmentCount = attachments?.length ?? 0;
       const mcpNames = Object.keys(options.mcpServers ?? {});
       logger.info("session", `query() start for ${sessionId} (model=${options.model}, cwd=${options.cwd ?? "none"}, turns=${options.maxTurns}, attachments=${attachmentCount}, mcpServers=${mcpNames.join(",")})`);
@@ -300,10 +305,45 @@ export class SessionManager {
       cwd: config.workingDirectory || undefined,
       // Note: we do NOT use permissionMode:"plan" because it blocks MCP tools
       // (ask_user, render_content, show_progress, suggest_actions).
-      // Plan mode behavior is enforced via system prompt instead.
+      // Plan mode behavior is enforced via user message injection instead.
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       env,
+      // Grant permissions for all MCP peerbus tools (ask_user, render_content, etc.)
+      // Without this, bypassPermissions only covers built-in tools and MCP calls get denied.
+      settings: {
+        permissions: {
+          allow: [
+            "mcp__peerbus__ask_user",
+            "mcp__peerbus__render_content",
+            "mcp__peerbus__confirm_action",
+            "mcp__peerbus__show_progress",
+            "mcp__peerbus__suggest_actions",
+            "mcp__peerbus__blackboard_read",
+            "mcp__peerbus__blackboard_write",
+            "mcp__peerbus__blackboard_query",
+            "mcp__peerbus__blackboard_subscribe",
+            "mcp__peerbus__peer_send_message",
+            "mcp__peerbus__peer_broadcast",
+            "mcp__peerbus__peer_receive_messages",
+            "mcp__peerbus__peer_list_agents",
+            "mcp__peerbus__peer_delegate_task",
+            "mcp__peerbus__peer_chat_start",
+            "mcp__peerbus__peer_chat_reply",
+            "mcp__peerbus__peer_chat_listen",
+            "mcp__peerbus__peer_chat_close",
+            "mcp__peerbus__peer_chat_invite",
+            "mcp__peerbus__group_invite_agent",
+            "mcp__peerbus__workspace_create",
+            "mcp__peerbus__workspace_join",
+            "mcp__peerbus__workspace_list",
+            "mcp__peerbus__task_board_list",
+            "mcp__peerbus__task_board_create",
+            "mcp__peerbus__task_board_claim",
+            "mcp__peerbus__task_board_update",
+          ],
+        },
+      },
     };
 
     const appendText = this.buildSystemPromptAppend(config, usePlanMode);
@@ -472,16 +512,33 @@ You can also use these markdown features that render as rich cards:
 - Markdown tables render as native tables\n`;
     }
 
+    // GitHub awareness — inject if workspace is a GitHub repo
+    if (config.workingDirectory) {
+      try {
+        const result = Bun.spawnSync(
+          ["git", "remote", "get-url", "origin"],
+          { cwd: config.workingDirectory, stdout: "pipe", stderr: "pipe" }
+        );
+        const remoteUrl = result.stdout.toString().trim();
+        if (remoteUrl.includes("github.com")) {
+          append += `\n\n## GitHub Workspace
+
+This workspace is a GitHub repository (\`${remoteUrl}\`). You can use the \`gh\` CLI (via Bash tool) to interact with issues, PRs, reviews, and releases.
+
+**Use GitHub for durable, visible work artifacts** (issues for tasks, PRs for code changes, reviews for quality gates). Use PeerBus for real-time agent coordination.
+
+Before using \`gh\` commands, verify auth: \`gh auth status\`. If not authenticated, skip GitHub workflows.\n`;
+        }
+      } catch {
+        // Not a git repo or git not available — skip
+      }
+    }
+
     if (config.skills && config.skills.length > 0) {
       append += "\n\n## Skills\n\n";
       for (const skill of config.skills) {
         append += `### ${skill.name}\n${skill.content}\n\n`;
       }
-    }
-
-    // Plan mode instructions go LAST so they override everything above
-    if (planMode) {
-      append += PLAN_MODE_APPEND;
     }
 
     return append;

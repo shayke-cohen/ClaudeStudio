@@ -408,7 +408,8 @@ enum DefaultsSeeder {
             "delegation-patterns",
             "workspace-collaboration",
             "agent-identity",
-            "config-editing"
+            "config-editing",
+            "github-workflow"
         ]
 
         var map: [String: Skill] = [:]

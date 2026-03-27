@@ -12,7 +12,8 @@
     "agent-identity",
     "cd-deployment",
     "environment-management",
-    "ci-pipeline"
+    "ci-pipeline",
+    "github-workflow"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "worker",

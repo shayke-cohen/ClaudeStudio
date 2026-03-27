@@ -55,6 +55,10 @@ enum GroupPromptBuilder {
     **Deferring**
     - If another agent is better suited: "@OtherAgent this is more your area — can you handle this?"
     - Do not monopolize the conversation. Make your point and yield.
+
+    **GitHub (when available)**
+    - Use GitHub issues and PRs for work that should be visible outside this chat.
+    - Link issues and PRs in your messages so others can follow along.
     ---
 
     """

@@ -10,7 +10,8 @@
     "peer-collaboration",
     "delegation-patterns",
     "blackboard-patterns",
-    "agent-identity"
+    "agent-identity",
+    "github-workflow"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "coordinator",

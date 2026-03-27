@@ -12,7 +12,8 @@
     "agent-identity",
     "code-review",
     "owasp-top-10",
-    "code-audit"
+    "code-audit",
+    "github-workflow"
   ],
   "extraMCPs": [
     "github"

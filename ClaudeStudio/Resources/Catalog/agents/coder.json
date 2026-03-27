@@ -15,7 +15,8 @@
     "refactoring",
     "debugging",
     "tdd",
-    "claudestudio-accessibility"
+    "claudestudio-accessibility",
+    "github-workflow"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

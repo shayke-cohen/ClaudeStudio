@@ -12,7 +12,8 @@
     "agent-identity",
     "docker-containerization",
     "ci-pipeline",
-    "monitoring-setup"
+    "monitoring-setup",
+    "github-workflow"
   ],
   "extraMCPs": [
     "github"

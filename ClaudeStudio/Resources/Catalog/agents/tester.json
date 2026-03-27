@@ -15,7 +15,8 @@
     "unit-testing",
     "e2e-testing",
     "exploratory-testing",
-    "claudestudio-accessibility"
+    "claudestudio-accessibility",
+    "github-workflow"
   ],
   "extraMCPs": [
     "argus",

@@ -13,7 +13,8 @@
     "requirements-writing",
     "user-stories",
     "roadmap-creation",
-    "sprint-planning"
+    "sprint-planning",
+    "github-workflow"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "coordinator",
