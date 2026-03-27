@@ -49,11 +49,11 @@ struct GroupLibraryView: View {
                 } label: {
                     Label("New Group", systemImage: "plus")
                 }
-                .accessibilityIdentifier("groupLibrary.newGroupButton")
+                .xrayId("groupLibrary.newGroupButton")
 
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.escape)
-                    .accessibilityIdentifier("groupLibrary.doneButton")
+                    .xrayId("groupLibrary.doneButton")
             }
             .padding()
 
@@ -64,7 +64,7 @@ struct GroupLibraryView: View {
                         .foregroundStyle(.secondary)
                     TextField("Search groups...", text: $searchText)
                         .textFieldStyle(.plain)
-                        .accessibilityIdentifier("groupLibrary.searchField")
+                        .xrayId("groupLibrary.searchField")
                 }
                 .padding(6)
                 .background(.quaternary)
@@ -77,7 +77,7 @@ struct GroupLibraryView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 300)
-                .accessibilityIdentifier("groupLibrary.filterPicker")
+                .xrayId("groupLibrary.filterPicker")
             }
             .padding(.horizontal)
 
@@ -98,6 +98,7 @@ struct GroupLibraryView: View {
                     }
                     Button("Create Group") { showingNewGroup = true }
                         .buttonStyle(.borderedProminent)
+                        .xrayId("groupLibrary.createGroupButton")
                 }
                 Spacer()
             } else {
@@ -130,7 +131,7 @@ struct GroupLibraryView: View {
                     }
                     .padding()
                 }
-                .accessibilityIdentifier("groupLibrary.list")
+                .xrayId("groupLibrary.list")
             }
         }
         .frame(minWidth: 600, minHeight: 400)
