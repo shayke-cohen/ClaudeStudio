@@ -42,6 +42,7 @@ struct AgentSidebarRowView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).chatRow.\(conv.id.uuidString)")
+                .accessibilityLabel("Open chat \(conv.topic ?? "Untitled")")
             }
 
         } label: {
@@ -58,6 +59,7 @@ struct AgentSidebarRowView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).selectButton")
+                .accessibilityLabel("Open agent \(agent.name)")
                 Spacer()
                 if hasActiveSession {
                     Circle()
@@ -83,6 +85,7 @@ struct AgentSidebarRowView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString).newChatButton")
+                .accessibilityLabel("New chat for \(agent.name)")
             }
             .accessibilityIdentifier("sidebar.agentRow.\(agent.id.uuidString)")
             .padding(.vertical, 2)

@@ -123,9 +123,12 @@ struct GroupLibraryView: View {
                             )
                             .contextMenu {
                                 Button("Edit") { editingGroup = group }
+                                    .xrayId("groupLibrary.context.edit.\(group.id.uuidString)")
                                 Button("Duplicate") { duplicateGroup(group) }
+                                    .xrayId("groupLibrary.context.duplicate.\(group.id.uuidString)")
                                 Divider()
                                 Button("Delete", role: .destructive) { deleteGroup(group) }
+                                    .xrayId("groupLibrary.context.delete.\(group.id.uuidString)")
                             }
                         }
                     }
