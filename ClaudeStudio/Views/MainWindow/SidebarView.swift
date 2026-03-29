@@ -3,7 +3,7 @@ import SwiftData
 import AppKit
 
 enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
-    case catalog = "Catalog"
+    case catalog = "Discover"
     case workshop = "Workshop"
     case schedules = "Schedules"
     case agents = "Agents"
@@ -25,7 +25,7 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
-        case .catalog: "Browse catalog"
+        case .catalog: "Open discover"
         case .workshop: "Entity workshop (⌘⇧W)"
         case .schedules: "Scheduled missions (⌘⇧S)"
         case .agents: "Agent library"
@@ -65,6 +65,24 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
     }
 }
 
+private struct SidebarChromeButtonModifier: ViewModifier {
+    let tint: Color
+    var emphasize: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(emphasize ? tint : .secondary)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(emphasize ? tint.opacity(0.12) : Color.primary.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(emphasize ? tint.opacity(0.16) : Color.primary.opacity(0.05), lineWidth: 1)
+            )
+    }
+}
+
 struct SidebarView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(WindowState.self) private var windowState: WindowState
@@ -88,9 +106,12 @@ struct SidebarView: View {
     @State private var showAutoAssemble = false
     @State private var renamingConversation: Conversation?
     @State private var renameText = ""
+    @State private var renamingProject: Project?
+    @State private var projectRenameText = ""
     @State private var conversationToDelete: Conversation?
     @State private var showDeleteConfirmation = false
-    @State private var showCatalog = false
+    @State private var projectToArchiveThreads: Project?
+    @State private var projectToRemove: Project?
     @State private var isPinnedExpanded = true
     @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
@@ -108,7 +129,7 @@ struct SidebarView: View {
             } else {
                 Section {
                     ForEach(sortedProjects) { project in
-                        projectNode(project)
+                        projectRows(project)
                     }
                 } header: {
                     projectsHeader
@@ -143,10 +164,6 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 240)
-        .sheet(isPresented: $showCatalog) {
-            CatalogBrowserView()
-                .frame(minWidth: 700, minHeight: 550)
-        }
         .sheet(item: $editingGroup) { group in
             GroupEditorView(group: group)
         }
@@ -180,6 +197,24 @@ struct SidebarView: View {
             }
             Button("Cancel", role: .cancel) { renamingConversation = nil }
         }
+        .alert("Rename Project", isPresented: Binding(
+            get: { renamingProject != nil },
+            set: { if !$0 { renamingProject = nil } }
+        )) {
+            TextField("Name", text: $projectRenameText)
+            Button("Rename") {
+                let trimmed = projectRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let project = renamingProject, !trimmed.isEmpty {
+                    project.name = trimmed
+                    try? modelContext.save()
+                    if windowState.selectedProjectId == project.id {
+                        windowState.selectProject(project, preserveSelection: true)
+                    }
+                }
+                renamingProject = nil
+            }
+            Button("Cancel", role: .cancel) { renamingProject = nil }
+        }
         .alert("Delete Conversation?", isPresented: $showDeleteConfirmation) {
             Button("Delete", role: .destructive) {
                 if let convo = conversationToDelete {
@@ -196,12 +231,47 @@ struct SidebarView: View {
         } message: {
             Text("This conversation and all its messages will be permanently deleted.")
         }
+        .alert("Archive all threads?", isPresented: Binding(
+            get: { projectToArchiveThreads != nil },
+            set: { if !$0 { projectToArchiveThreads = nil } }
+        )) {
+            Button("Archive", role: .destructive) {
+                if let project = projectToArchiveThreads {
+                    archiveThreads(in: project)
+                }
+                projectToArchiveThreads = nil
+            }
+            Button("Cancel", role: .cancel) { projectToArchiveThreads = nil }
+        } message: {
+            if let project = projectToArchiveThreads {
+                Text("All threads in \(project.name) will be moved to Archived.")
+            }
+        }
+        .alert("Remove Project?", isPresented: Binding(
+            get: { projectToRemove != nil },
+            set: { if !$0 { projectToRemove = nil } }
+        )) {
+            Button("Remove", role: .destructive) {
+                if let project = projectToRemove {
+                    removeProject(project)
+                }
+                projectToRemove = nil
+            }
+            Button("Cancel", role: .cancel) { projectToRemove = nil }
+        } message: {
+            if let project = projectToRemove {
+                Text("Remove \(project.name) from the sidebar and delete its local threads, tasks, and schedules. Project files on disk will stay untouched.")
+            }
+        }
     }
 
     private var sortedProjects: [Project] {
         projects.sorted { lhs, rhs in
             if lhs.id == windowState.selectedProjectId { return true }
             if rhs.id == windowState.selectedProjectId { return false }
+            if lhs.isPinned != rhs.isPinned {
+                return lhs.isPinned && !rhs.isPinned
+            }
             return lhs.lastOpenedAt > rhs.lastOpenedAt
         }
     }
@@ -216,15 +286,19 @@ struct SidebarView: View {
                 Label("New Thread", systemImage: "square.and.pencil")
             }
             .buttonStyle(.plain)
-            .xrayId("sidebar.utility.newThread")
+            .appXrayTapProxy(id: "sidebar.utility.newThread") {
+                windowState.showNewSessionSheet = true
+            }
 
             Button {
-                showCatalog = true
+                windowState.openLibrary()
             } label: {
-                Label("Plugins", systemImage: "square.grid.2x2")
+                Label("Library", systemImage: "books.vertical")
             }
             .buttonStyle(.plain)
-            .xrayId("sidebar.utility.plugins")
+            .appXrayTapProxy(id: "sidebar.utility.library") {
+                windowState.openLibrary()
+            }
 
             Button {
                 addProjectFolder()
@@ -232,26 +306,16 @@ struct SidebarView: View {
                 Label("Add Project", systemImage: "folder.badge.plus")
             }
             .buttonStyle(.plain)
-            .xrayId("sidebar.utility.addProject")
-
-            Button {
-                windowState.showScheduleLibrary = true
-            } label: {
-                Label("Automations", systemImage: "clock")
+            .appXrayTapProxy(id: "sidebar.utility.addProject") {
+                addProjectFolder()
             }
-            .buttonStyle(.plain)
-            .xrayId("sidebar.utility.automations")
-
-            SettingsLink {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .xrayId("sidebar.utility.settings")
         }
     }
 
     private var projectsHeader: some View {
         HStack {
             Text("Projects")
+                .font(.headline.weight(.semibold))
             Spacer()
             Button {
                 addProjectFolder()
@@ -283,7 +347,7 @@ struct SidebarView: View {
         HStack(spacing: 0) {
             let catalog = SidebarBottomBarItem.catalog
             Button {
-                showCatalog = true
+                windowState.openLibrary(.discover)
             } label: {
                 Label(catalog.rawValue, systemImage: catalog.icon)
                     .fixedSize(horizontal: true, vertical: false)
@@ -339,7 +403,7 @@ struct SidebarView: View {
 
             let agents = SidebarBottomBarItem.agents
             Button {
-                windowState.showAgentLibrary = true
+                windowState.openLibrary(.build, buildSection: .agents)
             } label: {
                 Label(agents.rawValue, systemImage: agents.icon)
                     .fixedSize(horizontal: true, vertical: false)
@@ -393,80 +457,252 @@ struct SidebarView: View {
     // MARK: - Projects
 
     @ViewBuilder
-    private func projectNode(_ project: Project) -> some View {
-        DisclosureGroup(
-            isExpanded: Binding(
-                get: { expandedProjectIds.contains(project.id) },
-                set: { isExpanded in
-                    if isExpanded { expandedProjectIds.insert(project.id) }
-                    else { expandedProjectIds.remove(project.id) }
-                }
+    private func projectRows(_ project: Project) -> some View {
+        projectHeaderRow(project)
+
+        if expandedProjectIds.contains(project.id) {
+            projectThreadRows(project)
+            projectIndentedRow {
+                projectTasksSection(project)
+            }
+            projectIndentedRow {
+                projectSchedulesSection(project)
+            }
+        }
+    }
+
+    private func projectHeaderRow(_ project: Project) -> some View {
+        let isSelectedProject = windowState.selectedProjectId == project.id
+        let tint = projectTint(project)
+
+        return HStack(spacing: 8) {
+            sidebarSymbolBadge(
+                symbol: project.icon,
+                tint: tint,
+                size: 32,
+                cornerRadius: 11,
+                emphasize: isSelectedProject
             )
-        ) {
-            projectThreadsSection(project)
-            projectTasksSection(project)
-            projectSchedulesSection(project)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: project.icon)
-                    .foregroundStyle(Color.fromAgentColor(project.color))
+            VStack(alignment: .leading, spacing: 2) {
                 Text(project.name)
-                    .font(windowState.selectedProjectId == project.id ? .body.weight(.semibold) : .body)
+                    .font(isSelectedProject ? .headline.weight(.semibold) : .headline.weight(.medium))
                     .lineLimit(1)
-                Spacer()
-                if let activeThread = activeConversations(in: project).first {
-                    Text(relativeTime(activeThread.startedAt))
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                Button {
-                    createQuickChat(in: project)
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 18, height: 18)
-                }
-                .buttonStyle(.plain)
-                .help("New thread in \(project.name)")
-                .xrayId("sidebar.projectNewThread.\(project.id.uuidString)")
-                .accessibilityLabel("New thread in \(project.name)")
+                Text(project.rootPath)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                windowState.selectProject(project)
-                expandedProjectIds.insert(project.id)
+            Spacer()
+            if let activeThread = activeConversations(in: project).first {
+                Text(relativeTime(activeThread.startedAt))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(isSelectedProject ? tint : .secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(isSelectedProject ? tint.opacity(0.14) : Color.primary.opacity(0.06))
+                    )
             }
-            .padding(.vertical, 2)
-            .padding(.horizontal, 4)
-            .background(windowState.selectedProjectId == project.id ? Color.accentColor.opacity(0.14) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            projectActionsMenu(for: project)
+            Button {
+                createQuickChat(in: project)
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 22, height: 22)
+            }
+            .modifier(SidebarChromeButtonModifier(tint: tint, emphasize: isSelectedProject))
+            .buttonStyle(.plain)
+            .help("Start new thread in \(project.name)")
+            .xrayId("sidebar.projectNewThread.\(project.id.uuidString)")
+            .accessibilityLabel("Start new thread in \(project.name)")
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            toggleProjectExpansion(project)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    isSelectedProject
+                    ? AnyShapeStyle(
+                        LinearGradient(
+                            colors: [tint.opacity(0.18), tint.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    : AnyShapeStyle(Color.primary.opacity(0.04))
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isSelectedProject ? tint.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 1)
+        )
+        .shadow(color: isSelectedProject ? tint.opacity(0.10) : .clear, radius: 12, y: 6)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
+                projectToArchiveThreads = project
+            } label: {
+                Label("Archive Threads", systemImage: "archivebox")
+            }
+            .tint(.indigo)
+
+            Button(role: .destructive) {
+                projectToRemove = project
+            } label: {
+                Label("Remove", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                togglePin(project)
+            } label: {
+                Label(project.isPinned ? "Unpin Folder" : "Pin Folder", systemImage: project.isPinned ? "pin.slash" : "pin")
+            }
+            .tint(.yellow)
+
+            Button {
+                createQuickChat(in: project)
+            } label: {
+                Label("New Thread", systemImage: "square.and.pencil")
+            }
+            .tint(tint)
         }
         .xrayId("sidebar.projectRow.\(project.id.uuidString)")
     }
 
     @ViewBuilder
-    private func projectThreadsSection(_ project: Project) -> some View {
+    private func projectThreadRows(_ project: Project) -> some View {
         let liveThreads = visibleProjectThreads(for: project)
         let archivedThreads = filteredConversations(rootConversations(in: project).filter(\.isArchived))
 
-        VStack(alignment: .leading, spacing: 4) {
-            if liveThreads.isEmpty {
+        if liveThreads.isEmpty {
+            projectIndentedRow {
                 Text("No threads")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-            } else {
-                ForEach(liveThreads) { convo in
+            }
+        } else {
+            ForEach(liveThreads) { convo in
+                projectIndentedRow {
                     conversationTreeNode(
                         convo,
                         pinAction: convo.isPinned ? "Unpin" : "Pin"
                     )
                 }
             }
+        }
 
-            if !archivedThreads.isEmpty {
-                archivedSection(for: project)
+        if !archivedThreads.isEmpty {
+            projectArchivedRows(archivedThreads)
+        }
+    }
+
+    @ViewBuilder
+    private func projectArchivedRows(_ archivedThreads: [Conversation]) -> some View {
+        let isExpanded = isArchivedExpanded || !searchText.isEmpty
+
+        projectIndentedRow {
+            Button {
+                if searchText.isEmpty {
+                    isArchivedExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Label("Archived (\(archivedThreads.count))", systemImage: "archivebox")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .xrayId("sidebar.archivedSection")
+        }
+
+        if isExpanded {
+            ForEach(archivedThreads) { convo in
+                projectIndentedRow {
+                    conversationRow(convo)
+                        .tag(convo.id)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectConversation(convo) }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) { promptDelete(convo) } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button { unarchiveConversation(convo) } label: {
+                                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                            }
+                            .tint(.blue)
+                        }
+                }
             }
         }
+    }
+
+    private func projectIndentedRow<Content: View>(
+        bottomPadding: CGFloat = 2,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.leading, 18)
+            .padding(.trailing, 4)
+            .padding(.bottom, bottomPadding)
+    }
+
+    private func projectActionsMenu(for project: Project) -> some View {
+        Menu {
+            Button {
+                openProjectInFinder(project)
+            } label: {
+                Label("Open in Finder", systemImage: "folder")
+            }
+
+            Button {
+                togglePin(project)
+            } label: {
+                Label(project.isPinned ? "Unpin folder" : "Pin folder", systemImage: project.isPinned ? "pin.slash" : "pin")
+            }
+
+            Button {
+                beginRename(project)
+            } label: {
+                Label("Edit name", systemImage: "pencil")
+            }
+
+            Button {
+                projectToArchiveThreads = project
+            } label: {
+                Label("Archive threads", systemImage: "archivebox")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                projectToRemove = project
+            } label: {
+                Label("Remove", systemImage: "xmark")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .modifier(SidebarChromeButtonModifier(tint: projectTint(project), emphasize: windowState.selectedProjectId == project.id))
+        .menuStyle(.borderlessButton)
+        .help("Project actions")
+        .xrayId("sidebar.projectActions.\(project.id.uuidString)")
+        .accessibilityLabel("Project actions for \(project.name)")
     }
 
     @ViewBuilder
@@ -486,6 +722,7 @@ struct SidebarView: View {
                         .font(.caption2)
                 }
                 .buttonStyle(.plain)
+                .modifier(SidebarChromeButtonModifier(tint: projectTint(project)))
                 .xrayId("sidebar.projectTasksAdd.\(project.id.uuidString)")
             }
 
@@ -499,6 +736,11 @@ struct SidebarView: View {
                 }
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(sidebarPanelBackground)
+        .overlay(sidebarPanelStroke)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
@@ -516,6 +758,7 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.caption2)
+                .foregroundStyle(projectTint(project))
             }
 
             if projectSchedules.isEmpty {
@@ -524,18 +767,29 @@ struct SidebarView: View {
                     .foregroundStyle(.tertiary)
             } else {
                 ForEach(projectSchedules.prefix(4)) { schedule in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(schedule.name)
-                            .font(.caption)
-                            .lineLimit(1)
-                        Text(schedule.nextRunAt?.formatted(date: .omitted, time: .shortened) ?? "Not scheduled")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                    HStack(spacing: 8) {
+                        sidebarSymbolBadge(symbol: "clock", tint: projectTint(project), size: 22, cornerRadius: 7)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(schedule.name)
+                                .font(.caption)
+                                .lineLimit(1)
+                            Text(schedule.nextRunAt?.formatted(date: .omitted, time: .shortened) ?? "Not scheduled")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer(minLength: 8)
+                        Text(scheduleRuleLabel(schedule))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(.leading, 20)
                 }
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(sidebarPanelBackground)
+        .overlay(sidebarPanelStroke)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Empty State
@@ -555,13 +809,13 @@ struct SidebarView: View {
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                 Button {
-                    showCatalog = true
+                    windowState.openLibrary()
                 } label: {
-                    Label("Open Catalog", systemImage: "square.grid.2x2")
+                    Label("Open Library", systemImage: "books.vertical")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-                .help("Browse starter tools")
+                .help("Browse reusable tools")
                 .xrayId("sidebar.emptyState.newSessionButton")
             }
             .frame(maxWidth: .infinity)
@@ -643,42 +897,6 @@ struct SidebarView: View {
     }
 
     // MARK: - Archived Section
-
-    @ViewBuilder
-    private func archivedSection(for project: Project) -> some View {
-        let archived = rootConversations(in: project).filter { $0.isArchived }
-        let visible = filteredConversations(archived)
-        if !visible.isEmpty {
-            DisclosureGroup(
-                isExpanded: Binding(
-                    get: { isArchivedExpanded || !searchText.isEmpty },
-                    set: { isArchivedExpanded = $0 }
-                )
-            ) {
-                ForEach(visible) { convo in
-                    conversationRow(convo)
-                        .tag(convo.id)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectConversation(convo) }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) { promptDelete(convo) } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { unarchiveConversation(convo) } label: {
-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
-                            }
-                            .tint(.blue)
-                        }
-                }
-            } label: {
-                Label("Archived (\(visible.count))", systemImage: "archivebox")
-                    .foregroundStyle(.secondary)
-            }
-            .xrayId("sidebar.archivedSection")
-        }
-    }
 
     // MARK: - Tree helpers
 
@@ -772,11 +990,6 @@ struct SidebarView: View {
             .tag(convo.id)
             .contentShape(Rectangle())
             .onTapGesture { selectConversation(convo) }
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) { promptDelete(convo) } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
     }
 
     // MARK: - Tasks Section
@@ -842,7 +1055,12 @@ struct SidebarView: View {
     @ViewBuilder
     private func taskRow(_ task: TaskItem) -> some View {
         HStack(spacing: 6) {
-            taskStatusIcon(task.status)
+            sidebarSymbolBadge(
+                symbol: taskStatusDescriptor(task.status).symbol,
+                tint: taskStatusDescriptor(task.status).color,
+                size: 22,
+                cornerRadius: 7
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
                     .lineLimit(1)
@@ -867,6 +1085,16 @@ struct SidebarView: View {
         }
         // Use task.id as tag — intercepted by onChange to redirect
         .tag(task.id)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+        )
         .accessibilityIdentifier("sidebar.taskRow.\(task.id.uuidString)")
         .contextMenu { taskContextMenu(for: task) }
     }
@@ -954,20 +1182,9 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func taskStatusIcon(_ status: TaskStatus) -> some View {
-        switch status {
-        case .backlog:
-            Image(systemName: "circle.dotted").foregroundStyle(.gray)
-        case .ready:
-            Image(systemName: "circle").foregroundStyle(.blue)
-        case .inProgress:
-            Image(systemName: "circle.fill").foregroundStyle(.orange)
-        case .done:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-        case .failed:
-            Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-        case .blocked:
-            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.yellow)
-        }
+        let descriptor = taskStatusDescriptor(status)
+        Image(systemName: descriptor.symbol)
+            .foregroundStyle(descriptor.color)
     }
 
     @ViewBuilder
@@ -1075,7 +1292,7 @@ struct SidebarView: View {
                 Text("Groups")
                 Spacer()
                 Button {
-                    windowState.showGroupLibrary = true
+                    windowState.openLibrary(.build, buildSection: .groups)
                 } label: {
                     Image(systemName: "plus")
                         .font(.caption)
@@ -1140,7 +1357,12 @@ struct SidebarView: View {
                     .frame(width: 8, height: 8)
                     .accessibilityIdentifier("sidebar.unreadBadge.\(convo.id.uuidString)")
             }
-            conversationIcon(convo)
+            sidebarSymbolBadge(
+                symbol: conversationIconDescriptor(convo).symbol,
+                tint: conversationIconDescriptor(convo).color,
+                size: 24,
+                cornerRadius: 8
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text(convo.topic ?? "Untitled")
                     .lineLimit(1)
@@ -1192,10 +1414,16 @@ struct SidebarView: View {
             )
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
         }
-        .padding(.vertical, 3)
-        .padding(.horizontal, 6)
-        .background(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 7)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isSelected ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05), lineWidth: 1)
+        )
         .onHover { isHovering in
             hoveredConversationId = isHovering ? convo.id : nil
         }
@@ -1254,8 +1482,7 @@ struct SidebarView: View {
 
     // MARK: - Conversation Icon
 
-    @ViewBuilder
-    private func conversationIcon(_ convo: Conversation) -> some View {
+    private func conversationIconDescriptor(_ convo: Conversation) -> (symbol: String, color: Color) {
         let hasUser = convo.participants.contains { $0.type == .user }
         let agentCount = convo.participants.filter {
             if case .agentSession = $0.type { return true }
@@ -1265,33 +1492,19 @@ struct SidebarView: View {
         let isDelegation = convo.messages.contains { $0.type == .delegation }
 
         if let agent = convo.primarySession?.agent, hasUser {
-            Image(systemName: agent.icon)
-                .foregroundStyle(agentColor(agent.color))
-                .font(.caption)
+            return (agent.icon, agentColor(agent.color))
         } else if isDelegation {
-            Image(systemName: "arrow.triangle.branch")
-                .foregroundStyle(.orange)
-                .font(.caption)
+            return ("arrow.triangle.branch", .orange)
         } else if !hasUser && agentCount >= 2 {
-            Image(systemName: "arrow.left.arrow.right")
-                .foregroundStyle(.purple)
-                .font(.caption)
+            return ("arrow.left.arrow.right", .purple)
         } else if !hasUser && isChild {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .foregroundStyle(.purple)
-                .font(.caption)
+            return ("bubble.left.and.bubble.right", .purple)
         } else if hasUser && agentCount > 1 {
-            Image(systemName: "person.3.fill")
-                .foregroundStyle(.blue)
-                .font(.caption)
+            return ("bubble.left.and.bubble.right.fill", .teal)
         } else if hasUser {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
-                .foregroundStyle(.blue)
-                .font(.caption)
+            return ("bubble.left.and.bubble.right.fill", .blue)
         } else {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            return ("bubble.left.and.bubble.right", .secondary)
         }
     }
 
@@ -1355,6 +1568,76 @@ struct SidebarView: View {
 
     private func agentColor(_ color: String) -> Color {
         Color.fromAgentColor(color)
+    }
+
+    private func projectTint(_ project: Project) -> Color {
+        agentColor(project.color)
+    }
+
+    private var sidebarPanelBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(.thinMaterial)
+    }
+
+    private var sidebarPanelStroke: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+    }
+
+    @ViewBuilder
+    private func sidebarSymbolBadge(
+        symbol: String,
+        tint: Color,
+        size: CGFloat,
+        cornerRadius: CGFloat,
+        emphasize: Bool = false
+    ) -> some View {
+        let backgroundOpacity = emphasize ? 0.18 : 0.12
+        let strokeOpacity = emphasize ? 0.22 : 0.14
+
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [tint.opacity(backgroundOpacity), tint.opacity(backgroundOpacity * 0.45)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(tint.opacity(strokeOpacity), lineWidth: 1)
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+        .frame(width: size, height: size)
+    }
+
+    private func taskStatusDescriptor(_ status: TaskStatus) -> (symbol: String, color: Color) {
+        switch status {
+        case .backlog:
+            return ("circle.dotted", .gray)
+        case .ready:
+            return ("circle", .blue)
+        case .inProgress:
+            return ("circle.fill", .orange)
+        case .done:
+            return ("checkmark.circle.fill", .green)
+        case .failed:
+            return ("xmark.circle.fill", .red)
+        case .blocked:
+            return ("exclamationmark.circle.fill", .yellow)
+        }
+    }
+
+    private func scheduleRuleLabel(_ schedule: ScheduledMission) -> String {
+        if schedule.cadenceKind == .hourlyInterval {
+            return "Hourly"
+        }
+        if !schedule.daysOfWeek.isEmpty {
+            return "Weekly"
+        }
+        return "Daily"
     }
 
     // MARK: - Activity State
@@ -1438,6 +1721,11 @@ struct SidebarView: View {
 
     private func togglePin(_ convo: Conversation) {
         convo.isPinned.toggle()
+        try? modelContext.save()
+    }
+
+    private func togglePin(_ project: Project) {
+        project.isPinned.toggle()
         try? modelContext.save()
     }
 
@@ -1586,6 +1874,74 @@ struct SidebarView: View {
         expandedProjectIds.insert(project.id)
         windowState.selectProject(project, preserveSelection: true)
         windowState.selectedConversationId = conversation.id
+    }
+
+    private func toggleProjectExpansion(_ project: Project) {
+        windowState.selectProject(project)
+        if expandedProjectIds.contains(project.id) {
+            expandedProjectIds.remove(project.id)
+        } else {
+            expandedProjectIds.insert(project.id)
+        }
+    }
+
+    private func openProjectInFinder(_ project: Project) {
+        let url = URL(fileURLWithPath: project.rootPath)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func beginRename(_ project: Project) {
+        projectRenameText = project.name
+        renamingProject = project
+    }
+
+    private func archiveThreads(in project: Project) {
+        for conversation in conversationsForProject(project) where !conversation.isArchived {
+            conversation.isArchived = true
+        }
+        try? modelContext.save()
+    }
+
+    private func removeProject(_ project: Project) {
+        let projectConversations = conversationsForProject(project)
+        let projectTasks = tasksForProject(project)
+        let projectSchedules = schedulesForProject(project)
+        let fallbackProject = sortedProjects.first(where: { $0.id != project.id })
+
+        Task { @MainActor in
+            for conversation in projectConversations where conversation.worktreePath != nil {
+                await WorktreeManager.removeWorktree(for: conversation, projectDirectory: project.rootPath)
+            }
+
+            if projectConversations.contains(where: { $0.id == windowState.selectedConversationId }) {
+                windowState.selectedConversationId = nil
+            }
+
+            if windowState.selectedProjectId == project.id {
+                if let fallbackProject {
+                    windowState.selectProject(fallbackProject)
+                } else {
+                    windowState.clearProjectSelection()
+                }
+            }
+
+            appState.clearSessionActivity(
+                for: projectConversations.flatMap { $0.sessions.map(\.id.uuidString) }
+            )
+
+            for schedule in projectSchedules {
+                modelContext.delete(schedule)
+            }
+            for task in projectTasks {
+                modelContext.delete(task)
+            }
+            for conversation in projectConversations {
+                modelContext.delete(conversation)
+            }
+            modelContext.delete(project)
+            expandedProjectIds.remove(project.id)
+            try? modelContext.save()
+        }
     }
 
     private func addProjectFolder() {
