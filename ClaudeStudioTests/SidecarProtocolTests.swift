@@ -29,14 +29,18 @@ final class SidecarProtocolTests: XCTestCase {
             name: "TestBot",
             systemPrompt: "Say hi",
             allowedTools: ["Read"],
-            mcpServers: [],
+            mcpServers: [
+                AgentConfig.MCPServerConfig(name: "Octocode", command: "npx", args: ["-y", "octocode-mcp"], env: ["DEBUG": "1"], url: nil),
+            ],
             provider: "codex",
             model: "gpt-5-codex",
             maxTurns: 5,
             maxBudget: nil,
             maxThinkingTokens: nil,
             workingDirectory: "/tmp",
-            skills: []
+            skills: [
+                AgentConfig.SkillContent(name: "Skill A", content: "Follow the skill."),
+            ]
         )
         let command = SidecarCommand.sessionCreate(conversationId: "conv-456", agentConfig: config)
         let data = try command.encodeToJSON()
@@ -48,6 +52,51 @@ final class SidecarProtocolTests: XCTestCase {
         XCTAssertEqual(agentConfig?["name"] as? String, "TestBot")
         XCTAssertEqual(agentConfig?["provider"] as? String, "codex")
         XCTAssertEqual(agentConfig?["model"] as? String, "gpt-5-codex")
+        let mcpServers = try XCTUnwrap(agentConfig?["mcpServers"] as? [[String: Any]])
+        XCTAssertEqual(mcpServers.count, 1)
+        XCTAssertEqual(mcpServers[0]["name"] as? String, "Octocode")
+        let skills = try XCTUnwrap(agentConfig?["skills"] as? [[String: Any]])
+        XCTAssertEqual(skills.count, 1)
+        XCTAssertEqual(skills[0]["name"] as? String, "Skill A")
+        XCTAssertEqual(skills[0]["content"] as? String, "Follow the skill.")
+    }
+
+    func testAgentRegisterEncodingPreservesStructuredSkillsAndMCPs() throws {
+        let config = AgentConfig(
+            name: "Worker",
+            systemPrompt: "Base prompt",
+            allowedTools: ["Read", "Write"],
+            mcpServers: [
+                AgentConfig.MCPServerConfig(name: "AppXray", command: "npx", args: ["-y", "@wix/appxray-mcp-server"], env: nil, url: nil),
+                AgentConfig.MCPServerConfig(name: "Octocode", command: "npx", args: ["-y", "octocode-mcp"], env: nil, url: nil),
+            ],
+            provider: "claude",
+            model: "claude-sonnet-4-6",
+            maxTurns: 3,
+            maxBudget: nil,
+            maxThinkingTokens: nil,
+            workingDirectory: "/tmp/worker",
+            skills: [
+                AgentConfig.SkillContent(name: "Review", content: "Review carefully."),
+                AgentConfig.SkillContent(name: "Test", content: "Test thoroughly."),
+            ]
+        )
+
+        let command = SidecarCommand.agentRegister(agents: [
+            AgentDefinitionWire(name: "Worker", config: config),
+        ])
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["type"] as? String, "agent.register")
+        let agents = try XCTUnwrap(json["agents"] as? [[String: Any]])
+        XCTAssertEqual(agents.count, 1)
+        let encodedConfig = try XCTUnwrap(agents[0]["config"] as? [String: Any])
+        XCTAssertEqual(encodedConfig["systemPrompt"] as? String, "Base prompt")
+        let skills = try XCTUnwrap(encodedConfig["skills"] as? [[String: Any]])
+        XCTAssertEqual(skills.map { $0["name"] as? String }, ["Review", "Test"])
+        let mcps = try XCTUnwrap(encodedConfig["mcpServers"] as? [[String: Any]])
+        XCTAssertEqual(mcps.map { $0["name"] as? String }, ["AppXray", "Octocode"])
     }
 
     func testSessionMessageEncoding() throws {

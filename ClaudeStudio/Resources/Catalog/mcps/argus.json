@@ -9,7 +9,9 @@
     "command": "npx",
     "args": [
       "-y",
-      "@anthropic-ai/argus-mcp-server"
+      "-p",
+      "@wix/argus",
+      "argus-mcp"
     ],
     "envKeys": []
   },
@@ -20,5 +22,5 @@
     "mobile",
     "web"
   ],
-  "homepage": "https://www.npmjs.com/package/@anthropic-ai/argus-mcp-server"
+  "homepage": "https://github.com/wix-private/argus"
 }

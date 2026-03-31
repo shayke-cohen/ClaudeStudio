@@ -16,7 +16,9 @@
     "dependency-scanning",
     "secrets-detection"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Security Auditor",

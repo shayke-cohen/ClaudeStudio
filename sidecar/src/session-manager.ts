@@ -11,6 +11,7 @@ import { logger } from "./logger.js";
 import { ClaudeRuntime } from "./providers/claude-runtime.js";
 import { CodexRuntime } from "./providers/codex-runtime.js";
 import type { ProviderRuntime } from "./providers/runtime.js";
+import { buildMCPPreflightReport } from "./mcp-preflight.js";
 
 type EventEmitter = (event: SidecarEvent) => void;
 
@@ -50,6 +51,7 @@ export class SessionManager {
       provider: config.provider ?? "claude",
     };
     this.registry.create(conversationId, normalizedConfig);
+    this.logMCPPreflight(conversationId, normalizedConfig);
     await this.runtimeFor(normalizedConfig).createSession(conversationId, normalizedConfig);
     logger.info(
       "session",
@@ -332,5 +334,20 @@ export class SessionManager {
 
   private runtimeFor(config: AgentConfig): ProviderRuntime {
     return this.runtimes[config.provider ?? "claude"];
+  }
+
+  private logMCPPreflight(sessionId: string, config: AgentConfig): void {
+    const report = buildMCPPreflightReport(config);
+    logger.info("session", `MCP preflight for ${sessionId}`, {
+      provider: report.provider,
+      effectivePath: report.effectivePath,
+      resolvedMCPNames: report.resolvedMCPNames,
+      toolsetVisibleToSession: report.toolsetVisibleToSession,
+      probes: report.probes,
+    });
+
+    if (report.appxrayTarget.checked) {
+      logger.info("session", `AppXray target probe for ${sessionId}`, report.appxrayTarget);
+    }
   }
 }

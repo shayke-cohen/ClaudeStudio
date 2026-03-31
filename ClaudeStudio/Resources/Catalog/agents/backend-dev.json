@@ -16,7 +16,9 @@
     "caching-strategy",
     "database-migration"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Backend Engineer",

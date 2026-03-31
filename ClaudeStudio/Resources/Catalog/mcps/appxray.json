@@ -9,9 +9,11 @@
     "command": "npx",
     "args": [
       "-y",
-      "@anthropic-ai/appxray-mcp-server"
+      "@wix/appxray-mcp-server"
     ],
-    "envKeys": []
+    "envKeys": [
+      "APPXRAY_AUTO_CONNECT"
+    ]
   },
   "popularity": 52000,
   "tags": [
@@ -20,5 +22,5 @@
     "android",
     "react-native"
   ],
-  "homepage": "https://www.npmjs.com/package/@anthropic-ai/appxray-mcp-server"
+  "homepage": "https://github.com/wix-private/appxray"
 }

@@ -6,7 +6,7 @@
   "icon": "checkmark.shield",
   "color": "teal",
   "skillNames": ["peer-collaboration", "blackboard-patterns", "workspace-collaboration", "agent-identity"],
-  "mcpServerNames": ["Argus", "AppXray"],
+  "mcpServerNames": ["Argus", "AppXray", "Octocode"],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

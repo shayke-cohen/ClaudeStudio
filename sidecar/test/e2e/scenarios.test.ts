@@ -31,6 +31,9 @@ const HTTP_PORT = 39850 + Math.floor(Math.random() * 500);
 const DATA_DIR = mkdtempSync(join(tmpdir(), "claudestudio-scenarios-"));
 const isLive = process.env.CLAUDESTUDIO_E2E_LIVE === "1";
 const liveTest = isLive ? test : test.skip;
+const codexBinaryPath = process.env.CODEX_BINARY || "/Applications/Codex.app/Contents/Resources/codex";
+const isCodexLive = process.env.CLAUDESTUDIO_E2E_CODEX === "1" && existsSync(codexBinaryPath);
+const codexLiveTest = isCodexLive ? test : test.skip;
 
 let proc: Subprocess;
 
@@ -52,6 +55,78 @@ beforeAll(async () => {
 
 afterAll(() => {
   proc?.kill();
+});
+
+describe("SKILL: Live skill wiring smokes", () => {
+  liveTest("SKILL-1: Claude follows a configured skill delivered through structured skills", async () => {
+    const ws = await wsConnect(WS_PORT);
+    try {
+      await ws.waitFor((m) => m.type === "sidecar.ready");
+      const sid = `skill-claude-${Date.now()}`;
+      ws.send({
+        type: "session.create",
+        conversationId: sid,
+        agentConfig: makeAgentConfig({
+          name: "ClaudeSkillSmoke",
+          systemPrompt: "Follow the configured skills exactly.",
+          skills: [
+            {
+              name: "Skill Smoke",
+              content: "When the user says 'skill smoke', reply with exactly CLAUDE-SKILL-SMOKE and nothing else.",
+            },
+          ],
+          maxTurns: 1,
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 500));
+
+      ws.send({ type: "session.message", sessionId: sid, text: "skill smoke" });
+
+      const result = await ws.waitFor(
+        (m) => m.type === "session.result" && m.sessionId === sid,
+        90000,
+      );
+      expect(result.result).toContain("CLAUDE-SKILL-SMOKE");
+    } finally {
+      ws.close();
+    }
+  }, 120000);
+
+  codexLiveTest("SKILL-2: Codex follows a configured skill delivered through structured skills", async () => {
+    const ws = await wsConnect(WS_PORT);
+    try {
+      await ws.waitFor((m) => m.type === "sidecar.ready");
+      const sid = `skill-codex-${Date.now()}`;
+      ws.send({
+        type: "session.create",
+        conversationId: sid,
+        agentConfig: makeAgentConfig({
+          name: "CodexSkillSmoke",
+          provider: "codex",
+          model: "gpt-5-codex",
+          systemPrompt: "Follow the configured skills exactly.",
+          skills: [
+            {
+              name: "Skill Smoke",
+              content: "When the user says 'skill smoke', reply with exactly CODEX-SKILL-SMOKE and nothing else.",
+            },
+          ],
+          maxTurns: 1,
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 500));
+
+      ws.send({ type: "session.message", sessionId: sid, text: "skill smoke" });
+
+      const result = await ws.waitFor(
+        (m) => m.type === "session.result" && m.sessionId === sid,
+        120000,
+      );
+      expect(result.result).toContain("CODEX-SKILL-SMOKE");
+    } finally {
+      ws.close();
+    }
+  }, 150000);
 });
 
 // ─── S: Session Lifecycle ───────────────────────────────────────────

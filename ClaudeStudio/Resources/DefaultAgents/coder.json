@@ -6,7 +6,7 @@
   "icon": "chevron.left.forwardslash.chevron.right",
   "color": "blue",
   "skillNames": ["peer-collaboration", "blackboard-patterns", "workspace-collaboration", "agent-identity"],
-  "mcpServerNames": [],
+  "mcpServerNames": ["Argus", "AppXray", "Octocode"],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

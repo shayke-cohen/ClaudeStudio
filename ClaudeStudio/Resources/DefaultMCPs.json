@@ -4,7 +4,7 @@
     "serverDescription": "UI testing, screenshots, browser automation, and mobile simulator control. Supports web, iOS, Android, macOS, and terminal platforms.",
     "transportKind": "stdio",
     "transportCommand": "npx",
-    "transportArgs": ["-y", "@anthropic-ai/argus-mcp-server"],
+    "transportArgs": ["-y", "-p", "@wix/argus", "argus-mcp"],
     "transportEnv": {}
   },
   {
@@ -12,15 +12,17 @@
     "serverDescription": "Runtime app inspection and debugging. Connect to running apps (web, iOS, Android, React Native, Flutter, macOS, Node.js) to inspect state, UI hierarchy, network traffic, and performance.",
     "transportKind": "stdio",
     "transportCommand": "npx",
-    "transportArgs": ["-y", "@anthropic-ai/appxray-mcp-server"],
-    "transportEnv": {}
+    "transportArgs": ["-y", "@wix/appxray-mcp-server"],
+    "transportEnv": {
+      "APPXRAY_AUTO_CONNECT": "true"
+    }
   },
   {
-    "name": "GitHub",
-    "serverDescription": "GitHub integration via the gh CLI. Manage issues, pull requests, code search, and repository operations.",
+    "name": "Octocode",
+    "serverDescription": "Semantic code research, repository search, local code exploration, and LSP-powered definition/reference lookup across accessible repositories.",
     "transportKind": "stdio",
-    "transportCommand": "gh",
-    "transportArgs": ["mcp"],
+    "transportCommand": "npx",
+    "transportArgs": ["-y", "octocode-mcp@latest"],
     "transportEnv": {}
   },
   {

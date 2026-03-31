@@ -10,7 +10,6 @@ struct MainWindowView: View {
     @Query private var conversations: [Conversation]
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showStatusPopover = false
-    @State private var inspectorVisible = true
 
     var body: some View {
         @Bindable var ws = windowState
@@ -18,7 +17,7 @@ struct MainWindowView: View {
             SidebarView()
         } detail: {
             Group {
-                if inspectorVisible && windowState.selectedConversationId != nil {
+                if ws.inspectorVisible && windowState.selectedConversationId != nil {
                     HSplitView {
                         mainDetailPane
                             .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
@@ -146,18 +145,18 @@ struct MainWindowView: View {
 
             ToolbarItem(placement: .automatic) {
                 Button {
-                    inspectorVisible.toggle()
+                    ws.inspectorVisible.toggle()
                 } label: {
                     Label(
-                        inspectorVisible ? "Hide Inspector" : "Show Inspector",
+                        ws.inspectorVisible ? "Hide Inspector" : "Show Inspector",
                         systemImage: "sidebar.trailing"
                     )
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
-                .help(inspectorVisible ? "Hide inspector (⌘⌥0)" : "Show inspector (⌘⌥0)")
+                .help(ws.inspectorVisible ? "Hide inspector (⌘⌥0)" : "Show inspector (⌘⌥0)")
                 .xrayId("mainWindow.inspectorToggle")
                 .accessibilityIdentifier("mainWindow.inspectorToggle")
-                .accessibilityLabel(inspectorVisible ? "Hide Inspector" : "Show Inspector")
+                .accessibilityLabel(ws.inspectorVisible ? "Hide Inspector" : "Show Inspector")
             }
         }
         .sheet(isPresented: $ws.showNewSessionSheet) {

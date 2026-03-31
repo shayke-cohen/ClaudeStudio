@@ -18,7 +18,9 @@
     "claudestudio-accessibility",
     "github-workflow"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Software Engineer",

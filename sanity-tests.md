@@ -263,7 +263,7 @@ ClaudeStudio (DEBUG) ──WebSocket──> MCP Relay (127.0.0.1:19400) <──s
 ### Prerequisites
 
 - ClaudeStudio built in **DEBUG** configuration (AppXray SDK is `#if DEBUG` only in `ClaudeStudioApp.swift`)
-- AppXray MCP server configured in Cursor (runs via `npx -y @anthropic-ai/appxray-mcp-server`)
+- AppXray MCP server configured in Cursor (runs via `npx -y @wix/appxray-mcp-server` with `APPXRAY_AUTO_CONNECT=true`)
 - The relay starts automatically on `127.0.0.1:19400` when the MCP server launches
 
 ### Connecting
@@ -418,7 +418,7 @@ This causes broadcast cross-talk between sessions and potential data corruption.
 | Sidecar path not found | `error` status | Set project path in Settings > Developer > Project Path (must contain `sidecar/src/index.ts`) |
 | EADDRINUSE (port conflict) | Sidecar launch fails, log shows "address in use" | Kill orphan: `lsof -i :9849` then `kill <pid>`, or change ports in Settings > Connection |
 | Two default instances | Broadcast cross-talk, data corruption | Always use `--instance <name>` for parallel runs |
-| AppXray relay down | `Connection refused` on port 19400 | Ensure AppXray MCP server is running in Cursor (`npx -y @anthropic-ai/appxray-mcp-server`) |
+| AppXray relay down | `Connection refused` on port 19400 | Ensure AppXray MCP server is running in Cursor (`APPXRAY_AUTO_CONNECT=true npx -y @wix/appxray-mcp-server`) |
 | WS disconnect loop | Status flickers connecting/disconnected | Check `sidecar.log` for crash; auto-reconnect runs (2s delay, 5s on failure) |
 | Release build, no AppXray | `session({ action: "discover" })` finds nothing | AppXray SDK is `#if DEBUG` only; rebuild in Debug configuration |
 

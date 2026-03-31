@@ -20,12 +20,97 @@ enum GitFileStatus: String, Sendable {
     }
 }
 
+enum GitServiceError: LocalizedError, Equatable {
+    case notGitRepository
+    case dirtyWorkingTree(changeCount: Int)
+    case branchNotFound(String)
+    case commandFailed(command: String, message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notGitRepository:
+            return "This directory is not a git repository."
+        case .dirtyWorkingTree(let changeCount):
+            return changeCount == 1
+                ? "Switching branches is disabled while 1 file has uncommitted changes."
+                : "Switching branches is disabled while \(changeCount) files have uncommitted changes."
+        case .branchNotFound(let branch):
+            return "Branch \"\(branch)\" was not found locally or on origin."
+        case .commandFailed(_, let message):
+            return message
+        }
+    }
+}
+
+struct GitBranchRef: Identifiable, Hashable, Sendable {
+    let name: String
+    let isRemote: Bool
+
+    var id: String {
+        "\(isRemote ? "remote" : "local"):\(name)"
+    }
+}
+
 enum GitService {
 
     static func isGitRepo(at directory: URL) -> Bool {
         let gitDir = directory.appendingPathComponent(".git")
         // .git can be a directory (normal repo) or a file (worktree with gitdir: pointer)
         return FileManager.default.fileExists(atPath: gitDir.path)
+    }
+
+    static func currentBranch(in directory: URL) -> String? {
+        guard isGitRepo(at: directory) else { return nil }
+
+        let branch = runGit(["branch", "--show-current"], in: directory)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let branch, !branch.isEmpty {
+            return branch
+        }
+
+        let detachedHead = runGit(["rev-parse", "--short", "HEAD"], in: directory)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let detachedHead, !detachedHead.isEmpty {
+            return "Detached (\(detachedHead))"
+        }
+
+        return nil
+    }
+
+    static func localBranches(in directory: URL) -> [GitBranchRef] {
+        branchRefs(arguments: ["branch", "--format=%(refname:short)"], in: directory, isRemote: false)
+    }
+
+    static func remoteBranches(in directory: URL) -> [GitBranchRef] {
+        branchRefs(arguments: ["branch", "-r", "--format=%(refname:short)"], in: directory, isRemote: true)
+    }
+
+    static func fetch(in directory: URL) async throws {
+        guard isGitRepo(at: directory) else { throw GitServiceError.notGitRepository }
+        try await runGitThrowing(["fetch", "--prune", "origin"], in: directory)
+    }
+
+    static func switchBranch(named branch: String, in directory: URL) async throws {
+        guard isGitRepo(at: directory) else { throw GitServiceError.notGitRepository }
+
+        let changeCount = status(in: directory).count
+        guard changeCount == 0 else {
+            throw GitServiceError.dirtyWorkingTree(changeCount: changeCount)
+        }
+
+        let localBranchNames = Set(localBranches(in: directory).map(\.name))
+        if localBranchNames.contains(branch) {
+            try await runGitThrowing(["checkout", "-q", branch], in: directory)
+            return
+        }
+
+        let remoteBranchNames = Set(remoteBranches(in: directory).map(\.name))
+        if remoteBranchNames.contains(branch) {
+            try await runGitThrowing(["checkout", "-q", "--track", "origin/\(branch)"], in: directory)
+            return
+        }
+
+        throw GitServiceError.branchNotFound(branch)
     }
 
     static func status(in directory: URL) -> [String: GitFileStatus] {
@@ -146,6 +231,70 @@ enum GitService {
 
         guard process.terminationStatus == 0 else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    private static func branchRefs(arguments: [String], in directory: URL, isRemote: Bool) -> [GitBranchRef] {
+        guard isGitRepo(at: directory),
+              let output = runGit(arguments, in: directory) else {
+            return []
+        }
+
+        let current = currentBranch(in: directory)
+
+        return output
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .compactMap { rawName -> GitBranchRef? in
+                if isRemote {
+                    guard rawName.hasPrefix("origin/"), rawName != "origin/HEAD" else { return nil }
+                    let shortName = String(rawName.dropFirst("origin/".count))
+                    guard shortName != "HEAD", !shortName.isEmpty else { return nil }
+                    return GitBranchRef(name: shortName, isRemote: true)
+                }
+                return GitBranchRef(name: rawName, isRemote: false)
+            }
+            .sorted { lhs, rhs in
+                if lhs.name == current { return true }
+                if rhs.name == current { return false }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+    }
+
+    private static func runGitThrowing(_ arguments: [String], in directory: URL) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: resolvedGitPath)
+                process.arguments = arguments
+                process.currentDirectoryURL = directory
+                process.environment = ProcessInfo.processInfo.environment
+
+                let outputPipe = Pipe()
+                process.standardOutput = outputPipe
+                process.standardError = outputPipe
+
+                do {
+                    try process.run()
+                    let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
+
+                    guard process.terminationStatus == 0 else {
+                        let message = String(data: data, encoding: .utf8)?
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        continuation.resume(throwing: GitServiceError.commandFailed(
+                            command: "git \(arguments.joined(separator: " "))",
+                            message: message?.isEmpty == false ? message! : "Git command failed."
+                        ))
+                        return
+                    }
+
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     private static func unquoteGitPath(_ path: String) -> String {

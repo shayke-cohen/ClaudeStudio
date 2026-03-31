@@ -71,9 +71,19 @@ final class CatalogServiceTests: XCTestCase {
     }
 
     func testFindMCP() {
-        let mcp = CatalogService.shared.findMCP("github")
+        let mcp = CatalogService.shared.findMCP("appxray")
         XCTAssertNotNil(mcp)
-        XCTAssertEqual(mcp?.name, "GitHub")
+        XCTAssertEqual(mcp?.name, "AppXray")
+    }
+
+    func testFindOctocodeMCP() {
+        let mcp = CatalogService.shared.findMCP("octocode")
+        XCTAssertNotNil(mcp)
+        XCTAssertEqual(mcp?.name, "Octocode")
+    }
+
+    func testGitHubMCPRemovedFromCatalog() {
+        XCTAssertNil(CatalogService.shared.findMCP("github"))
     }
 
     func testFindNonexistentReturnsNil() {
@@ -193,25 +203,25 @@ final class CatalogServiceTests: XCTestCase {
     // MARK: - Install / Uninstall
 
     func testInstallMCP() {
-        let server = CatalogService.shared.installMCP("github", into: context)
+        let server = CatalogService.shared.installMCP("appxray", into: context)
         XCTAssertNotNil(server)
-        XCTAssertEqual(server?.name, "GitHub")
-        XCTAssertEqual(server?.catalogId, "github")
-        XCTAssertTrue(CatalogService.shared.isMCPInstalled("github", context: context))
+        XCTAssertEqual(server?.name, "AppXray")
+        XCTAssertEqual(server?.catalogId, "appxray")
+        XCTAssertTrue(CatalogService.shared.isMCPInstalled("appxray", context: context))
     }
 
     func testInstallMCPIdempotent() {
-        let first = CatalogService.shared.installMCP("github", into: context)
-        let second = CatalogService.shared.installMCP("github", into: context)
+        let first = CatalogService.shared.installMCP("appxray", into: context)
+        let second = CatalogService.shared.installMCP("appxray", into: context)
         XCTAssertEqual(first?.id, second?.id, "Installing same MCP twice returns the same instance")
     }
 
     func testUninstallMCP() {
-        CatalogService.shared.installMCP("github", into: context)
-        XCTAssertTrue(CatalogService.shared.isMCPInstalled("github", context: context))
+        CatalogService.shared.installMCP("appxray", into: context)
+        XCTAssertTrue(CatalogService.shared.isMCPInstalled("appxray", context: context))
 
-        CatalogService.shared.uninstallMCP(catalogId: "github", context: context)
-        XCTAssertFalse(CatalogService.shared.isMCPInstalled("github", context: context))
+        CatalogService.shared.uninstallMCP(catalogId: "appxray", context: context)
+        XCTAssertFalse(CatalogService.shared.isMCPInstalled("appxray", context: context))
     }
 
     func testInstallSkill() {
@@ -267,6 +277,12 @@ final class CatalogServiceTests: XCTestCase {
             XCTAssertTrue(CatalogService.shared.isSkillInstalled(skillId, context: context),
                          "Required skill '\(skillId)' should be auto-installed with agent")
         }
+    }
+
+    func testInstallCoderInstallsOctocodeMCP() {
+        let agent = CatalogService.shared.installAgent("coder", into: context)
+        XCTAssertNotNil(agent)
+        XCTAssertTrue(CatalogService.shared.isMCPInstalled("octocode", context: context))
     }
 
     func testInstallAgentIdempotent() {

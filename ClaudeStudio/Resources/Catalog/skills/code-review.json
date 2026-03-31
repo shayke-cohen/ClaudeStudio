@@ -4,9 +4,7 @@
   "description": "Systematic code review focusing on correctness, security, performance, and style",
   "category": "Development",
   "icon": "eye.fill",
-  "requiredMCPs": [
-    "github"
-  ],
+  "requiredMCPs": [],
   "triggers": [
     "review",
     "code review",

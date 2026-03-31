@@ -369,6 +369,7 @@ final class AppState: ObservableObject {
         guard !resolvedAgents.isEmpty else { return nil }
 
         let conversation = Conversation(topic: group.name, projectId: projectId, threadKind: .group)
+        conversation.selectiveRepliesEnabled = true
         conversation.sourceGroupId = group.id
 
         let userParticipant = Participant(type: .user, displayName: "You")
@@ -429,6 +430,7 @@ final class AppState: ObservableObject {
             projectId: projectId,
             threadKind: .autonomous
         )
+        conversation.selectiveRepliesEnabled = true
         conversation.sourceGroupId = group.id
         conversation.isAutonomous = true
 
@@ -1463,6 +1465,8 @@ final class AppState: ObservableObject {
                 type: .blackboardUpdate,
                 conversation: convo
             )
+            msg.toolName = key
+            msg.toolInput = writtenBy
             ctx.insert(msg)
         }
         try? ctx.save()

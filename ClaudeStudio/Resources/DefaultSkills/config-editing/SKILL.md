@@ -182,7 +182,7 @@ mcpServerNames: []
 
 All references between entities use **names**, not IDs:
 - Agent → Skills: `"skillNames": ["peer-collaboration", "config-editing"]`
-- Agent → MCP: `"mcpServerNames": ["GitHub"]`
+- Agent → MCP: `"mcpServerNames": ["Octocode"]`
 - Agent → Permission: `"permissionSetName": "Full Access"`
 - Group → Agents: `"agentNames": ["Coder", "Reviewer"]`
 - Group → Coordinator: `"coordinatorAgentName": "Orchestrator"`

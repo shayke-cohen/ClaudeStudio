@@ -1,5 +1,4 @@
 [
-  "github",
   "gitlab",
   "bitbucket",
   "git",
@@ -34,6 +33,7 @@
   "browserbase",
   "argus",
   "appxray",
+  "octocode",
   "selenium",
   "browserstack",
   "debugg-ai",

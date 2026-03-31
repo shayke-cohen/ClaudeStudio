@@ -5,6 +5,13 @@ import { homedir } from "os";
 import type { AgentConfig, FileAttachment } from "../types.js";
 import { PLAN_MODE_APPEND } from "../prompts/plan-mode.js";
 import { logger } from "../logger.js";
+import {
+  buildConfiguredMcpInventory,
+  mergeCodexMcpInventory,
+  observeMcpToolUse,
+  normalizeMcpNamespace,
+} from "../mcp-session-state.js";
+import { buildSkillsSection } from "../utils/prompt-builder.js";
 import { createCodexDynamicTools } from "../tools/peerbus-server.js";
 import { toCodexDynamicToolResponse } from "../tools/shared-tool.js";
 import type { QuestionInputConfig, QuestionOption } from "../types.js";
@@ -67,6 +74,8 @@ interface SessionClientContext {
 
 export class CodexRuntime implements ProviderRuntime {
   readonly provider = "codex" as const;
+  private static readonly MCP_STATUS_SETTLE_TIMEOUT_MS = 5000;
+  private static readonly MCP_STATUS_POLL_INTERVAL_MS = 250;
 
   private static readonly pricingByModel: Record<string, {
     inputUsdPerMillion: number;
@@ -353,6 +362,7 @@ export class CodexRuntime implements ProviderRuntime {
     planMode?: boolean,
   ): Record<string, any> {
     const mcpAliases = new Map<string, string>();
+    const developerInstructions = this.buildDeveloperInstructions(config, planMode);
     return {
       provider: "codex",
       backendSessionId,
@@ -360,6 +370,7 @@ export class CodexRuntime implements ProviderRuntime {
       cwd: config.workingDirectory,
       attachmentCount,
       approvalPolicy: "on-request",
+      developerInstructions,
       mcpServerCount: config.mcpServers.length,
       appServerConfigOverrides: this.buildClientConfigOverrides(config, mcpAliases),
     };
@@ -384,7 +395,9 @@ export class CodexRuntime implements ProviderRuntime {
         developerInstructions,
         dynamicTools,
       });
-      return response?.thread?.id ?? backendSessionId;
+      const threadId = response?.thread?.id ?? backendSessionId;
+      await this.refreshCodexMcpInventory(sessionId, client, config, true);
+      return threadId;
     }
 
     const response = await client.call("thread/start", {
@@ -398,18 +411,15 @@ export class CodexRuntime implements ProviderRuntime {
       persistExtendedHistory: true,
       dynamicTools,
     });
-    return response?.thread?.id as string;
+    const threadId = response?.thread?.id as string;
+    await this.refreshCodexMcpInventory(sessionId, client, config, true);
+    return threadId;
   }
 
   private buildDeveloperInstructions(config: AgentConfig, planMode?: boolean): string {
     let instructions = config.systemPrompt || "";
 
-    if (config.skills.length > 0) {
-      instructions += "\n\n## Skills\n\n";
-      for (const skill of config.skills) {
-        instructions += `### ${skill.name}\n${skill.content}\n\n`;
-      }
-    }
+    instructions += buildSkillsSection(config.skills ?? []);
 
     if (config.interactive) {
       instructions += `\n\nUse dynamic tools for ask_user, render_content, confirm_action, show_progress, and suggest_actions instead of asking the user in plain text.`;
@@ -653,6 +663,11 @@ export class CodexRuntime implements ProviderRuntime {
         break;
 
       case "mcpToolCall":
+        this.recordObservedMcpTool(
+          pendingTurn.sessionId,
+          this.mapMcpServerAlias(pendingTurn.sessionId, item.server),
+          item.tool,
+        );
         this.recordToolCall(pendingTurn.sessionId);
         this.deps.emit({
           type: "stream.toolCall",
@@ -1246,6 +1261,130 @@ export class CodexRuntime implements ProviderRuntime {
     const clientCtx = { client, mcpAliases };
     this.clientsBySession.set(sessionId, clientCtx);
     return clientCtx;
+  }
+
+  private async refreshCodexMcpInventory(
+    sessionId: string,
+    client: CodexAppServerClient,
+    config: AgentConfig,
+    waitForSettled: boolean,
+  ): Promise<void> {
+    if (config.mcpServers.length === 0) {
+      this.deps.registry.replaceMcpInventory(sessionId, []);
+      return;
+    }
+
+    const deadline = Date.now() + CodexRuntime.MCP_STATUS_SETTLE_TIMEOUT_MS;
+    let latestInventory = buildConfiguredMcpInventory(config);
+
+    while (true) {
+      latestInventory = await this.fetchCodexMcpInventory(sessionId, client, config);
+
+      const hasPending = latestInventory.some((entry) =>
+        entry.configured && (entry.availability === "configured" || entry.availability === "pending"),
+      );
+
+      if (!waitForSettled || !hasPending || Date.now() >= deadline) {
+        if (hasPending && waitForSettled) {
+          logger.warn("session", `Timed out waiting for configured MCPs to settle for ${sessionId}`, {
+            provider: "codex",
+            mcpServers: latestInventory,
+          });
+        }
+        return;
+      }
+
+      await Bun.sleep(CodexRuntime.MCP_STATUS_POLL_INTERVAL_MS);
+    }
+  }
+
+  private async fetchCodexMcpInventory(
+    sessionId: string,
+    client: CodexAppServerClient,
+    config: AgentConfig,
+  ) {
+    try {
+      const response = await client.call("mcpServerStatus/list", { limit: 100 });
+      const rawStatuses = this.extractCodexMcpStatuses(response);
+      const inventory = mergeCodexMcpInventory(
+        config,
+        this.deps.registry.getMcpInventory(sessionId),
+        rawStatuses,
+        (name) => this.mapMcpServerAlias(sessionId, name),
+      );
+      this.deps.registry.replaceMcpInventory(sessionId, inventory);
+      logger.info("session", `Effective MCP inventory for ${sessionId}`, {
+        provider: "codex",
+        mcpServers: inventory,
+      });
+      return inventory;
+    } catch (error: any) {
+      const message = error?.message ?? String(error);
+      const inventory = buildConfiguredMcpInventory(config).map((entry) => ({
+        ...entry,
+        availability: "unavailable" as const,
+        error: message,
+      }));
+      this.deps.registry.replaceMcpInventory(sessionId, inventory);
+      logger.warn("session", `Failed to read Codex MCP inventory for ${sessionId}: ${message}`, {
+        provider: "codex",
+        mcpServers: inventory,
+      });
+      return inventory;
+    }
+  }
+
+  private extractCodexMcpStatuses(response: any): Array<{
+    name?: string;
+    status?: string;
+    error?: string;
+    tools?: Array<{ name?: string; description?: string }>;
+  }> {
+    const items = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.servers)
+        ? response.servers
+        : Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.statuses)
+            ? response.statuses
+            : [];
+
+    return items.map((item: any) => ({
+      name:
+        item?.name ??
+        item?.serverName ??
+        item?.id ??
+        item?.server?.name,
+      status:
+        item?.status ??
+        item?.connectionStatus ??
+        item?.state ??
+        item?.authStatus,
+      error:
+        item?.error ??
+        item?.lastError?.message ??
+        item?.message,
+      tools: Array.isArray(item?.tools)
+        ? item.tools.map((tool: any) => ({
+            name: tool?.name,
+            description: tool?.description,
+          }))
+        : [],
+    }));
+  }
+
+  private recordObservedMcpTool(sessionId: string, serverName: string, toolName: string | undefined): void {
+    if (!toolName) {
+      return;
+    }
+
+    const inventory = observeMcpToolUse(
+      this.deps.registry.getMcpInventory(sessionId),
+      normalizeMcpNamespace(serverName),
+      toolName,
+    );
+    this.deps.registry.replaceMcpInventory(sessionId, inventory);
   }
 
   private buildClientConfigOverrides(config: AgentConfig, mcpAliases: Map<string, string>): string[] {

@@ -66,6 +66,7 @@ final class Conversation {
     var isUnread: Bool = false
     var isAutonomous: Bool = false
     var planModeEnabled: Bool = false
+    var selectiveRepliesEnabled: Bool = false
     var worktreePath: String?
     var worktreeBranch: String?
     var startedAt: Date

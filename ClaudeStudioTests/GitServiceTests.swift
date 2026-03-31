@@ -20,10 +20,15 @@ final class GitServiceTests: XCTestCase {
 
     @discardableResult
     private func shell(_ command: String) -> String {
+        shell(in: tempDir, command)
+    }
+
+    @discardableResult
+    private func shell(in directory: URL, _ command: String) -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = ["-c", command]
-        process.currentDirectoryURL = tempDir
+        process.currentDirectoryURL = directory
         process.environment = ProcessInfo.processInfo.environment
 
         let pipe = Pipe()
@@ -56,6 +61,34 @@ final class GitServiceTests: XCTestCase {
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func currentBranchName(in directory: URL) -> String {
+        shell(in: directory, "git branch --show-current")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func makeRemoteClone() -> URL {
+        let remoteURL = tempDir.appendingPathComponent("remote.git")
+        let seedURL = tempDir.appendingPathComponent("seed")
+        let cloneURL = tempDir.appendingPathComponent("clone")
+
+        try? FileManager.default.createDirectory(at: seedURL, withIntermediateDirectories: true)
+        shell(in: seedURL, "git init")
+        shell(in: seedURL, "git config user.email 'test@test.com'")
+        shell(in: seedURL, "git config user.name 'Test'")
+        shell(in: seedURL, "printf 'base\\n' > README.md")
+        shell(in: seedURL, "git add README.md && git commit -m 'initial'")
+        shell(in: seedURL, "git checkout -b feature/remote")
+        shell(in: seedURL, "printf 'remote branch\\n' > remote.txt")
+        shell(in: seedURL, "git add remote.txt && git commit -m 'remote branch'")
+
+        shell("git init --bare '\(remoteURL.path)'")
+        shell(in: seedURL, "git remote add origin '\(remoteURL.path)'")
+        shell(in: seedURL, "git push -u origin --all")
+        shell("git clone '\(remoteURL.path)' '\(cloneURL.path)'")
+
+        return cloneURL
     }
 
     // MARK: - isGitRepo
@@ -146,6 +179,70 @@ final class GitServiceTests: XCTestCase {
         XCTAssertEqual(statuses["a.txt"], .modified)
         XCTAssertEqual(statuses["c.txt"], .untracked)
         XCTAssertNil(statuses["b.txt"])
+    }
+
+    // MARK: - branch helpers
+
+    func testCurrentBranchReturnsCheckedOutBranch() {
+        initGitRepo()
+        createAndCommitFile("base.txt")
+
+        XCTAssertEqual(GitService.currentBranch(in: tempDir), currentBranchName(in: tempDir))
+    }
+
+    func testLocalBranchesIncludesCreatedBranches() {
+        initGitRepo()
+        createAndCommitFile("base.txt")
+        shell("git checkout -b feature/local")
+        shell("git checkout -")
+
+        let branches = GitService.localBranches(in: tempDir).map(\.name)
+        XCTAssertTrue(branches.contains(currentBranchName(in: tempDir)))
+        XCTAssertTrue(branches.contains("feature/local"))
+    }
+
+    func testSwitchBranchChangesToExistingLocalBranch() async throws {
+        initGitRepo()
+        createAndCommitFile("base.txt")
+        shell("git checkout -b feature/local")
+        shell("git checkout -")
+
+        try await GitService.switchBranch(named: "feature/local", in: tempDir)
+
+        XCTAssertEqual(currentBranchName(in: tempDir), "feature/local")
+    }
+
+    func testSwitchBranchThrowsWhenWorkingTreeIsDirty() async {
+        initGitRepo()
+        createAndCommitFile("base.txt")
+        shell("git checkout -b feature/local")
+        shell("git checkout -")
+        writeFile("base.txt", content: "dirty")
+
+        do {
+            try await GitService.switchBranch(named: "feature/local", in: tempDir)
+            XCTFail("Expected dirty working tree to block branch switch")
+        } catch let error as GitServiceError {
+            guard case .dirtyWorkingTree(let changeCount) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(changeCount, 1)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSwitchBranchCreatesTrackingBranchFromOrigin() async throws {
+        let cloneURL = makeRemoteClone()
+        try await GitService.fetch(in: cloneURL)
+
+        XCTAssertFalse(GitService.localBranches(in: cloneURL).map(\.name).contains("feature/remote"))
+        XCTAssertTrue(GitService.remoteBranches(in: cloneURL).map(\.name).contains("feature/remote"))
+
+        try await GitService.switchBranch(named: "feature/remote", in: cloneURL)
+
+        XCTAssertEqual(currentBranchName(in: cloneURL), "feature/remote")
+        XCTAssertTrue(GitService.localBranches(in: cloneURL).map(\.name).contains("feature/remote"))
     }
 
     // MARK: - diff

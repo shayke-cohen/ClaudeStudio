@@ -23,6 +23,7 @@ ClaudeStudio is a native macOS app (Swift 6 / SwiftUI / SwiftData) with a TypeSc
 - `AppState` is the single `@ObservableObject` for global UI state (sidecar status, selections, streaming buffers)
 - Use `AsyncStream` for event flows from `SidecarManager` to `AppState`
 - Target: **macOS 14.0+**, bundle ID: `com.claudestudio.app`
+- Skills are app-level structured config: keep them in `AgentConfig.skills` and let the sidecar runtimes compile them once into provider instructions. `systemPrompt` should stay focused on the base prompt and mission.
 
 ### TypeScript Conventions
 
@@ -94,6 +95,7 @@ Core entities (all in `ClaudeStudio/Models/`):
 - SidecarManager (process launch, WebSocket, reconnect)
 - SidecarProtocol (commands: create/message/resume/fork/pause; events: token/toolCall/toolResult/result/error/streamImage/streamFileCard/streamThinking)
 - AgentProvisioner (resolves skills, MCPs, permissions, working directory → AgentConfig)
+- Effective runtime MCP wiring includes explicit agent MCPs plus MCP dependencies declared by enabled skills
 - SessionManager in sidecar (Agent SDK `query()`, streaming, resume, fork, pause)
 - Blackboard store (in-memory + disk + HTTP REST API)
 - Main UI (project-first NavigationSplitView with utilities, projects, threads, chat, inspector)

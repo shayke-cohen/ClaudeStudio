@@ -20,7 +20,8 @@
   ],
   "extraMCPs": [
     "argus",
-    "appxray"
+    "appxray",
+    "octocode"
   ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

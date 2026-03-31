@@ -7,6 +7,74 @@ import SwiftData
 @MainActor
 @Observable
 final class ConfigSyncService {
+    struct BuiltInMCPTransportSpec: Equatable {
+        let command: String
+        let args: [String]
+        let env: [String: String]
+    }
+
+    private static let builtInAgentDefaultMCPNames: [String: [String]] = [
+        "coder": ["Argus", "AppXray", "Octocode"],
+        "tester": ["Argus", "AppXray", "Octocode"],
+        "reviewer": ["Octocode"],
+        "devops": [],
+    ]
+    private static let removedBuiltInAgentMCPNames: [String: Set<String>] = [
+        "reviewer": ["GitHub"],
+        "devops": ["GitHub"],
+    ]
+    private static let retiredBuiltInMCPSlugs: [String] = ["github"]
+
+    static func builtInTransportSpec(for slug: String, existingEnv: [String: String] = [:]) -> BuiltInMCPTransportSpec? {
+        switch slug {
+        case "argus":
+            if let localEntry = firstExistingBuiltInMCPEntryPath([
+                "argus/packages/argus/dist/mcp/index.js",
+                "wix-argus/packages/argus/dist/mcp/index.js",
+            ]) {
+                return BuiltInMCPTransportSpec(command: "node", args: [localEntry], env: existingEnv)
+            }
+
+            return BuiltInMCPTransportSpec(
+                command: "npx",
+                args: ["-y", "-p", "@wix/argus", "argus-mcp"],
+                env: existingEnv
+            )
+
+        case "appxray":
+            var env = existingEnv
+            env["APPXRAY_AUTO_CONNECT"] = "true"
+
+            if let localEntry = firstExistingBuiltInMCPEntryPath([
+                "wix-appxray/appxray/packages/mcp-server/dist/index.js",
+                "appxray/packages/mcp-server/dist/index.js",
+            ]) {
+                return BuiltInMCPTransportSpec(command: "node", args: [localEntry], env: env)
+            }
+
+            return BuiltInMCPTransportSpec(
+                command: "npx",
+                args: ["-y", "@wix/appxray-mcp-server"],
+                env: env
+            )
+
+        default:
+            return nil
+        }
+    }
+
+    private static func firstExistingBuiltInMCPEntryPath(_ relativePaths: [String]) -> String? {
+        let home = NSHomeDirectory()
+
+        for relativePath in relativePaths {
+            let candidate = URL(fileURLWithPath: home).appendingPathComponent(relativePath).path
+            if FileManager.default.fileExists(atPath: candidate) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
 
     private(set) var isWatching = false
     private var fileDescriptors: [Int32] = []
@@ -43,7 +111,9 @@ final class ConfigSyncService {
             }
         }
 
-        // Ensure any new bundle skills are copied before sync
+        // Ensure any new bundle MCPs and skills are copied before sync
+        ConfigFileManager.ensureBundleMCPsPresent()
+        ConfigFileManager.removeRetiredBundleMCPs(slugs: Self.retiredBuiltInMCPSlugs)
         ConfigFileManager.ensureBundleSkillsPresent()
 
         // Full sync to pick up any offline edits or new factory defaults
@@ -144,22 +214,23 @@ final class ConfigSyncService {
 
         for (slug, dto) in fileDTOs {
             seenSlugs.insert(slug)
+            let effectiveDTO = migrateBuiltInMCPIfNeeded(dto, slug: slug)
             if let entity = slugMap[slug] {
-                entity.name = dto.name
-                entity.serverDescription = dto.serverDescription
-                entity.isEnabled = dto.enabled
-                applyTransport(dto: dto, to: entity)
+                entity.name = effectiveDTO.name
+                entity.serverDescription = effectiveDTO.serverDescription
+                entity.isEnabled = effectiveDTO.enabled
+                applyTransport(dto: effectiveDTO, to: entity)
             } else {
-                let byName = existing.first { $0.name == dto.name && $0.configSlug == nil }
+                let byName = existing.first { $0.name == effectiveDTO.name && $0.configSlug == nil }
                 if let entity = byName {
                     entity.configSlug = slug
-                    entity.serverDescription = dto.serverDescription
-                    entity.isEnabled = dto.enabled
-                    applyTransport(dto: dto, to: entity)
+                    entity.serverDescription = effectiveDTO.serverDescription
+                    entity.isEnabled = effectiveDTO.enabled
+                    applyTransport(dto: effectiveDTO, to: entity)
                 } else {
-                    let transport = makeTransport(from: dto)
-                    let entity = MCPServer(name: dto.name, serverDescription: dto.serverDescription, transport: transport)
-                    entity.isEnabled = dto.enabled
+                    let transport = makeTransport(from: effectiveDTO)
+                    let entity = MCPServer(name: effectiveDTO.name, serverDescription: effectiveDTO.serverDescription, transport: transport)
+                    entity.isEnabled = effectiveDTO.enabled
                     entity.configSlug = slug
                     context.insert(entity)
                 }
@@ -234,55 +305,56 @@ final class ConfigSyncService {
 
         for (slug, dto) in fileDTOs {
             seenSlugs.insert(slug)
-            let systemPrompt = resolveSystemPrompt(dto: dto, templates: templates)
-            let skillIds = dto.skillNames.compactMap { skillByName[$0] }
-            let mcpIds = dto.mcpServerNames.compactMap { mcpByName[$0] }
-            let permId = permByName[dto.permissionSetName]
+            let effectiveDTO = migrateBuiltInAgentMCPDefaultsIfNeeded(dto, slug: slug)
+            let systemPrompt = resolveSystemPrompt(dto: effectiveDTO, templates: templates)
+            let skillIds = effectiveDTO.skillNames.compactMap { skillByName[$0] }
+            let mcpIds = effectiveDTO.mcpServerNames.compactMap { mcpByName[$0] }
+            let permId = permByName[effectiveDTO.permissionSetName]
 
             if let entity = slugMap[slug] {
-                entity.name = dto.name
-                entity.agentDescription = dto.agentDescription
+                entity.name = effectiveDTO.name
+                entity.agentDescription = effectiveDTO.agentDescription
                 entity.systemPrompt = systemPrompt
-                entity.provider = dto.provider
-                entity.model = dto.model
-                entity.icon = dto.icon
-                entity.color = dto.color
+                entity.provider = effectiveDTO.provider
+                entity.model = effectiveDTO.model
+                entity.icon = effectiveDTO.icon
+                entity.color = effectiveDTO.color
                 entity.skillIds = skillIds
                 entity.extraMCPServerIds = mcpIds
                 entity.permissionSetId = permId
-                entity.maxTurns = dto.maxTurns
-                entity.maxBudget = dto.maxBudget
-                entity.maxThinkingTokens = dto.maxThinkingTokens
-                entity.defaultWorkingDirectory = dto.defaultWorkingDirectory
-                entity.isEnabled = dto.enabled
+                entity.maxTurns = effectiveDTO.maxTurns
+                entity.maxBudget = effectiveDTO.maxBudget
+                entity.maxThinkingTokens = effectiveDTO.maxThinkingTokens
+                entity.defaultWorkingDirectory = effectiveDTO.defaultWorkingDirectory
+                entity.isEnabled = effectiveDTO.enabled
             } else {
-                let byName = existing.first { $0.name == dto.name && $0.configSlug == nil }
+                let byName = existing.first { $0.name == effectiveDTO.name && $0.configSlug == nil }
                 if let entity = byName {
                     entity.configSlug = slug
-                    entity.agentDescription = dto.agentDescription
+                    entity.agentDescription = effectiveDTO.agentDescription
                     entity.systemPrompt = systemPrompt
-                    entity.provider = dto.provider
-                    entity.model = dto.model
-                    entity.icon = dto.icon
-                    entity.color = dto.color
+                    entity.provider = effectiveDTO.provider
+                    entity.model = effectiveDTO.model
+                    entity.icon = effectiveDTO.icon
+                    entity.color = effectiveDTO.color
                     entity.skillIds = skillIds
                     entity.extraMCPServerIds = mcpIds
                     entity.permissionSetId = permId
-                    entity.maxTurns = dto.maxTurns
-                    entity.maxBudget = dto.maxBudget
-                    entity.maxThinkingTokens = dto.maxThinkingTokens
-                    entity.defaultWorkingDirectory = dto.defaultWorkingDirectory
-                    entity.isEnabled = dto.enabled
+                    entity.maxTurns = effectiveDTO.maxTurns
+                    entity.maxBudget = effectiveDTO.maxBudget
+                    entity.maxThinkingTokens = effectiveDTO.maxThinkingTokens
+                    entity.defaultWorkingDirectory = effectiveDTO.defaultWorkingDirectory
+                    entity.isEnabled = effectiveDTO.enabled
                 } else {
-                    let entity = Agent(name: dto.name, agentDescription: dto.agentDescription, systemPrompt: systemPrompt, provider: dto.provider, model: dto.model, icon: dto.icon, color: dto.color)
+                    let entity = Agent(name: effectiveDTO.name, agentDescription: effectiveDTO.agentDescription, systemPrompt: systemPrompt, provider: effectiveDTO.provider, model: effectiveDTO.model, icon: effectiveDTO.icon, color: effectiveDTO.color)
                     entity.skillIds = skillIds
                     entity.extraMCPServerIds = mcpIds
                     entity.permissionSetId = permId
-                    entity.maxTurns = dto.maxTurns
-                    entity.maxBudget = dto.maxBudget
-                    entity.maxThinkingTokens = dto.maxThinkingTokens
-                    entity.defaultWorkingDirectory = dto.defaultWorkingDirectory
-                    entity.isEnabled = dto.enabled
+                    entity.maxTurns = effectiveDTO.maxTurns
+                    entity.maxBudget = effectiveDTO.maxBudget
+                    entity.maxThinkingTokens = effectiveDTO.maxThinkingTokens
+                    entity.defaultWorkingDirectory = effectiveDTO.defaultWorkingDirectory
+                    entity.isEnabled = effectiveDTO.enabled
                     entity.configSlug = slug
                     entity.origin = .builtin
                     context.insert(entity)
@@ -293,6 +365,100 @@ final class ConfigSyncService {
         for entity in existing where entity.configSlug != nil && !seenSlugs.contains(entity.configSlug!) {
             entity.isEnabled = false
         }
+    }
+
+    private func migrateBuiltInMCPIfNeeded(_ dto: MCPConfigDTO, slug: String) -> MCPConfigDTO {
+        let migrated: MCPConfigDTO
+
+        switch slug {
+        case "argus", "appxray":
+            guard let transport = Self.builtInTransportSpec(for: slug, existingEnv: dto.transportEnv ?? [:]) else {
+                return dto
+            }
+
+            migrated = MCPConfigDTO(
+                name: dto.name,
+                enabled: dto.enabled,
+                serverDescription: dto.serverDescription,
+                transportKind: "stdio",
+                transportCommand: transport.command,
+                transportArgs: transport.args,
+                transportEnv: transport.env,
+                transportUrl: nil,
+                transportHeaders: nil
+            )
+        default:
+            return dto
+        }
+
+        let changed = migrated.transportKind != dto.transportKind
+            || migrated.transportCommand != dto.transportCommand
+            || migrated.transportArgs != dto.transportArgs
+            || migrated.transportEnv != dto.transportEnv
+            || migrated.transportUrl != dto.transportUrl
+            || migrated.transportHeaders != dto.transportHeaders
+
+        guard changed else { return dto }
+
+        do {
+            try ConfigFileManager.writeMCP(migrated, slug: slug)
+            Log.configSync.info("Migrated built-in MCP transport for \(slug, privacy: .public)")
+        } catch {
+            Log.configSync.error("Failed to migrate built-in MCP transport for \(slug, privacy: .public): \(error)")
+        }
+
+        return migrated
+    }
+
+    private func migrateBuiltInAgentMCPDefaultsIfNeeded(_ dto: AgentConfigDTO, slug: String) -> AgentConfigDTO {
+        let builtInMCPNames = Self.builtInAgentDefaultMCPNames[slug] ?? []
+        let retiredNames = Self.removedBuiltInAgentMCPNames[slug] ?? []
+
+        var mergedMCPNames = dto.mcpServerNames.filter { !retiredNames.contains($0) }
+        let removedMCPs = dto.mcpServerNames.filter { retiredNames.contains($0) }
+
+        guard Self.builtInAgentDefaultMCPNames.keys.contains(slug) else {
+            return dto
+        }
+
+        for name in builtInMCPNames where !mergedMCPNames.contains(name) {
+            mergedMCPNames.append(name)
+        }
+
+        guard mergedMCPNames != dto.mcpServerNames else {
+            return dto
+        }
+
+        let migrated = AgentConfigDTO(
+            name: dto.name,
+            enabled: dto.enabled,
+            agentDescription: dto.agentDescription,
+            provider: dto.provider,
+            model: dto.model,
+            icon: dto.icon,
+            color: dto.color,
+            skillNames: dto.skillNames,
+            mcpServerNames: mergedMCPNames,
+            permissionSetName: dto.permissionSetName,
+            systemPromptTemplate: dto.systemPromptTemplate,
+            systemPromptVariables: dto.systemPromptVariables,
+            maxTurns: dto.maxTurns,
+            maxBudget: dto.maxBudget,
+            maxThinkingTokens: dto.maxThinkingTokens,
+            defaultWorkingDirectory: dto.defaultWorkingDirectory
+        )
+
+        do {
+            try ConfigFileManager.writeAgent(migrated, slug: slug)
+            let addedMCPs = builtInMCPNames.filter { !dto.mcpServerNames.contains($0) }.joined(separator: ",")
+            let removedBuiltIns = removedMCPs.joined(separator: ",")
+            let finalMCPs = mergedMCPNames.joined(separator: ",")
+            Log.configSync.info("Migrated built-in agent MCP defaults for \(slug, privacy: .public) (added: \(addedMCPs, privacy: .public); removed: \(removedBuiltIns, privacy: .public); final: \(finalMCPs, privacy: .public))")
+        } catch {
+            Log.configSync.error("Failed to migrate built-in agent MCP defaults for \(slug, privacy: .public): \(error)")
+        }
+
+        return migrated
     }
 
     private func syncGroups(context: ModelContext) {

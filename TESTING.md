@@ -260,6 +260,8 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 | Group “Sending to” hint | `chat.sendingToHint` | — | `@testId("chat.sendingToHint")` |
 | Mention suggestion strip | `chat.mentionSuggestions` | — | `@testId("chat.mentionSuggestions")` |
 | Mention suggestion row | `chat.mentionSuggestion.{agentUuid}` | — | `@testId("chat.mentionSuggestion.{agentUuid}")` |
+| Open blackboard | `chat.openBlackboardButton` | `Open blackboard` | `@testId("chat.openBlackboardButton")` |
+| Jump to latest | `chat.jumpToLatestButton` | `Jump to latest message` | `@testId("chat.jumpToLatestButton")` |
 | Send button | `chat.sendButton` | `Send message` | `@testId("chat.sendButton")` |
 | Pending attachments strip | `chat.pendingAttachments` | — | `@testId("chat.pendingAttachments")` |
 | Pending attachment thumb | `chat.pendingAttachment.{index}` | — | `@testId("chat.pendingAttachment.{index}")` |
@@ -268,7 +270,7 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 | Streaming bubble | `chat.streamingBubble` | — | `@testId("chat.streamingBubble")` |
 | Streaming thinking toggle | `chat.streamingThinkingToggle` | `Expand/Collapse thinking` | `@testId("chat.streamingThinkingToggle")` |
 
-**Note:** The inner `NSTextField` of `PasteableTextField` also exposes `pasteableTextField.input` at the AppKit level. **Return** submits when there is text or pending attachments (and the session is not processing); **Shift+Return** inserts a newline; **⌘↩** also submits; the Send button submits as well.
+**Note:** The inner `NSTextField` of `PasteableTextField` also exposes `pasteableTextField.input` at the AppKit level. **Return** submits when there is text or pending attachments (and the session is not processing); **Shift+Return** inserts a newline; **⌘↩** also submits; the Send button submits as well. Opening a chat restores the last in-window reading position when available; otherwise it opens at the latest message.
 
 ---
 
@@ -365,8 +367,15 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 
 | Control | Identifier | Label | Selector |
 |---------|-----------|-------|----------|
-| Tab picker (Info / Files) | `inspector.tabPicker` | — | `@testId("inspector.tabPicker")` |
+| Tab picker (Info / Files / Blackboard / Group) | `inspector.tabPicker` | — | `@testId("inspector.tabPicker")` |
 | Info scroll view | `inspector.scrollView` | — | `@testId("inspector.scrollView")` |
+| Blackboard search | `inspector.blackboard.searchField` | — | `@testId("inspector.blackboard.searchField")` |
+| Blackboard filter | `inspector.blackboard.filterPicker` | — | `@testId("inspector.blackboard.filterPicker")` |
+| Blackboard refresh | `inspector.blackboard.refreshButton` | `Refresh blackboard` | `@testId("inspector.blackboard.refreshButton")` |
+| Blackboard entry list | `inspector.blackboard.entryList` | — | `@testId("inspector.blackboard.entryList")` |
+| Blackboard entry row | `inspector.blackboard.entryRow.{sluggedKey}` | — | `@testId("inspector.blackboard.entryRow.{sluggedKey}")` |
+| Blackboard copy key | `inspector.blackboard.copyKey.{sluggedKey}` | — | `@testId("inspector.blackboard.copyKey.{sluggedKey}")` |
+| Blackboard copy value | `inspector.blackboard.copyValue.{sluggedKey}` | — | `@testId("inspector.blackboard.copyValue.{sluggedKey}")` |
 | Session heading | `inspector.sessionHeading` | — | `@testId("inspector.sessionHeading")` |
 | Multi-session list heading | `inspector.sessionsListHeading` | — | `@testId("inspector.sessionsListHeading")` |
 | Multi-session row | `inspector.sessionRow.{sessionUuid}` | — | `@testId("inspector.sessionRow.{sessionUuid}")` |
@@ -376,6 +385,9 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 | Turns progress | `inspector.turnsProgress` | — | `@testId("inspector.turnsProgress")` |
 | Working directory heading | `inspector.workspaceHeading` | — | `@testId("inspector.workspaceHeading")` |
 | Working directory path | `infoRow.path` | `Path: {abbreviated path}` | `@testId("infoRow.path")` |
+| Switch branch menu | `inspector.switchBranchMenu` | — | `@testId("inspector.switchBranchMenu")` |
+| Fetch branches | `inspector.fetchBranchesButton` | — | `@testId("inspector.fetchBranchesButton")` |
+| Workspace git error | `inspector.workspaceError` | — | `@testId("inspector.workspaceError")` |
 | Reveal in Finder | `inspector.openFinderButton` | `Reveal in Finder` | `@testId("inspector.openFinderButton")` |
 | Open in Terminal | `inspector.openTerminalButton` | — | `@testId("inspector.openTerminalButton")` |
 | Agent heading | `inspector.agentHeading` | — | `@testId("inspector.agentHeading")` |

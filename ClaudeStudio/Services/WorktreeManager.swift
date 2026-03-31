@@ -19,7 +19,15 @@ enum WorktreeManager {
         // Already has a worktree — return it
         if let existing = conversation.worktreePath,
            FileManager.default.fileExists(atPath: existing) {
-            return existing
+            if isUsableWorktree(at: existing) {
+                return existing
+            }
+
+            Log.general.warning("WorktreeManager: repairing invalid worktree at \(existing, privacy: .public)")
+            await removeInvalidWorktree(at: existing, projectDirectory: projectDirectory)
+            conversation.worktreePath = nil
+            conversation.worktreeBranch = nil
+            try? modelContext.save()
         }
 
         // Check if project is a git repo
@@ -81,6 +89,19 @@ enum WorktreeManager {
         }
     }
 
+    static func isUsableWorktree(at path: String) -> Bool {
+        let gitFile = (path as NSString).appendingPathComponent(".git")
+        guard FileManager.default.fileExists(atPath: gitFile) else { return false }
+
+        let contents = (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? []
+        if contents.contains(where: { $0 != ".git" }) {
+            return true
+        }
+
+        let git = gitExecutablePath()
+        return runGitSync(git: git, arguments: ["-C", path, "rev-parse", "--verify", "HEAD"])
+    }
+
     /// Removes the worktree for a conversation (on archive/delete).
     static func removeWorktree(for conversation: Conversation, projectDirectory: String) async {
         guard let worktreePath = conversation.worktreePath else { return }
@@ -134,6 +155,19 @@ enum WorktreeManager {
         }
     }
 
+    private static func removeInvalidWorktree(at worktreePath: String, projectDirectory: String) async {
+        let git = gitExecutablePath()
+        _ = await runGitBestEffort(git: git, arguments: [
+            "-C", projectDirectory,
+            "worktree", "remove", worktreePath, "--force"
+        ])
+        _ = await runGitBestEffort(git: git, arguments: [
+            "-C", projectDirectory,
+            "worktree", "prune"
+        ])
+        try? FileManager.default.removeItem(atPath: worktreePath)
+    }
+
     private static func runGit(git: String, arguments: [String]) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -160,6 +194,31 @@ enum WorktreeManager {
                     continuation.resume(throwing: error)
                 }
             }
+        }
+    }
+
+    private static func runGitBestEffort(git: String, arguments: [String]) async -> Bool {
+        do {
+            try await runGit(git: git, arguments: arguments)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private static func runGitSync(git: String, arguments: [String]) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: git)
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
         }
     }
 }

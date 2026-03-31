@@ -114,6 +114,8 @@ final class AppStateEventTests: XCTestCase {
         let allMessages = (try? context.fetch(FetchDescriptor<ConversationMessage>())) ?? []
         let bbMessages = allMessages.filter { $0.type == .blackboardUpdate }
         XCTAssertEqual(bbMessages.count, 2)
+        XCTAssertEqual(bbMessages.last?.toolName, "pipeline.phase")
+        XCTAssertEqual(bbMessages.last?.toolInput, "Orchestrator")
     }
 
     func testEH4_streamTokenEvent_concatenatesText() {

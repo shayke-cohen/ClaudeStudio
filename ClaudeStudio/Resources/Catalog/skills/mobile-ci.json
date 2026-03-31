@@ -4,9 +4,7 @@
   "description": "Build, sign, and test mobile apps in automated pipelines",
   "category": "Mobile",
   "icon": "gearshape.2.fill",
-  "requiredMCPs": [
-    "github"
-  ],
+  "requiredMCPs": [],
   "triggers": [
     "mobile ci",
     "fastlane",

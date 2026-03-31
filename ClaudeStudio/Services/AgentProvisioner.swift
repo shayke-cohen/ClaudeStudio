@@ -42,31 +42,14 @@ final class AgentProvisioner {
 
     private func buildConfig(agent: Agent, session: Session) -> AgentConfig {
         let skills = resolveSkills(ids: agent.skillIds)
-        let mcpServers = resolveMCPServers(ids: agent.extraMCPServerIds)
+        let mcpServers = resolveMCPServers(ids: resolveEffectiveMCPServerIDs(agent: agent, skills: skills))
         let permissions = resolvePermissions(id: agent.permissionSetId)
 
-        var allowedTools = permissions?.allowRules ?? ["Read", "Write", "Bash", "Grep", "Glob"]
-        allowedTools.append(contentsOf: [
-            "peer_chat_start", "peer_chat_reply", "peer_chat_listen",
-            "peer_chat_close", "peer_chat_invite",
-            "peer_send_message", "peer_delegate_task", "peer_receive_messages",
-            "peer_list_agents", "peer_broadcast",
-            "blackboard_read", "blackboard_write", "blackboard_query", "blackboard_subscribe",
-            "workspace_create", "workspace_join", "workspace_list",
-        ])
+        let allowedTools = permissions?.allowRules ?? ["Read", "Write", "Bash", "Grep", "Glob"]
 
         let isInteractive = session.mode == .interactive
-        if isInteractive {
-            allowedTools.append("ask_user")
-        }
 
         var systemPrompt = agent.systemPrompt
-        if !skills.isEmpty {
-            systemPrompt += "\n\n# Available Skills\n"
-            for skill in skills {
-                systemPrompt += "\n## \(skill.name)\n\(skill.content)\n"
-            }
-        }
         if let mission = session.mission {
             systemPrompt += "\n\n# Current Mission\n\(mission)\n"
         }
@@ -111,7 +94,9 @@ final class AgentProvisioner {
         let descriptor = FetchDescriptor<Skill>(predicate: #Predicate { skill in
             ids.contains(skill.id) && skill.isEnabled
         })
-        return (try? modelContext.fetch(descriptor)) ?? []
+        let fetched = (try? modelContext.fetch(descriptor)) ?? []
+        let byId = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
+        return ids.compactMap { byId[$0] }
     }
 
     private func resolveMCPServers(ids: [UUID]) -> [MCPServer] {
@@ -119,7 +104,26 @@ final class AgentProvisioner {
         let descriptor = FetchDescriptor<MCPServer>(predicate: #Predicate { mcp in
             ids.contains(mcp.id) && mcp.isEnabled
         })
-        return (try? modelContext.fetch(descriptor)) ?? []
+        let fetched = (try? modelContext.fetch(descriptor)) ?? []
+        let byId = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
+        return ids.compactMap { byId[$0] }
+    }
+
+    private func resolveEffectiveMCPServerIDs(agent: Agent, skills: [Skill]) -> [UUID] {
+        var ordered: [UUID] = []
+        var seen = Set<UUID>()
+
+        for id in agent.extraMCPServerIds where seen.insert(id).inserted {
+            ordered.append(id)
+        }
+
+        for skill in skills {
+            for id in skill.mcpServerIds where seen.insert(id).inserted {
+                ordered.append(id)
+            }
+        }
+
+        return ordered
     }
 
     private func resolvePermissions(id: UUID?) -> PermissionSet? {

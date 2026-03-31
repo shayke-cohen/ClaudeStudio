@@ -70,7 +70,13 @@ function parseToolResult(result: any): any {
 
 /** Invoke an SDK tool's handler directly, bypassing the SDK runtime. */
 async function call(toolObj: any, args: Record<string, any>, extra: Record<string, any> = {}): Promise<any> {
-  return toolObj.handler(args, extra);
+  if (typeof toolObj.execute === "function") {
+    return toolObj.execute(args, extra);
+  }
+  if (typeof toolObj.handler === "function") {
+    return toolObj.handler(args, extra);
+  }
+  throw new TypeError("Tool object does not expose execute() or handler()");
 }
 
 function findTool(tools: any[], name: string) {
@@ -235,7 +241,18 @@ describe("Messaging Tools (integration)", () => {
   });
 
   test("peer_delegate_task spawns session via agentDefinitions", async () => {
-    ctx.agentDefinitions.set("Coder", { ...agentConfig, name: "Coder" });
+    ctx.agentDefinitions.set("Coder", {
+      ...agentConfig,
+      name: "Coder",
+      mcpServers: [
+        { name: "Octocode", command: "npx", args: ["-y", "octocode-mcp"] },
+        { name: "AppXray", command: "npx", args: ["-y", "@wix/appxray-mcp-server"] },
+      ],
+      skills: [
+        { name: "Plan", content: "Plan before editing." },
+        { name: "Verify", content: "Verify after editing." },
+      ],
+    });
     const tools = createMessagingTools(ctx, "session-a");
     const result = await call(findTool(tools, "peer_delegate_task"), {
       to_agent: "Coder",
@@ -249,6 +266,8 @@ describe("Messaging Tools (integration)", () => {
     expect(parsed.result).toBe("mock-result");
     expect(spawnCalls).toHaveLength(1);
     expect(spawnCalls[0].prompt).toBe("implement sorting");
+    expect(spawnCalls[0].config.skills.map((skill: any) => skill.name)).toEqual(["Plan", "Verify"]);
+    expect(spawnCalls[0].config.mcpServers.map((mcp: any) => mcp.name)).toEqual(["Octocode", "AppXray"]);
     expect(events.some((e) => e.type === "peer.delegate")).toBe(true);
   });
 

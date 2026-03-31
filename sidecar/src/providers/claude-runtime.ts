@@ -6,6 +6,12 @@ import { homedir, userInfo } from "os";
 import type { AgentConfig, FileAttachment } from "../types.js";
 import { PLAN_MODE_APPEND } from "../prompts/plan-mode.js";
 import { logger } from "../logger.js";
+import {
+  mergeClaudeMcpInventory,
+  observeMcpToolUse,
+  parseQualifiedMcpToolName,
+} from "../mcp-session-state.js";
+import { buildSkillsSection } from "../utils/prompt-builder.js";
 import { createPeerBusServer } from "../tools/peerbus-server.js";
 import type {
   ProviderRuntime,
@@ -221,40 +227,8 @@ export class ClaudeRuntime implements ProviderRuntime {
       cwd: config.workingDirectory || undefined,
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
+      strictMcpConfig: true,
       env,
-      settings: {
-        permissions: {
-          allow: [
-            "mcp__peerbus__ask_user",
-            "mcp__peerbus__render_content",
-            "mcp__peerbus__confirm_action",
-            "mcp__peerbus__show_progress",
-            "mcp__peerbus__suggest_actions",
-            "mcp__peerbus__blackboard_read",
-            "mcp__peerbus__blackboard_write",
-            "mcp__peerbus__blackboard_query",
-            "mcp__peerbus__blackboard_subscribe",
-            "mcp__peerbus__peer_send_message",
-            "mcp__peerbus__peer_broadcast",
-            "mcp__peerbus__peer_receive_messages",
-            "mcp__peerbus__peer_list_agents",
-            "mcp__peerbus__peer_delegate_task",
-            "mcp__peerbus__peer_chat_start",
-            "mcp__peerbus__peer_chat_reply",
-            "mcp__peerbus__peer_chat_listen",
-            "mcp__peerbus__peer_chat_close",
-            "mcp__peerbus__peer_chat_invite",
-            "mcp__peerbus__group_invite_agent",
-            "mcp__peerbus__workspace_create",
-            "mcp__peerbus__workspace_join",
-            "mcp__peerbus__workspace_list",
-            "mcp__peerbus__task_board_list",
-            "mcp__peerbus__task_board_create",
-            "mcp__peerbus__task_board_claim",
-            "mcp__peerbus__task_board_update",
-          ],
-        },
-      },
     };
 
     const appendText = this.buildSystemPromptAppend(config, usePlanMode);
@@ -269,10 +243,6 @@ export class ClaudeRuntime implements ProviderRuntime {
         type: "preset" as const,
         preset: "claude_code" as const,
       };
-    }
-
-    if (config.allowedTools.length > 0) {
-      options.allowedTools = config.allowedTools;
     }
 
     if (config.maxBudget) {
@@ -414,14 +384,41 @@ This workspace is a GitHub repository (\`${remoteUrl}\`). You can use the \`gh\`
       }
     }
 
-    if (config.skills && config.skills.length > 0) {
-      append += "\n\n## Skills\n\n";
-      for (const skill of config.skills) {
-        append += `### ${skill.name}\n${skill.content}\n\n`;
-      }
-    }
+    append += buildSkillsSection(config.skills ?? []);
 
     return append;
+  }
+
+  private recordClaudeMcpInventory(sessionId: string, mcpServers: Array<{ name: string; status: string }> | undefined): void {
+    const config = this.deps.registry.getConfig(sessionId);
+    if (!config) {
+      return;
+    }
+
+    const inventory = mergeClaudeMcpInventory(
+      config,
+      this.deps.registry.getMcpInventory(sessionId),
+      mcpServers ?? [],
+    );
+    this.deps.registry.replaceMcpInventory(sessionId, inventory);
+    logger.info("session", `Effective MCP inventory for ${sessionId}`, {
+      provider: "claude",
+      mcpServers: inventory,
+    });
+  }
+
+  private recordObservedMcpTool(sessionId: string, toolName: string): void {
+    const parsed = parseQualifiedMcpToolName(toolName);
+    if (!parsed) {
+      return;
+    }
+
+    const inventory = observeMcpToolUse(
+      this.deps.registry.getMcpInventory(sessionId),
+      parsed.namespace,
+      parsed.tool,
+    );
+    this.deps.registry.replaceMcpInventory(sessionId, inventory);
   }
 
   private async handleSDKMessage(
@@ -434,6 +431,15 @@ This workspace is a GitHub repository (\`${remoteUrl}\`). You can use the \`gh\`
     let costDelta = 0;
 
     switch (message.type) {
+      case "system":
+        if (message.subtype === "init") {
+          this.recordClaudeMcpInventory(sessionId, message.mcp_servers);
+          if (message.session_id) {
+            backendSessionId = message.session_id;
+          }
+        }
+        break;
+
       case "assistant":
         if (message.message?.content) {
           for (const block of message.message.content) {
@@ -455,6 +461,9 @@ This workspace is a GitHub repository (\`${remoteUrl}\`). You can use the \`gh\`
         break;
 
       case "tool_use":
+        if (typeof message.name === "string") {
+          this.recordObservedMcpTool(sessionId, message.name);
+        }
         this.deps.emit({
           type: "stream.toolCall",
           sessionId,

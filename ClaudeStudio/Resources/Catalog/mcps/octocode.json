@@ -1,0 +1,26 @@
+{
+  "catalogId": "octocode",
+  "name": "Octocode",
+  "description": "Semantic code research and repo-aware code intelligence across GitHub, local files, and LSP-powered navigation",
+  "category": "Search & Web",
+  "icon": "magnifyingglass.circle.fill",
+  "transport": {
+    "kind": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "octocode-mcp@latest"
+    ],
+    "envKeys": [
+      "GITHUB_TOKEN"
+    ]
+  },
+  "popularity": 767,
+  "tags": [
+    "code-search",
+    "repositories",
+    "lsp",
+    "research"
+  ],
+  "homepage": "https://github.com/bgauryy/octocode-mcp"
+}

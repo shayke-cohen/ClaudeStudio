@@ -6,7 +6,7 @@
   "icon": "eye",
   "color": "orange",
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
-  "mcpServerNames": ["GitHub"],
+  "mcpServerNames": ["Octocode"],
   "permissionSetName": "Read Only",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

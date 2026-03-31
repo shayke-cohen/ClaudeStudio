@@ -4,9 +4,7 @@
   "description": "Evaluate third-party packages for risk, licenses, and updates",
   "category": "Development",
   "icon": "shippingbox.fill",
-  "requiredMCPs": [
-    "github"
-  ],
+  "requiredMCPs": [],
   "triggers": [
     "dependencies",
     "supply chain",

@@ -1,4 +1,6 @@
 import type { SessionState, AgentConfig } from "../types.js";
+import type { SessionMCPServerState } from "../types.js";
+import { buildConfiguredMcpInventory } from "../mcp-session-state.js";
 
 export class SessionRegistry {
   private sessions = new Map<string, SessionState>();
@@ -14,6 +16,8 @@ export class SessionRegistry {
       cost: 0,
       toolCallCount: 0,
       startedAt: new Date().toISOString(),
+      effectiveMcpServers: buildConfiguredMcpInventory(config),
+      mcpInventoryUpdatedAt: new Date().toISOString(),
     };
     this.sessions.set(id, state);
     this.configs.set(id, config);
@@ -28,6 +32,10 @@ export class SessionRegistry {
     return this.configs.get(id);
   }
 
+  getMcpInventory(id: string): SessionMCPServerState[] {
+    return this.sessions.get(id)?.effectiveMcpServers ?? [];
+  }
+
   update(id: string, updates: Partial<SessionState>): void {
     const session = this.sessions.get(id);
     if (session) {
@@ -39,6 +47,14 @@ export class SessionRegistry {
     const config = this.configs.get(id);
     if (config) {
       Object.assign(config, updates);
+    }
+  }
+
+  replaceMcpInventory(id: string, effectiveMcpServers: SessionMCPServerState[]): void {
+    const session = this.sessions.get(id);
+    if (session) {
+      session.effectiveMcpServers = effectiveMcpServers;
+      session.mcpInventoryUpdatedAt = new Date().toISOString();
     }
   }
 

@@ -15,7 +15,9 @@
     "react-native",
     "mobile-ci"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Mobile Engineer",

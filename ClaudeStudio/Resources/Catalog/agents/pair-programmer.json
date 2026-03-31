@@ -14,7 +14,9 @@
     "tdd",
     "code-review"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Pair Programmer",

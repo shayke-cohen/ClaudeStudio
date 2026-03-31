@@ -17,7 +17,9 @@
     "accessibility-audit",
     "claudestudio-accessibility"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Frontend Engineer",

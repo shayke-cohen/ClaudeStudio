@@ -4,9 +4,7 @@
   "description": "Fast feedback loops for build, test, and artifact promotion",
   "category": "DevOps & CI/CD",
   "icon": "arrow.triangle.merge",
-  "requiredMCPs": [
-    "github"
-  ],
+  "requiredMCPs": [],
   "triggers": [
     "CI",
     "github actions",

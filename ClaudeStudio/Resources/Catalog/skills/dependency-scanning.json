@@ -4,9 +4,7 @@
   "description": "Automated SBOM and vulnerability management in CI",
   "category": "Security",
   "icon": "ladybug.fill",
-  "requiredMCPs": [
-    "github"
-  ],
+  "requiredMCPs": [],
   "triggers": [
     "CVE",
     "SBOM",

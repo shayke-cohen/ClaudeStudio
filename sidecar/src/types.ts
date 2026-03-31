@@ -64,6 +64,34 @@ export interface MCPServerConfig {
   url?: string;
 }
 
+export type SessionMCPAvailability =
+  | "configured"
+  | "loaded"
+  | "failed"
+  | "needs-auth"
+  | "pending"
+  | "disabled"
+  | "unavailable";
+
+export type SessionMCPSource = "configured" | "sdk" | "dynamic";
+
+export interface SessionMCPToolInfo {
+  name: string;
+  description?: string;
+}
+
+export interface SessionMCPServerState {
+  name: string;
+  namespace: string;
+  source: SessionMCPSource;
+  transport: "stdio" | "sse" | "sdk" | "dynamic";
+  configured: boolean;
+  availability: SessionMCPAvailability;
+  providerStatus?: string;
+  error?: string;
+  tools?: SessionMCPToolInfo[];
+}
+
 export interface SkillContent {
   name: string;
   content: string;
@@ -180,6 +208,8 @@ export interface SessionState {
   cost: number;
   toolCallCount: number;
   startedAt: string;
+  effectiveMcpServers: SessionMCPServerState[];
+  mcpInventoryUpdatedAt?: string;
 }
 
 // Blackboard entry

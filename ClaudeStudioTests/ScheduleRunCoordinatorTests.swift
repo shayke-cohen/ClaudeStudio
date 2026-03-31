@@ -173,10 +173,56 @@ final class ScheduleRunCoordinatorTests: XCTestCase {
             context.fetch(FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == conversationId })).first
         )
         XCTAssertEqual(conversation.sourceGroupId, group.id)
+        XCTAssertTrue(conversation.selectiveRepliesEnabled)
         XCTAssertEqual(conversation.sessions.count, 2)
         let chatMessages = conversation.messages.filter { $0.type == .chat }
         XCTAssertEqual(chatMessages.count, 3)
         XCTAssertEqual(recorder.commands.count, 4)
+    }
+
+    func testExecuteFreshGroupScheduleSuppressesNoReplySentinel() async throws {
+        let agentA = makeAgent(named: "Coder")
+        let agentB = makeAgent(named: "Reviewer")
+        let group = AgentGroup(name: "Full Stack", agentIds: [agentA.id, agentB.id])
+        context.insert(group)
+
+        let schedule = ScheduledMission(
+            name: "Morning feature sweep",
+            targetKind: .group,
+            projectDirectory: "/tmp/group-repo",
+            promptTemplate: "Review new work in {{projectDirectory}}"
+        )
+        schedule.targetGroupId = group.id
+        context.insert(schedule)
+        let run = makeRun(for: schedule)
+        try context.save()
+
+        let recorder = CommandRecorder()
+        let coordinator = ScheduleRunCoordinator(
+            appState: appState,
+            modelContext: context,
+            dependencies: makeDependencies(
+                recorder: recorder,
+                onMessage: { appState, sessionId, text in
+                    if text.contains("You are @Reviewer.") {
+                        appState.streamingText[sessionId] = GroupPromptBuilder.noReplySentinel
+                    } else {
+                        appState.streamingText[sessionId] = "Coder reply"
+                    }
+                    appState.lastSessionEvent[sessionId] = .result
+                }
+            )
+        )
+
+        await coordinator.execute(schedule: schedule, run: run)
+
+        let conversationId = try XCTUnwrap(run.conversationId)
+        let conversation = try XCTUnwrap(
+            context.fetch(FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == conversationId })).first
+        )
+        let chatMessages = conversation.messages.filter { $0.type == .chat }
+        XCTAssertEqual(chatMessages.count, 2)
+        XCTAssertEqual(chatMessages.last?.text, "Coder reply")
     }
 
     func testExecuteReuseConversationAppendsBoundaryAndPrompt() async throws {

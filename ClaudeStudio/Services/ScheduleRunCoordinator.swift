@@ -165,6 +165,8 @@ final class ScheduleRunCoordinator {
                 latestUserMessageText: prompt,
                 participants: participants,
                 highlightedMentionAgentNames: [],
+                mentionedAll: false,
+                selectiveRepliesEnabled: conversation.selectiveRepliesEnabled,
                 groupInstruction: sourceGroup?.groupInstruction,
                 role: agentRole,
                 teamMembers: teamMembers
@@ -373,6 +375,24 @@ final class ScheduleRunCoordinator {
         }
 
         let responseText = streamedText.isEmpty ? (errorMessage ?? "") : streamedText
+        let seenThroughMessage = conversation.messages
+            .filter { $0.type == .chat }
+            .sorted { lhs, rhs in
+                if lhs.timestamp != rhs.timestamp { return lhs.timestamp < rhs.timestamp }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            .last
+
+        if errorMessage == nil,
+           !hasImages,
+           !hasFileCards,
+           GroupPromptBuilder.isNoReplySentinel(responseText) {
+            GroupPromptBuilder.markSessionCaughtUp(session: session, through: seenThroughMessage)
+            appState.streamingText.removeValue(forKey: sidecarKey)
+            appState.thinkingText.removeValue(forKey: sidecarKey)
+            appState.lastSessionEvent.removeValue(forKey: sidecarKey)
+            return nil
+        }
         let participant = conversation.participants.first {
             if case .agentSession(let sessionId) = $0.type {
                 return sessionId == session.id

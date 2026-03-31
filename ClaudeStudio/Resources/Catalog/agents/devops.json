@@ -15,9 +15,7 @@
     "monitoring-setup",
     "github-workflow"
   ],
-  "extraMCPs": [
-    "github"
-  ],
+  "extraMCPs": [],
   "systemPromptTemplate": "worker",
   "systemPromptVariables": {
     "role": "DevOps Engineer",

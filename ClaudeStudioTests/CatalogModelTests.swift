@@ -8,36 +8,36 @@ final class CatalogModelTests: XCTestCase {
     func testDecodeCatalogMCP() throws {
         let json = """
         {
-            "catalogId": "github",
-            "name": "GitHub",
-            "description": "GitHub API access",
-            "category": "Developer Tools",
-            "icon": "cat.fill",
+            "catalogId": "appxray",
+            "name": "AppXray",
+            "description": "Runtime app inspection",
+            "category": "Browser & Testing",
+            "icon": "viewfinder",
             "transport": {
                 "kind": "stdio",
                 "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "envKeys": ["GITHUB_TOKEN"]
+                "args": ["-y", "@wix/appxray-mcp-server"],
+                "envKeys": ["APPXRAY_AUTO_CONNECT"]
             },
             "popularity": 50000,
-            "tags": ["git", "vcs"],
-            "homepage": "https://github.com/modelcontextprotocol/servers"
+            "tags": ["debugging", "ios"],
+            "homepage": "https://github.com/wix-private/appxray"
         }
         """.data(using: .utf8)!
 
         let mcp = try JSONDecoder().decode(CatalogMCP.self, from: json)
 
-        XCTAssertEqual(mcp.catalogId, "github")
-        XCTAssertEqual(mcp.name, "GitHub")
-        XCTAssertEqual(mcp.id, "github")
-        XCTAssertEqual(mcp.category, "Developer Tools")
+        XCTAssertEqual(mcp.catalogId, "appxray")
+        XCTAssertEqual(mcp.name, "AppXray")
+        XCTAssertEqual(mcp.id, "appxray")
+        XCTAssertEqual(mcp.category, "Browser & Testing")
         XCTAssertEqual(mcp.transport.kind, "stdio")
         XCTAssertEqual(mcp.transport.command, "npx")
-        XCTAssertEqual(mcp.transport.args, ["-y", "@modelcontextprotocol/server-github"])
-        XCTAssertEqual(mcp.transport.envKeys, ["GITHUB_TOKEN"])
+        XCTAssertEqual(mcp.transport.args, ["-y", "@wix/appxray-mcp-server"])
+        XCTAssertEqual(mcp.transport.envKeys, ["APPXRAY_AUTO_CONNECT"])
         XCTAssertEqual(mcp.popularity, 50000)
-        XCTAssertEqual(mcp.tags, ["git", "vcs"])
-        XCTAssertEqual(mcp.homepage, "https://github.com/modelcontextprotocol/servers")
+        XCTAssertEqual(mcp.tags, ["debugging", "ios"])
+        XCTAssertEqual(mcp.homepage, "https://github.com/wix-private/appxray")
     }
 
     func testDecodeCatalogMCPWithHTTPTransport() throws {
@@ -77,7 +77,7 @@ final class CatalogModelTests: XCTestCase {
             "description": "Systematic code review",
             "category": "Development",
             "icon": "eye.fill",
-            "requiredMCPs": ["github"],
+            "requiredMCPs": ["octocode"],
             "triggers": ["review", "PR"],
             "tags": ["quality", "review"]
         }
@@ -88,7 +88,7 @@ final class CatalogModelTests: XCTestCase {
         XCTAssertEqual(skill.catalogId, "code-review")
         XCTAssertEqual(skill.name, "Code Review")
         XCTAssertEqual(skill.id, "code-review")
-        XCTAssertEqual(skill.requiredMCPs, ["github"])
+        XCTAssertEqual(skill.requiredMCPs, ["octocode"])
         XCTAssertEqual(skill.triggers, ["review", "PR"])
         XCTAssertEqual(skill.content, "", "Content defaults to empty when not in JSON")
     }
@@ -158,7 +158,7 @@ final class CatalogModelTests: XCTestCase {
             "color": "blue",
             "model": "sonnet",
             "requiredSkills": [],
-            "extraMCPs": ["github"],
+            "extraMCPs": ["octocode"],
             "systemPromptTemplate": "specialist",
             "systemPromptVariables": {},
             "tags": ["coding"]

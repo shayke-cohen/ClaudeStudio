@@ -29,6 +29,11 @@ export interface CodexDynamicToolSpec {
   deferLoading?: boolean;
 }
 
+interface CodexDynamicToolContentItem {
+  type: "inputText";
+  text: string;
+}
+
 export function defineSharedTool<TArgs = any>(
   name: string,
   description: string,
@@ -68,11 +73,14 @@ export function toCodexDynamicToolSpec(definition: SharedToolDefinition): CodexD
 }
 
 export function toCodexDynamicToolResponse(result: SharedToolResult): {
-  contentItems: SharedToolContentItem[];
+  contentItems: CodexDynamicToolContentItem[];
   success: boolean;
 } {
   return {
-    contentItems: result.content,
+    contentItems: result.content.map((item) => ({
+      type: "inputText",
+      text: item.text,
+    })),
     success: result.success ?? true,
   };
 }

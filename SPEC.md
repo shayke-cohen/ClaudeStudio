@@ -79,6 +79,7 @@ Users create and manage reusable agent templates.
 **Status:** Implemented
 
 All sessions use the Claude Agent SDK. Every session gets PeerBus tools injected automatically.
+Configured skills are carried structurally in `AgentConfig.skills[]` and compiled once into provider instructions inside the sidecar runtimes. `systemPrompt` is reserved for the base agent prompt plus mission, while `mcpServers[]` is the effective executable tool set after merging agent-level MCPs with MCP dependencies declared by enabled skills.
 
 | Requirement | Status |
 |---|---|

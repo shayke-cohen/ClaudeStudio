@@ -16,7 +16,7 @@
     "github-workflow"
   ],
   "extraMCPs": [
-    "github"
+    "octocode"
   ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

@@ -1754,6 +1754,7 @@ struct SidebarView: View {
             projectId: convo.projectId,
             threadKind: convo.threadKind
         )
+        newConvo.selectiveRepliesEnabled = convo.selectiveRepliesEnabled
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
         newConvo.participants.append(userParticipant)

@@ -6,7 +6,7 @@
   "icon": "gearshape.2",
   "color": "gray",
   "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
-  "mcpServerNames": ["GitHub"],
+  "mcpServerNames": [],
   "permissionSetName": "Git Only",
   "systemPromptTemplate": "worker",
   "systemPromptVariables": {

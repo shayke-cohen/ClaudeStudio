@@ -48,6 +48,15 @@ enum LibraryDiscoverSection: String, CaseIterable, Identifiable {
     }
 }
 
+enum WindowInspectorTab: String, CaseIterable, Identifiable {
+    case info = "Info"
+    case files = "Files"
+    case blackboard = "Blackboard"
+    case group = "Group"
+
+    var id: String { rawValue }
+}
+
 enum ProjectRecords {
     static func canonicalPath(for path: String) -> String {
         URL(fileURLWithPath: path)
@@ -98,6 +107,7 @@ final class WindowState {
     weak var appState: AppState?
 
     private(set) var selectedProjectId: UUID?
+    private var chatScrollAnchorIds: [UUID: UUID] = [:]
 
     private var currentProjectDirectory: String
     private var currentProjectDisplayName: String
@@ -116,6 +126,9 @@ final class WindowState {
     var selectedGroupId: UUID? {
         didSet { if selectedGroupId != nil { selectedConversationId = nil } }
     }
+
+    var inspectorVisible = true
+    var selectedInspectorTab: WindowInspectorTab = .info
 
     var showNewSessionSheet = false
     var showNewGroupThreadSheet = false
@@ -194,11 +207,31 @@ final class WindowState {
         showLibraryHub = true
     }
 
+    func openInspector(tab: WindowInspectorTab? = nil) {
+        if let tab {
+            selectedInspectorTab = tab
+        }
+        inspectorVisible = true
+    }
+
+    func chatScrollAnchor(for conversationId: UUID) -> UUID? {
+        chatScrollAnchorIds[conversationId]
+    }
+
+    func setChatScrollAnchor(_ messageId: UUID?, for conversationId: UUID) {
+        if let messageId {
+            chatScrollAnchorIds[conversationId] = messageId
+        } else {
+            chatScrollAnchorIds.removeValue(forKey: conversationId)
+        }
+    }
+
     func clearProjectSelection() {
         selectedProjectId = nil
         currentProjectDirectory = ""
         currentProjectDisplayName = "No Project"
         selectedConversationId = nil
         selectedGroupId = nil
+        selectedInspectorTab = .info
     }
 }

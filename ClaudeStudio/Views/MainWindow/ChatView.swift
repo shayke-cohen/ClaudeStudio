@@ -142,6 +142,20 @@ private struct ChatScrollOffsetPreferenceKey: PreferenceKey {
     }
 }
 
+private struct ChatVisibleMessageFrame: Equatable {
+    let id: UUID
+    let minY: CGFloat
+    let maxY: CGFloat
+}
+
+private struct ChatVisibleMessageFramesPreferenceKey: PreferenceKey {
+    static let defaultValue: [ChatVisibleMessageFrame] = []
+
+    static func reduce(value: inout [ChatVisibleMessageFrame], nextValue: () -> [ChatVisibleMessageFrame]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
 // MARK: - Quick Actions Row (Hybrid Layout)
 
 /// Shows quick action buttons in a single row. Left-side buttons show icon+text labels;
@@ -262,7 +276,10 @@ struct ChatView: View {
     @State private var shareCoordinator: ShareTempFileCoordinator?
     @State private var showAllDoneBanner = false
     @State private var allDoneBannerTimer: Task<Void, Never>?
+    @State private var isNearBottom = true
     @State private var shouldAutoScroll = true
+    @State private var didPerformInitialScrollRestore = false
+    @State private var isRestoringScrollPosition = true
     private var planModeEnabled: Bool {
         conversation?.planModeEnabled ?? false
     }
@@ -464,6 +481,10 @@ struct ChatView: View {
 
     private var canExportChat: Bool {
         !sortedMessages.isEmpty || streamingAppendix != nil
+    }
+
+    private var shouldShowJumpToLatest: Bool {
+        !isNearBottom && (!displayMessages.isEmpty || isProcessing)
     }
 
     private func chatExportSnapshot() -> ChatTranscriptSnapshot? {
@@ -704,6 +725,30 @@ struct ChatView: View {
                     .fixedSize()
                     .xrayId("chat.peerChannelFilter")
                 }
+
+                Button {
+                    windowState.openInspector(tab: .blackboard)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: windowState.inspectorVisible && windowState.selectedInspectorTab == .blackboard
+                            ? "square.grid.2x2.fill"
+                            : "square.grid.2x2")
+                        Text("Board")
+                    }
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(windowState.inspectorVisible && windowState.selectedInspectorTab == .blackboard
+                        ? AnyShapeStyle(.teal.opacity(0.15))
+                        : AnyShapeStyle(.quaternary))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Open blackboard")
+                .xrayId("chat.openBlackboardButton")
+                .accessibilityIdentifier("chat.openBlackboardButton")
+                .accessibilityLabel("Open blackboard")
 
                 if let model = currentModel {
                     Text(modelShortName(model))
@@ -999,129 +1044,176 @@ struct ChatView: View {
     @ViewBuilder
     private var messageList: some View {
         ScrollViewReader { proxy in
-            GeometryReader { scrollGeometry in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        if !hasUserChatMessages && !isProcessing {
-                            chatEmptyState
-                        }
+            ZStack(alignment: .bottomTrailing) {
+                GeometryReader { scrollGeometry in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            if !hasUserChatMessages && !isProcessing {
+                                chatEmptyState
+                            }
 
-                        ForEach(displayMessages) { message in
-                            MessageBubble(
-                                message: message,
-                                participants: conversation?.participants ?? [],
-                                agentAppearances: participantAppearanceMap,
-                                onTapAttachment: { attachment in
-                                    previewAttachment = attachment
-                                },
-                                onForkFromHere: {
-                                    forkFromMessage(message)
-                                },
-                                onScheduleFromMessage: {
-                                    scheduleDraft = makeScheduleDraft(from: message)
-                                    showingScheduleEditor = true
+                            ForEach(displayMessages) { message in
+                                MessageBubble(
+                                    message: message,
+                                    participants: conversation?.participants ?? [],
+                                    agentAppearances: participantAppearanceMap,
+                                    onTapAttachment: { attachment in
+                                        previewAttachment = attachment
+                                    },
+                                    onForkFromHere: {
+                                        forkFromMessage(message)
+                                    },
+                                    onScheduleFromMessage: {
+                                        scheduleDraft = makeScheduleDraft(from: message)
+                                        showingScheduleEditor = true
+                                    }
+                                )
+                                .id(message.id)
+                                .background(
+                                    GeometryReader { messageGeometry in
+                                        let frame = messageGeometry.frame(in: .named("chat.messageScrollView"))
+                                        Color.clear.preference(
+                                            key: ChatVisibleMessageFramesPreferenceKey.self,
+                                            value: [ChatVisibleMessageFrame(
+                                                id: message.id,
+                                                minY: frame.minY,
+                                                maxY: frame.maxY
+                                            )]
+                                        )
+                                    }
+                                )
+
+                                if message.id == lastPlanResponseMessageId, !isProcessing {
+                                    planActionBar
                                 }
-                            )
-                            .id(message.id)
-
-                            if message.id == lastPlanResponseMessageId, !isProcessing {
-                                planActionBar
                             }
-                        }
 
-                        if let convo = conversation, convo.sessions.count > 1 {
-                            AgentActivityBar(
-                                sessions: convo.sessions,
-                                sessionActivity: appState.sessionActivity
-                            )
-                            .id("agentActivityBar")
-                        }
-
-                        if isProcessing {
-                            streamingBubble
-                                .id("streaming")
-                        }
-
-                        ForEach(pendingQuestionsForCurrentConversation) { question in
-                            AgentQuestionBubble(
-                                question: question,
-                                agentName: agentNameForQuestion(question),
-                                agentColor: agentColorForQuestion(question)
-                            ) { answer, selectedOptions in
-                                appState.answerQuestion(
-                                    sessionId: question.sessionId,
-                                    questionId: question.id,
-                                    answer: answer,
-                                    selectedOptions: selectedOptions
+                            if let convo = conversation, convo.sessions.count > 1 {
+                                AgentActivityBar(
+                                    sessions: convo.sessions,
+                                    sessionActivity: appState.sessionActivity
                                 )
+                                .id("agentActivityBar")
                             }
-                            .id("agentQuestion-\(question.id)")
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
 
-                        ForEach(pendingConfirmationsForCurrentConversation) { confirmation in
-                            AgentConfirmationBubble(
-                                confirmation: confirmation,
-                                agentName: agentNameForConfirmation(confirmation),
-                                agentColor: agentColorForConfirmation(confirmation)
-                            ) { approved in
-                                appState.answerConfirmation(
-                                    sessionId: confirmation.sessionId,
-                                    confirmationId: confirmation.id,
-                                    approved: approved
-                                )
+                            if isProcessing {
+                                streamingBubble
+                                    .id("streaming")
                             }
-                            .id("agentConfirmation-\(confirmation.id)")
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
 
-                        if showAllDoneBanner {
-                            SessionSummaryCard(
-                                sessions: sessionsForSummary,
-                                toolCalls: toolCallsForSummary,
-                                duration: summaryDuration
-                            )
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .id("allDoneBanner")
-                        }
-
-                        Color.clear
-                            .frame(height: 1)
-                            .id(bottomScrollAnchor)
-                            .background(
-                                GeometryReader { marker in
-                                    Color.clear.preference(
-                                        key: ChatScrollOffsetPreferenceKey.self,
-                                        value: marker.frame(in: .named("chat.messageScrollView")).maxY - scrollGeometry.size.height
+                            ForEach(pendingQuestionsForCurrentConversation) { question in
+                                AgentQuestionBubble(
+                                    question: question,
+                                    agentName: agentNameForQuestion(question),
+                                    agentColor: agentColorForQuestion(question)
+                                ) { answer, selectedOptions in
+                                    appState.answerQuestion(
+                                        sessionId: question.sessionId,
+                                        questionId: question.id,
+                                        answer: answer,
+                                        selectedOptions: selectedOptions
                                     )
                                 }
-                            )
+                                .id("agentQuestion-\(question.id)")
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            }
+
+                            ForEach(pendingConfirmationsForCurrentConversation) { confirmation in
+                                AgentConfirmationBubble(
+                                    confirmation: confirmation,
+                                    agentName: agentNameForConfirmation(confirmation),
+                                    agentColor: agentColorForConfirmation(confirmation)
+                                ) { approved in
+                                    appState.answerConfirmation(
+                                        sessionId: confirmation.sessionId,
+                                        confirmationId: confirmation.id,
+                                        approved: approved
+                                    )
+                                }
+                                .id("agentConfirmation-\(confirmation.id)")
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            }
+
+                            if showAllDoneBanner {
+                                SessionSummaryCard(
+                                    sessions: sessionsForSummary,
+                                    toolCalls: toolCallsForSummary,
+                                    duration: summaryDuration
+                                )
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                                .id("allDoneBanner")
+                            }
+
+                            Color.clear
+                                .frame(height: 1)
+                                .id(bottomScrollAnchor)
+                                .background(
+                                    GeometryReader { marker in
+                                        Color.clear.preference(
+                                            key: ChatScrollOffsetPreferenceKey.self,
+                                            value: marker.frame(in: .named("chat.messageScrollView")).maxY - scrollGeometry.size.height
+                                        )
+                                    }
+                                )
+                        }
+                        .padding()
                     }
-                    .padding()
-                }
-                .coordinateSpace(name: "chat.messageScrollView")
-                .xrayId("chat.messageScrollView")
-                .onPreferenceChange(ChatScrollOffsetPreferenceKey.self) { distanceFromBottom in
-                    let isNearBottom = distanceFromBottom <= autoScrollThreshold
-                    if isNearBottom {
-                        shouldAutoScroll = true
-                    } else if isProcessing {
-                        shouldAutoScroll = false
+                    .coordinateSpace(name: "chat.messageScrollView")
+                    .xrayId("chat.messageScrollView")
+                    .onAppear {
+                        performInitialScrollRestoreIfNeeded(proxy)
                     }
-                }
-                .onChange(of: sortedMessages.count) { _, _ in
-                    guard shouldAutoScroll || !isProcessing else { return }
-                    scrollToBottom(proxy, animated: true)
-                }
-                .onChange(of: streamingContentVersion) { _, _ in
-                    guard isProcessing, shouldAutoScroll else { return }
-                    scrollToBottom(proxy, animated: false)
-                }
-                .onChange(of: isProcessing) { _, processing in
-                    if processing {
-                        shouldAutoScroll = true
+                    .onPreferenceChange(ChatScrollOffsetPreferenceKey.self) { distanceFromBottom in
+                        let nearBottom = distanceFromBottom <= autoScrollThreshold
+                        isNearBottom = nearBottom
+                        guard !isRestoringScrollPosition else { return }
+                        shouldAutoScroll = nearBottom
+                        if nearBottom {
+                            windowState.setChatScrollAnchor(nil, for: conversationId)
+                        }
+                    }
+                    .onPreferenceChange(ChatVisibleMessageFramesPreferenceKey.self) { frames in
+                        updateStoredScrollAnchor(from: frames, viewportHeight: scrollGeometry.size.height)
+                    }
+                    .onChange(of: sortedMessages.count) { _, _ in
+                        guard shouldAutoScroll else { return }
+                        scrollToBottom(proxy, animated: true)
+                    }
+                    .onChange(of: streamingContentVersion) { _, _ in
+                        guard isProcessing, shouldAutoScroll else { return }
                         scrollToBottom(proxy, animated: false)
                     }
+                    .onChange(of: isProcessing) { _, processing in
+                        if processing {
+                            shouldAutoScroll = true
+                            windowState.setChatScrollAnchor(nil, for: conversationId)
+                            scrollToBottom(proxy, animated: false)
+                        }
+                    }
+                }
+
+                if shouldShowJumpToLatest {
+                    Button {
+                        jumpToLatest(proxy)
+                    } label: {
+                        Label("Latest", systemImage: "arrow.down.circle.fill")
+                            .font(captionFont.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(.quaternary, lineWidth: 0.8)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 16)
+                    .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+                    .xrayId("chat.jumpToLatestButton")
+                    .accessibilityIdentifier("chat.jumpToLatestButton")
+                    .accessibilityLabel("Jump to latest message")
+                    .help("Jump to latest message")
                 }
             }
         }
@@ -1906,6 +1998,65 @@ struct ChatView: View {
                 scrollAction()
             }
         }
+    }
+
+    private func performInitialScrollRestoreIfNeeded(_ proxy: ScrollViewProxy) {
+        guard !didPerformInitialScrollRestore else { return }
+        didPerformInitialScrollRestore = true
+        isRestoringScrollPosition = true
+
+        let savedAnchorId = windowState.chatScrollAnchor(for: conversationId)
+        let restoredAnchorId = savedAnchorId.flatMap { anchorId in
+            displayMessages.contains(where: { $0.id == anchorId }) ? anchorId : nil
+        }
+
+        if savedAnchorId != nil, restoredAnchorId == nil {
+            windowState.setChatScrollAnchor(nil, for: conversationId)
+        }
+
+        shouldAutoScroll = restoredAnchorId == nil
+
+        Task { @MainActor in
+            await Task.yield()
+            if let restoredAnchorId {
+                var transaction = Transaction()
+                transaction.animation = nil
+                withTransaction(transaction) {
+                    proxy.scrollTo(restoredAnchorId, anchor: .top)
+                }
+            } else {
+                scrollToBottom(proxy, animated: false)
+            }
+            await Task.yield()
+            isRestoringScrollPosition = false
+        }
+    }
+
+    private func updateStoredScrollAnchor(from frames: [ChatVisibleMessageFrame], viewportHeight: CGFloat) {
+        guard !isRestoringScrollPosition else { return }
+        guard !isNearBottom else {
+            windowState.setChatScrollAnchor(nil, for: conversationId)
+            return
+        }
+
+        let visibleFrames = frames
+            .filter { $0.maxY > 0 && $0.minY < viewportHeight }
+            .sorted { lhs, rhs in
+                if lhs.minY == rhs.minY {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                return lhs.minY < rhs.minY
+            }
+
+        guard let topVisibleMessageId = visibleFrames.first?.id else { return }
+        windowState.setChatScrollAnchor(topVisibleMessageId, for: conversationId)
+    }
+
+    private func jumpToLatest(_ proxy: ScrollViewProxy) {
+        shouldAutoScroll = true
+        isNearBottom = true
+        windowState.setChatScrollAnchor(nil, for: conversationId)
+        scrollToBottom(proxy, animated: true)
     }
 
     private var participantSummary: String {

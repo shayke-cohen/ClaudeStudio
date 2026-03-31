@@ -549,6 +549,9 @@ struct NewSessionSheet: View {
             projectId: windowState.selectedProjectId,
             threadKind: selectedList.count > 1 ? .group : .direct
         )
+        if selectedList.count > 1 {
+            conversation.selectiveRepliesEnabled = true
+        }
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
         conversation.participants.append(userParticipant)

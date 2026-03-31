@@ -184,6 +184,7 @@ export function makeAgentConfig(overrides: Partial<{
   mcpServers: any[];
   skills: any[];
   workingDirectory: string;
+  interactive: boolean;
   instancePolicy: string;
   instancePolicyPoolMax: number;
 }> = {}): any {
@@ -197,6 +198,7 @@ export function makeAgentConfig(overrides: Partial<{
     maxTurns: overrides.maxTurns ?? 3,
     workingDirectory: overrides.workingDirectory ?? "/tmp",
     skills: overrides.skills ?? [],
+    ...(overrides.interactive != null ? { interactive: overrides.interactive } : {}),
     ...(overrides.maxBudget != null ? { maxBudget: overrides.maxBudget } : {}),
     ...(overrides.instancePolicy != null ? { instancePolicy: overrides.instancePolicy } : {}),
     ...(overrides.instancePolicyPoolMax != null ? { instancePolicyPoolMax: overrides.instancePolicyPoolMax } : {}),

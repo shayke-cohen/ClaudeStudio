@@ -604,6 +604,47 @@ enum ConfigFileManager {
         }
     }
 
+    /// Ensure any new bundled MCP configs that aren't yet in the config directory get copied.
+    /// Called on every launch before performFullSync to handle incremental additions.
+    static func ensureBundleMCPsPresent() {
+        guard let data = loadBundleResource(name: "DefaultMCPs", ext: "json"),
+              let mcps = try? JSONDecoder().decode([MCPConfigDTO].self, from: data) else { return }
+
+        let fm = FileManager.default
+
+        for mcp in mcps {
+            let slug = slugify(mcp.name)
+            let targetFile = configDirectory.appendingPathComponent("mcps/\(slug).json")
+            guard !fm.fileExists(atPath: targetFile.path) else { continue }
+
+            do {
+                var dto = mcp
+                dto.enabled = true
+                try writeJSON(dto, subdirectory: "mcps", slug: slug)
+                Log.configSync.info("Copied missing bundle MCP: \(mcp.name, privacy: .public)")
+            } catch {
+                Log.configSync.error("Failed to copy bundle MCP \(mcp.name, privacy: .public): \(error)")
+            }
+        }
+    }
+
+    /// Remove retired bundled MCP configs so stale defaults do not survive forever on existing installs.
+    static func removeRetiredBundleMCPs(slugs: [String]) {
+        let fm = FileManager.default
+
+        for slug in slugs {
+            let targetFile = configDirectory.appendingPathComponent("mcps/\(slug).json")
+            guard fm.fileExists(atPath: targetFile.path) else { continue }
+
+            do {
+                try fm.removeItem(at: targetFile)
+                Log.configSync.info("Removed retired bundle MCP config: \(slug, privacy: .public)")
+            } catch {
+                Log.configSync.error("Failed to remove retired bundle MCP config \(slug, privacy: .public): \(error)")
+            }
+        }
+    }
+
     private static func copyBundleTemplates() throws {
         let templateNames = ["specialist", "worker", "coordinator"]
         let targetDir = configDirectory.appendingPathComponent("templates")

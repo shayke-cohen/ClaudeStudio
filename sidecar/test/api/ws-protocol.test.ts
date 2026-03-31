@@ -207,12 +207,18 @@ describe("WebSocket Command Dispatch", () => {
             name: "WsTestCoder",
             config: {
               name: "WsTestCoder",
-              systemPrompt: "code things",
+              systemPrompt: "base prompt only",
               allowedTools: [],
-              mcpServers: [],
+              mcpServers: [
+                { name: "Octocode", command: "npx", args: ["-y", "octocode-mcp"] },
+                { name: "AppXray", command: "npx", args: ["-y", "@wix/appxray-mcp-server"] },
+              ],
               model: "claude-sonnet-4-6",
               workingDirectory: "/tmp",
-              skills: [],
+              skills: [
+                { name: "Plan", content: "Plan before editing." },
+                { name: "Verify", content: "Verify after editing." },
+              ],
             },
             instancePolicy: "spawn",
           },
@@ -221,7 +227,11 @@ describe("WebSocket Command Dispatch", () => {
 
       await new Promise((r) => setTimeout(r, 200));
       expect(ctx.agentDefinitions.has("WsTestCoder")).toBe(true);
-      expect(ctx.agentDefinitions.get("WsTestCoder")!.name).toBe("WsTestCoder");
+      const config = ctx.agentDefinitions.get("WsTestCoder")!;
+      expect(config.name).toBe("WsTestCoder");
+      expect(config.systemPrompt).toBe("base prompt only");
+      expect(config.skills.map((skill) => skill.name)).toEqual(["Plan", "Verify"]);
+      expect(config.mcpServers.map((mcp) => mcp.name)).toEqual(["Octocode", "AppXray"]);
     } finally {
       ws.close();
     }

@@ -2,12 +2,12 @@ import SwiftUI
 import SwiftData
 import AppKit
 
-enum InspectorTab: String, CaseIterable, Identifiable {
-    case info = "Info"
-    case files = "Files"
-    case group = "Group"
-
-    var id: String { rawValue }
+private struct WorkspaceGitState {
+    var isGitRepo = false
+    var currentBranch: String?
+    var changeCount = 0
+    var localBranches: [GitBranchRef] = []
+    var remoteBranches: [GitBranchRef] = []
 }
 
 struct InspectorView: View {
@@ -19,11 +19,15 @@ struct InspectorView: View {
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
     @State private var now = Date()
-    @State private var inspectorTab: InspectorTab = .info
     @State private var editingGroup: AgentGroup?
     @State private var instructionExpanded = false
     @State private var parentConversationTitle: String?
     @State private var groupRecentConversations: [Conversation] = []
+    @State private var workspaceGitState = WorkspaceGitState()
+    @State private var workspaceGitError: String?
+    @State private var isWorkspaceGitLoading = false
+    @State private var isFetchingBranches = false
+    @State private var switchingBranchName: String?
     // editingWorkingDirectory removed — project dir is per-window
     // workingDirectoryDraft removed — project dir is per-window, not editable per-session
 
@@ -36,8 +40,8 @@ struct InspectorView: View {
 
     private var isGroupConversation: Bool { sourceGroup != nil }
 
-    private var availableTabs: [InspectorTab] {
-        var tabs: [InspectorTab] = [.info]
+    private var availableTabs: [WindowInspectorTab] {
+        var tabs: [WindowInspectorTab] = [.info, .blackboard]
         if hasWorkingDirectory { tabs.append(.files) }
         if isGroupConversation { tabs.append(.group) }
         return tabs
@@ -60,6 +64,24 @@ struct InspectorView: View {
         orderedSessions.first
     }
 
+    private var relevantBlackboardKeys: Set<String> {
+        Set(conversation.messages.compactMap { message in
+            guard message.type == .blackboardUpdate else { return nil }
+            return message.toolName
+        })
+    }
+
+    private var relevantBlackboardWriters: Set<String> {
+        let persistedWriters: [String] = conversation.messages.compactMap { message -> String? in
+            guard message.type == .blackboardUpdate else { return nil }
+            return message.toolInput?.lowercased()
+        }
+        let sessionWriters: [String] = orderedSessions.compactMap { session -> String? in
+            session.agent?.name.lowercased()
+        }
+        return Set(persistedWriters + sessionWriters)
+    }
+
     private func liveInfo(for session: Session) -> AppState.SessionInfo? {
         appState.activeSessions[session.id]
     }
@@ -68,10 +90,29 @@ struct InspectorView: View {
         !windowState.projectDirectory.isEmpty
     }
 
+    private var workspaceDirectoryPath: String {
+        conversation.worktreePath ?? windowState.projectDirectory
+    }
+
+    private var fileExplorerDirectoryPath: String {
+        if let worktreePath = conversation.worktreePath,
+           WorktreeManager.isUsableWorktree(at: worktreePath) {
+            return worktreePath
+        }
+        return windowState.projectDirectory
+    }
+
+    private var workspaceDirectoryURL: URL? {
+        let trimmed = workspaceDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(fileURLWithPath: trimmed)
+    }
+
     var body: some View {
+        @Bindable var windowState = windowState
         VStack(spacing: 0) {
             if availableTabs.count > 1 {
-                Picker("Inspector Tab", selection: $inspectorTab) {
+                Picker("Inspector Tab", selection: $windowState.selectedInspectorTab) {
                     ForEach(availableTabs) { tab in
                         Text(tab.rawValue).tag(tab)
                     }
@@ -82,15 +123,21 @@ struct InspectorView: View {
                 .xrayId("inspector.tabPicker")
             }
 
-            switch inspectorTab {
+            switch windowState.selectedInspectorTab {
             case .info:
                 infoContent
+            case .blackboard:
+                BlackboardInspectorPanel(
+                    conversation: conversation,
+                    relevantKeys: relevantBlackboardKeys,
+                    relevantWriters: relevantBlackboardWriters
+                )
             case .files:
                 FileExplorerView(
-                    workingDirectory: conversation.worktreePath ?? windowState.projectDirectory,
-                    displayPath: windowState.projectDirectory,
+                    workingDirectory: fileExplorerDirectoryPath,
                     refreshTrigger: appState.fileTreeRefreshTrigger
                 )
+                .id(fileExplorerDirectoryPath)
             case .group:
                 if let group = sourceGroup {
                     groupContent(group)
@@ -104,19 +151,14 @@ struct InspectorView: View {
             now = Date()
         }
         .onChange(of: isGroupConversation) {
-            if isGroupConversation {
-                inspectorTab = .group
-            } else if !availableTabs.contains(inspectorTab) {
-                inspectorTab = .info
-            }
+            normalizeSelectedTab()
         }
         .onAppear {
-            if isGroupConversation {
-                inspectorTab = .group
-            }
+            normalizeSelectedTab()
             refreshDerivedInspectorState()
         }
         .onChange(of: conversation.id) { _, _ in
+            normalizeSelectedTab()
             refreshDerivedInspectorState()
         }
         .onChange(of: conversation.parentConversationId) { _, _ in
@@ -124,6 +166,19 @@ struct InspectorView: View {
         }
         .onChange(of: conversation.sourceGroupId) { _, _ in
             refreshDerivedInspectorState()
+        }
+        .onChange(of: conversation.worktreePath) { _, _ in
+            Task { await refreshWorkspaceGitInfo() }
+        }
+        .onChange(of: windowState.projectDirectory) { _, _ in
+            Task { await refreshWorkspaceGitInfo() }
+        }
+        .onChange(of: appState.fileTreeRefreshTrigger) { _, _ in
+            Task { await refreshWorkspaceGitInfo() }
+        }
+        .task(id: workspaceDirectoryPath) {
+            await repairInvalidWorktreeIfNeeded()
+            await refreshWorkspaceGitInfo()
         }
         .sheet(item: $editingGroup) { g in
             GroupEditorView(group: g)
@@ -303,37 +358,126 @@ struct InspectorView: View {
                 .font(.headline)
                 .xrayId("inspector.workspaceHeading")
 
-            InfoRow(label: "Directory", value: abbreviatePath(windowState.projectDirectory))
+            InfoRow(label: "Directory", value: abbreviatePath(workspaceDirectoryPath))
 
-            if let branch = conversation.worktreeBranch {
-                InfoRow(label: "Branch", value: branch)
+            if workspaceGitState.isGitRepo {
+                InfoRow(label: "Branch", value: workspaceGitState.currentBranch ?? "Unknown")
+                InfoRow(label: "Repo State", value: repoStateLabel)
+            } else {
+                InfoRow(label: "Git", value: "Not a repository")
+            }
+
+            if let message = workspaceGitError, !message.isEmpty {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .xrayId("inspector.workspaceError")
             }
 
             HStack(spacing: 8) {
+                workspaceBranchMenu
+
                 Button {
-                    revealInFinder(windowState.projectDirectory)
+                    Task { await fetchBranches() }
+                } label: {
+                    if isFetchingBranches {
+                        Label("Fetching…", systemImage: "arrow.trianglehead.2.clockwise")
+                            .font(.caption)
+                    } else {
+                        Label("Fetch", systemImage: "arrow.trianglehead.2.clockwise")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!workspaceGitState.isGitRepo || isFetchingBranches || switchingBranchName != nil)
+                .help("Fetch latest branches from origin")
+                .xrayId("inspector.fetchBranchesButton")
+
+                Button {
+                    revealInFinder(workspaceDirectoryPath)
                 } label: {
                     Label("Finder", systemImage: "arrow.up.right.square")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Reveal project in Finder")
+                .help("Reveal workspace in Finder")
                 .accessibilityLabel("Reveal in Finder")
                 .xrayId("inspector.openFinderButton")
 
                 Button {
-                    openInTerminal(windowState.projectDirectory)
+                    openInTerminal(workspaceDirectoryPath)
                 } label: {
                     Label("Terminal", systemImage: "terminal")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Open project in Terminal")
+                .help("Open workspace in Terminal")
                 .xrayId("inspector.openTerminalButton")
             }
         }
+    }
+
+    @ViewBuilder
+    private var workspaceBranchMenu: some View {
+        Menu {
+            if isWorkspaceGitLoading {
+                Text("Loading branches…")
+            } else if !workspaceGitState.isGitRepo {
+                Text("No git repository found")
+            } else {
+                if !workspaceGitState.localBranches.isEmpty {
+                    Section("Local") {
+                        ForEach(workspaceGitState.localBranches) { branch in
+                            branchMenuButton(branch: branch)
+                        }
+                    }
+                }
+
+                let remoteOnlyBranches = workspaceGitState.remoteBranches.filter { remote in
+                    !workspaceGitState.localBranches.contains(where: { $0.name == remote.name })
+                }
+                if !remoteOnlyBranches.isEmpty {
+                    Section("Origin") {
+                        ForEach(remoteOnlyBranches) { branch in
+                            branchMenuButton(branch: branch)
+                        }
+                    }
+                }
+            }
+        } label: {
+            if switchingBranchName != nil {
+                Label("Switching…", systemImage: "arrow.triangle.swap")
+                    .font(.caption)
+            } else {
+                Label("Switch Branch", systemImage: "arrow.triangle.swap")
+                    .font(.caption)
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .disabled(!workspaceGitState.isGitRepo || isWorkspaceGitLoading || switchingBranchName != nil)
+        .help("Switch the current workspace to a different branch")
+        .xrayId("inspector.switchBranchMenu")
+    }
+
+    @ViewBuilder
+    private func branchMenuButton(branch: GitBranchRef) -> some View {
+        let isCurrent = branch.name == workspaceGitState.currentBranch
+        Button {
+            Task { await switchToBranch(branch.name) }
+        } label: {
+            if isCurrent {
+                Label(branch.name, systemImage: "checkmark")
+            } else if branch.isRemote {
+                Label(branch.name, systemImage: "icloud")
+            } else {
+                Text(branch.name)
+            }
+        }
+        .disabled(isCurrent || switchingBranchName != nil || isFetchingBranches)
     }
 
     // MARK: - Agent Section
@@ -693,6 +837,82 @@ struct InspectorView: View {
         groupRecentConversations = loadRecentGroupConversations()
     }
 
+    @MainActor
+    private func refreshWorkspaceGitInfo() async {
+        guard let directoryURL = workspaceDirectoryURL else {
+            workspaceGitState = WorkspaceGitState()
+            workspaceGitError = nil
+            return
+        }
+
+        isWorkspaceGitLoading = true
+        let updatedState = await Task.detached(priority: .userInitiated) {
+            var state = WorkspaceGitState()
+            state.isGitRepo = GitService.isGitRepo(at: directoryURL)
+            guard state.isGitRepo else { return state }
+
+            state.currentBranch = GitService.currentBranch(in: directoryURL)
+            state.changeCount = GitService.status(in: directoryURL).count
+            state.localBranches = GitService.localBranches(in: directoryURL)
+            state.remoteBranches = GitService.remoteBranches(in: directoryURL)
+            return state
+        }.value
+
+        workspaceGitState = updatedState
+        isWorkspaceGitLoading = false
+
+        if conversation.worktreePath != nil, conversation.worktreeBranch != updatedState.currentBranch {
+            conversation.worktreeBranch = updatedState.currentBranch
+            try? modelContext.save()
+        }
+    }
+
+    @MainActor
+    private func repairInvalidWorktreeIfNeeded() async {
+        guard let worktreePath = conversation.worktreePath,
+              !WorktreeManager.isUsableWorktree(at: worktreePath) else {
+            return
+        }
+
+        _ = await WorktreeManager.ensureWorktree(
+            for: conversation,
+            projectDirectory: windowState.projectDirectory,
+            modelContext: modelContext
+        )
+        appState.fileTreeRefreshTrigger += 1
+    }
+
+    @MainActor
+    private func fetchBranches() async {
+        guard let directoryURL = workspaceDirectoryURL else { return }
+        workspaceGitError = nil
+        isFetchingBranches = true
+        defer { isFetchingBranches = false }
+
+        do {
+            try await GitService.fetch(in: directoryURL)
+            await refreshWorkspaceGitInfo()
+        } catch {
+            workspaceGitError = gitErrorMessage(error)
+        }
+    }
+
+    @MainActor
+    private func switchToBranch(_ branch: String) async {
+        guard let directoryURL = workspaceDirectoryURL else { return }
+        workspaceGitError = nil
+        switchingBranchName = branch
+        defer { switchingBranchName = nil }
+
+        do {
+            try await GitService.switchBranch(named: branch, in: directoryURL)
+            appState.fileTreeRefreshTrigger += 1
+            await refreshWorkspaceGitInfo()
+        } catch {
+            workspaceGitError = gitErrorMessage(error)
+        }
+    }
+
     private func loadParentConversationTitle() -> String? {
         guard let parentId = conversation.parentConversationId else { return nil }
         let descriptor = FetchDescriptor<Conversation>(
@@ -752,12 +972,30 @@ struct InspectorView: View {
         return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
+    private var repoStateLabel: String {
+        switch workspaceGitState.changeCount {
+        case 0:
+            return "Clean"
+        case 1:
+            return "Dirty (1 change)"
+        default:
+            return "Dirty (\(workspaceGitState.changeCount) changes)"
+        }
+    }
+
     private func abbreviatePath(_ path: String) -> String {
         let home = NSHomeDirectory()
         if path.hasPrefix(home) {
             return "~" + path.dropFirst(home.count)
         }
         return path
+    }
+
+    private func gitErrorMessage(_ error: Error) -> String {
+        if let localized = (error as? LocalizedError)?.errorDescription {
+            return localized
+        }
+        return error.localizedDescription
     }
 
     private func revealInFinder(_ path: String) {
@@ -777,6 +1015,296 @@ struct InspectorView: View {
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
         }
+    }
+
+    private func normalizeSelectedTab() {
+        if isGroupConversation, windowState.selectedInspectorTab == .info {
+            windowState.selectedInspectorTab = .group
+            return
+        }
+        if !availableTabs.contains(windowState.selectedInspectorTab) {
+            windowState.selectedInspectorTab = isGroupConversation ? .group : .info
+        }
+    }
+}
+
+private struct BlackboardInspectorPanel: View {
+    let conversation: Conversation
+    let relevantKeys: Set<String>
+    let relevantWriters: Set<String>
+
+    @EnvironmentObject private var appState: AppState
+    @State private var entries: [BlackboardSnapshotEntry] = []
+    @State private var scope: BlackboardInspectorScope = .relevant
+    @State private var searchText = ""
+    @State private var expandedKeys: Set<String> = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    private var blackboardEventCount: Int {
+        appState.commsEvents.reduce(into: 0) { partial, event in
+            if case .blackboardUpdate = event.kind {
+                partial += 1
+            }
+        }
+    }
+
+    private var filteredEntries: [BlackboardSnapshotEntry] {
+        BlackboardSnapshotFilter.filteredEntries(
+            entries,
+            scope: scope,
+            searchText: searchText,
+            relevantKeys: relevantKeys,
+            relevantWriters: relevantWriters
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            controls
+
+            if isLoading && entries.isEmpty {
+                loadingState
+            } else if let errorMessage, entries.isEmpty {
+                errorState(message: errorMessage)
+            } else if filteredEntries.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(filteredEntries) { entry in
+                            BlackboardEntryCard(
+                                entry: entry,
+                                isExpanded: expandedKeys.contains(entry.key),
+                                onToggle: { toggle(entry.key) }
+                            )
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .xrayId("inspector.blackboard.entryList")
+                .accessibilityIdentifier("inspector.blackboard.entryList")
+            }
+        }
+        .padding()
+        .task {
+            await loadEntries()
+        }
+        .onChange(of: conversation.id) { _, _ in
+            expandedKeys.removeAll()
+        }
+        .onChange(of: blackboardEventCount) { _, _ in
+            Task { await loadEntries() }
+        }
+    }
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                TextField("Search keys or values", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .xrayId("inspector.blackboard.searchField")
+                    .accessibilityIdentifier("inspector.blackboard.searchField")
+
+                Button {
+                    Task { await loadEntries() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh blackboard")
+                .xrayId("inspector.blackboard.refreshButton")
+                .accessibilityIdentifier("inspector.blackboard.refreshButton")
+                .accessibilityLabel("Refresh blackboard")
+                .disabled(isLoading)
+            }
+
+            Picker("Blackboard Scope", selection: $scope) {
+                ForEach(BlackboardInspectorScope.allCases) { item in
+                    Text(item.rawValue).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            .xrayId("inspector.blackboard.filterPicker")
+            .accessibilityIdentifier("inspector.blackboard.filterPicker")
+        }
+    }
+
+    private var loadingState: some View {
+        ContentUnavailableView {
+            Label("Loading Blackboard", systemImage: "square.grid.2x2")
+        } description: {
+            Text("Fetching the latest shared state from the sidecar.")
+        }
+    }
+
+    private func errorState(message: String) -> some View {
+        ContentUnavailableView {
+            Label("Blackboard Unavailable", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Retry") {
+                Task { await loadEntries() }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("No Blackboard Entries", systemImage: "square.grid.2x2")
+        } description: {
+            Text(scope == .relevant
+                ? "No entries match this conversation yet."
+                : "The blackboard does not have any entries yet.")
+        }
+    }
+
+    private func loadEntries() async {
+        guard let client = BlackboardSnapshotClient.live(port: appState.allocatedHttpPort) else {
+            errorMessage = "Connect the sidecar to inspect the blackboard."
+            entries = []
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let freshEntries = try await client.fetchAllEntries()
+            entries = freshEntries
+            errorMessage = nil
+            expandedKeys = expandedKeys.intersection(Set(freshEntries.map(\.key)))
+        } catch {
+            if let clientError = error as? BlackboardSnapshotClientError {
+                errorMessage = clientError.errorDescription
+            } else {
+                errorMessage = error.localizedDescription
+            }
+            if entries.isEmpty {
+                expandedKeys.removeAll()
+            }
+        }
+    }
+
+    private func toggle(_ key: String) {
+        if expandedKeys.contains(key) {
+            expandedKeys.remove(key)
+        } else {
+            expandedKeys.insert(key)
+        }
+    }
+}
+
+private struct BlackboardEntryCard: View {
+    let entry: BlackboardSnapshotEntry
+    let isExpanded: Bool
+    let onToggle: () -> Void
+
+    private var accessibilitySlug: String {
+        let lowered = entry.key.lowercased()
+        let slug = lowered.replacingOccurrences(
+            of: "[^a-z0-9]+",
+            with: "-",
+            options: .regularExpression
+        )
+        return slug.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private var formattedValue: String {
+        guard let data = entry.value.data(using: .utf8) else { return entry.value }
+        guard let object = try? JSONSerialization.jsonObject(with: data) else { return entry.value }
+        guard JSONSerialization.isValidJSONObject(object),
+              let prettyData = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted]),
+              let prettyString = String(data: prettyData, encoding: .utf8) else {
+            return entry.value
+        }
+        return prettyString
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                onToggle()
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.key)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: 6) {
+                            Text(entry.writtenBy)
+                            Text("•")
+                            Text(entry.updatedAt, style: .relative)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let workspaceId = entry.workspaceId, !workspaceId.isEmpty {
+                        InfoRow(label: "Scope", value: workspaceId)
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(formattedValue)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(8)
+                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+
+                    HStack(spacing: 8) {
+                        Button("Copy Key") {
+                            copy(entry.key)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .xrayId("inspector.blackboard.copyKey.\(accessibilitySlug)")
+                        .accessibilityIdentifier("inspector.blackboard.copyKey.\(accessibilitySlug)")
+
+                        Button("Copy Value") {
+                            copy(entry.value)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .xrayId("inspector.blackboard.copyValue.\(accessibilitySlug)")
+                        .accessibilityIdentifier("inspector.blackboard.copyValue.\(accessibilitySlug)")
+
+                        Spacer()
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(.quaternary, lineWidth: 0.8)
+        )
+        .xrayId("inspector.blackboard.entryRow.\(accessibilitySlug)")
+        .accessibilityIdentifier("inspector.blackboard.entryRow.\(accessibilitySlug)")
+    }
+
+    private func copy(_ string: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
     }
 }
 

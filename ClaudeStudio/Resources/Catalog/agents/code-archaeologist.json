@@ -14,7 +14,9 @@
     "refactoring",
     "documentation-inline"
   ],
-  "extraMCPs": [],
+  "extraMCPs": [
+    "octocode"
+  ],
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "Code Archaeologist",
