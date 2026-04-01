@@ -165,6 +165,7 @@ struct SidebarView: View {
     @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
     @State private var isArchivedExpanded = false
+    @State private var hoveredProjectId: UUID?
     @State private var hoveredConversationId: UUID?
     @State private var expandedProjectIds: Set<UUID> = []
 
@@ -519,6 +520,8 @@ struct SidebarView: View {
 
     private func projectHeaderRow(_ project: Project) -> some View {
         let isSelectedProject = windowState.selectedProjectId == project.id
+        let isHoveredProject = hoveredProjectId == project.id
+        let showsProjectActions = isSelectedProject || isHoveredProject
         let tint = projectTint(project)
 
         return HStack(spacing: 8) {
@@ -539,34 +542,28 @@ struct SidebarView: View {
                     .lineLimit(1)
             }
             Spacer()
-            if let activeThread = activeConversations(in: project).first {
-                Text(relativeTime(activeThread.startedAt))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(isSelectedProject ? tint : .secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(isSelectedProject ? tint.opacity(0.14) : Color.primary.opacity(0.06))
-                    )
+            if showsProjectActions {
+                projectActionsMenu(for: project)
+                Button {
+                    createQuickChat(in: project)
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                }
+                .modifier(SidebarChromeButtonModifier(tint: tint, emphasize: isSelectedProject))
+                .buttonStyle(.plain)
+                .help("Start new thread in \(project.name)")
+                .xrayId("sidebar.projectNewThread.\(project.id.uuidString)")
+                .accessibilityLabel("Start new thread in \(project.name)")
             }
-            projectActionsMenu(for: project)
-            Button {
-                createQuickChat(in: project)
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 22, height: 22)
-            }
-            .modifier(SidebarChromeButtonModifier(tint: tint, emphasize: isSelectedProject))
-            .buttonStyle(.plain)
-            .help("Start new thread in \(project.name)")
-            .xrayId("sidebar.projectNewThread.\(project.id.uuidString)")
-            .accessibilityLabel("Start new thread in \(project.name)")
         }
         .contentShape(Rectangle())
         .onTapGesture {
             toggleProjectExpansion(project)
+        }
+        .onHover { isHovering in
+            hoveredProjectId = isHovering ? project.id : nil
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 10)
@@ -819,6 +816,8 @@ struct SidebarView: View {
         }
         .modifier(SidebarChromeButtonModifier(tint: projectTint(project), emphasize: windowState.selectedProjectId == project.id))
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
         .help("Project actions")
         .xrayId("sidebar.projectActions.\(project.id.uuidString)")
         .accessibilityLabel("Project actions for \(project.name)")
@@ -1379,6 +1378,7 @@ struct SidebarView: View {
         let activity = appState.conversationActivity(for: convo)
         let isHovered = hoveredConversationId == convo.id
         let isSelected = windowState.selectedConversationId == convo.id
+        let showsConversationMenu = isHovered || isSelected
         return HStack(spacing: 8) {
             if convo.isUnread {
                 Circle()
@@ -1423,7 +1423,7 @@ struct SidebarView: View {
                 }
             }
             Spacer()
-            if isHovered {
+            if showsConversationMenu {
                 Menu {
                     conversationMenuContent(convo)
                 } label: {
