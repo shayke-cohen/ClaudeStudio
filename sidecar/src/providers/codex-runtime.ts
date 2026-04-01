@@ -76,6 +76,8 @@ export class CodexRuntime implements ProviderRuntime {
   readonly provider = "codex" as const;
   private static readonly MCP_STATUS_SETTLE_TIMEOUT_MS = 5000;
   private static readonly MCP_STATUS_POLL_INTERVAL_MS = 250;
+  private static readonly APPROVAL_POLICY = "never";
+  private static readonly SANDBOX_MODE = "danger-full-access";
 
   private static readonly pricingByModel: Record<string, {
     inputUsdPerMillion: number;
@@ -330,7 +332,7 @@ export class CodexRuntime implements ProviderRuntime {
         input,
         cwd: args.config.workingDirectory || undefined,
         model: resolvedModel,
-        approvalPolicy: "on-request",
+        approvalPolicy: CodexRuntime.APPROVAL_POLICY,
       }).then((turnResponse) => {
         const turnId = turnResponse?.turn?.id as string | undefined;
         if (!turnId) {
@@ -369,7 +371,7 @@ export class CodexRuntime implements ProviderRuntime {
       model: this.resolveModel(config.model, planMode),
       cwd: config.workingDirectory,
       attachmentCount,
-      approvalPolicy: "on-request",
+      approvalPolicy: CodexRuntime.APPROVAL_POLICY,
       developerInstructions,
       mcpServerCount: config.mcpServers.length,
       appServerConfigOverrides: this.buildClientConfigOverrides(config, mcpAliases),
@@ -391,7 +393,7 @@ export class CodexRuntime implements ProviderRuntime {
         threadId: backendSessionId,
         cwd: config.workingDirectory || undefined,
         model: this.resolveModel(config.model, planMode),
-        approvalPolicy: "on-request",
+        approvalPolicy: CodexRuntime.APPROVAL_POLICY,
         developerInstructions,
         dynamicTools,
       });
@@ -404,7 +406,7 @@ export class CodexRuntime implements ProviderRuntime {
       model: this.resolveModel(config.model, planMode),
       modelProvider: "openai",
       cwd: config.workingDirectory || undefined,
-      approvalPolicy: "on-request",
+      approvalPolicy: CodexRuntime.APPROVAL_POLICY,
       developerInstructions,
       serviceName: "claudestudio-sidecar",
       experimentalRawEvents: false,
@@ -1388,7 +1390,15 @@ export class CodexRuntime implements ProviderRuntime {
   }
 
   private buildClientConfigOverrides(config: AgentConfig, mcpAliases: Map<string, string>): string[] {
-    const overrides = ["mcp_servers={}"];
+    const overrides = [
+      "approval_policy.granular.sandbox_approval=false",
+      "approval_policy.granular.rules=false",
+      "approval_policy.granular.mcp_elicitations=false",
+      "approval_policy.granular.request_permissions=false",
+      "approval_policy.granular.skill_approval=false",
+      `sandbox_mode=${JSON.stringify(CodexRuntime.SANDBOX_MODE)}`,
+      "mcp_servers={}",
+    ];
     for (const [index, mcp] of config.mcpServers.entries()) {
       const alias = `session_mcp_${index}`;
       mcpAliases.set(alias, mcp.name);
@@ -1402,6 +1412,11 @@ export class CodexRuntime implements ProviderRuntime {
       if (mcp.url) {
         overrides.push(`mcp_servers.${alias}.url=${JSON.stringify(mcp.url)}`);
       }
+      overrides.push(`apps.${alias}.enabled=true`);
+      overrides.push(`apps.${alias}.default_tools_enabled=true`);
+      overrides.push(`apps.${alias}.default_tools_approval_mode="approve"`);
+      overrides.push(`apps.${alias}.destructive_enabled=true`);
+      overrides.push(`apps.${alias}.open_world_enabled=true`);
       for (const [envKey, envValue] of Object.entries(mcp.env ?? {})) {
         overrides.push(`mcp_servers.${alias}.env.${envKey}=${JSON.stringify(envValue)}`);
       }

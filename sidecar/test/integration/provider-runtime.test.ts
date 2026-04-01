@@ -78,11 +78,24 @@ describe("Provider runtime integration", () => {
     expect(options.cwd).toBe("/tmp/codex-session");
     expect(options.attachmentCount).toBe(1);
     expect(options.mcpServerCount).toBe(2);
+    expect(options.approvalPolicy).toBe("never");
+    expect(options.appServerConfigOverrides).toContain(`approval_policy.granular.sandbox_approval=false`);
+    expect(options.appServerConfigOverrides).toContain(`approval_policy.granular.rules=false`);
+    expect(options.appServerConfigOverrides).toContain(`approval_policy.granular.mcp_elicitations=false`);
+    expect(options.appServerConfigOverrides).toContain(`approval_policy.granular.request_permissions=false`);
+    expect(options.appServerConfigOverrides).toContain(`approval_policy.granular.skill_approval=false`);
+    expect(options.appServerConfigOverrides).toContain(`sandbox_mode="danger-full-access"`);
     expect(options.appServerConfigOverrides).toContain("mcp_servers={}");
     expect(options.appServerConfigOverrides).toContain(`mcp_servers.session_mcp_0.command="npx"`);
     expect(options.appServerConfigOverrides).toContain(`mcp_servers.session_mcp_0.args=["-y","-p","@wix/argus","argus-mcp"]`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_0.enabled=true`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_0.default_tools_enabled=true`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_0.default_tools_approval_mode="approve"`);
     expect(options.appServerConfigOverrides).toContain(`mcp_servers.session_mcp_1.command="npx"`);
     expect(options.appServerConfigOverrides).toContain(`mcp_servers.session_mcp_1.args=["-y","@wix/appxray-mcp-server"]`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_1.enabled=true`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_1.default_tools_enabled=true`);
+    expect(options.appServerConfigOverrides).toContain(`apps.session_mcp_1.default_tools_approval_mode="approve"`);
   });
 
   test("claude sessions attach configured MCPs only through mcpServers in bypass mode", async () => {
