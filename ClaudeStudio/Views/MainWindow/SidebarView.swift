@@ -533,22 +533,34 @@ struct SidebarView: View {
                 cornerRadius: 11,
                 emphasize: isSelectedProject
             )
-            VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
                 Text(project.name)
                     .font(isSelectedProject ? .headline.weight(.semibold) : .headline.weight(.medium))
                     .lineLimit(1)
-                Text(project.rootPath)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .layoutPriority(1)
+
+                if !project.rootPath.isEmpty {
+                    Text("·")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+
+                    Text(project.rootPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             if project.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(tint.opacity(isSelectedProject ? 0.9 : 0.7))
                     .accessibilityHidden(true)
             }
-            Spacer()
+
             if showsProjectActions {
                 projectActionsMenu(for: project)
                 Button {
@@ -572,7 +584,7 @@ struct SidebarView: View {
         .onHover { isHovering in
             hoveredProjectId = isHovering ? project.id : nil
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 9)
         .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -1392,6 +1404,7 @@ struct SidebarView: View {
         let isHovered = hoveredConversationId == convo.id
         let isSelected = windowState.selectedConversationId == convo.id
         let showsConversationMenu = isHovered || isSelected
+
         return HStack(spacing: 8) {
             if convo.isUnread {
                 Circle()
@@ -1405,37 +1418,43 @@ struct SidebarView: View {
                 size: 24,
                 cornerRadius: 8
             )
-            VStack(alignment: .leading, spacing: 2) {
+
+            HStack(spacing: 4) {
                 Text(convo.topic ?? "Untitled")
                     .lineLimit(1)
                     .font(convo.isUnread ? .callout.bold() : .callout)
-                HStack(spacing: 4) {
-                    Text(relativeTime(convo.startedAt))
+                    .layoutPriority(1)
+
+                Text("·")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+
+                Text(relativeTime(convo.startedAt))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+
+                if let preview = lastMessagePreview(convo) {
+                    Text("·")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                    if let preview = lastMessagePreview(convo) {
-                        Text("·")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        if let icon = preview.attachmentIcon {
-                            Image(systemName: icon)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(preview.text)
+                        .accessibilityHidden(true)
+
+                    if let icon = preview.attachmentIcon {
+                        Image(systemName: icon)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
                     }
-                }
-                if case .working(let count) = activity.aggregate {
-                    Text(count == 1 ? "Agent working\u{2026}" : "\(count) agents working\u{2026}")
+
+                    Text(preview.text)
                         .font(.caption2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             if showsConversationMenu {
                 Menu {
                     conversationMenuContent(convo)
@@ -1456,7 +1475,7 @@ struct SidebarView: View {
             )
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
