@@ -365,9 +365,30 @@ struct SidebarView: View {
                     }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 } label: {
-                    Label("New", systemImage: "plus")
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 18, height: 18)
+                            .foregroundStyle(.primary)
+
+                        Text("New")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(.primary)
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .modifier(SidebarChromeButtonModifier(tint: .accentColor))
+                    .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .help("Create a new thread, group thread, or quick chat")
                 .xrayId("sidebar.utility.newMenu")
                 .accessibilityIdentifier("sidebar.utility.newMenu")
