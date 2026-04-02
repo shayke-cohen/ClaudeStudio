@@ -136,6 +136,9 @@ struct SidebarView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
+    @AppStorage("sidebar.showProjectTasksSection") private var showsProjectTasksSection = false
+    @AppStorage("sidebar.showProjectSchedulesSection") private var showsProjectSchedulesSection = false
     @Query(sort: \Project.createdAt, order: .reverse) private var projects: [Project]
     @Query(sort: \Conversation.startedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \Agent.name) private var agents: [Agent]
@@ -510,11 +513,15 @@ struct SidebarView: View {
 
         if expandedProjectIds.contains(project.id) {
             projectThreadRows(project)
-            projectIndentedRow {
-                projectTasksSection(project)
+            if showsProjectTasksSection {
+                projectIndentedRow {
+                    projectTasksSection(project)
+                }
             }
-            projectIndentedRow {
-                projectSchedulesSection(project)
+            if showsProjectSchedulesSection {
+                projectIndentedRow {
+                    projectSchedulesSection(project)
+                }
             }
         }
     }
@@ -696,7 +703,7 @@ struct SidebarView: View {
             )
         }
 
-        if !archivedThreads.isEmpty {
+        if showsArchivedProjectSection && !archivedThreads.isEmpty {
             projectArchivedRows(archivedThreads)
         }
     }
@@ -825,6 +832,38 @@ struct SidebarView: View {
             } label: {
                 Label("Archive threads", systemImage: "archivebox")
             }
+
+            Divider()
+
+            Button {
+                showsArchivedProjectSection.toggle()
+            } label: {
+                Label(
+                    showsArchivedProjectSection ? "Hide archived section" : "Show archived section",
+                    systemImage: showsArchivedProjectSection ? "eye.slash" : "archivebox"
+                )
+            }
+            .xrayId("sidebar.projectActions.toggleArchived.\(project.id.uuidString)")
+
+            Button {
+                showsProjectTasksSection.toggle()
+            } label: {
+                Label(
+                    showsProjectTasksSection ? "Hide tasks section" : "Show tasks section",
+                    systemImage: showsProjectTasksSection ? "eye.slash" : "checklist"
+                )
+            }
+            .xrayId("sidebar.projectActions.toggleTasks.\(project.id.uuidString)")
+
+            Button {
+                showsProjectSchedulesSection.toggle()
+            } label: {
+                Label(
+                    showsProjectSchedulesSection ? "Hide schedules section" : "Show schedules section",
+                    systemImage: showsProjectSchedulesSection ? "eye.slash" : "clock"
+                )
+            }
+            .xrayId("sidebar.projectActions.toggleSchedules.\(project.id.uuidString)")
 
             Divider()
 
