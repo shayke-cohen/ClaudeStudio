@@ -236,18 +236,53 @@ private struct QuickActionsRow: View {
     }
 }
 
+enum ChatComposerSubmitAction: Equatable {
+    case sendNewMessage(interruptsCurrentTurn: Bool)
+    case answerPendingQuestion(sessionId: String, questionId: String)
+}
+
+struct ChatComposerAvailability {
+    static func submitAction(
+        trimmedText: String,
+        hasAttachments: Bool,
+        isProcessing: Bool,
+        pendingQuestions: [AppState.AgentQuestion],
+        hasPendingConfirmations: Bool
+    ) -> ChatComposerSubmitAction? {
+        let hasText = !trimmedText.isEmpty
+        guard hasText || hasAttachments else { return nil }
+
+        if hasText,
+           !hasAttachments,
+           pendingQuestions.count == 1,
+           !hasPendingConfirmations,
+           let question = pendingQuestions.first {
+            return .answerPendingQuestion(sessionId: question.sessionId, questionId: question.id)
+        }
+
+        if isProcessing {
+            guard pendingQuestions.isEmpty, !hasPendingConfirmations else { return nil }
+            return .sendNewMessage(interruptsCurrentTurn: true)
+        }
+
+        return .sendNewMessage(interruptsCurrentTurn: false)
+    }
+}
+
 struct ChatView: View {
     let selectedConversation: Conversation
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appTextScale) private var appTextScale
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Environment(WindowState.self) private var windowState: WindowState
     @StateObject private var quickActionTracker = QuickActionUsageTracker()
     @State private var inputText = ""
     @State private var inputHeight: CGFloat = PasteableTextField.minHeight
     @State private var isProcessing = false
     @State private var isManagingWaveResponses = false
+    @State private var activeWaveTask: Task<Void, Never>?
     @State private var lastTokenTimes: [String: Date] = [:]
     @State private var processingStartTimes: [String: Date] = [:]
     @State private var isEditingTopic = false
@@ -649,6 +684,11 @@ struct ChatView: View {
                 .environmentObject(appState)
                 .environment(\.modelContext, modelContext)
         }
+        .task(id: conversationId) {
+            if let conversation, conversation.isSharedRoom {
+                try? await sharedRoomService.refreshConversation(conversation)
+            }
+        }
         .sheet(isPresented: $showingScheduleEditor) {
             ScheduleEditorView(schedule: nil, draft: scheduleDraft)
                 .environmentObject(appState)
@@ -711,6 +751,17 @@ struct ChatView: View {
                         .padding(.vertical, 2)
                         .background(.orange, in: Capsule())
                         .xrayId("chat.planModeBadge")
+                }
+
+                if let convo = conversation, convo.isSharedRoom {
+                    Text(sharedRoomStatusLabel(for: convo))
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(sharedRoomStatusColor(for: convo), in: Capsule())
+                        .xrayId("chat.sharedRoomStatusBadge")
                 }
 
                 if conversationSessions.count > 1 {
@@ -1264,13 +1315,18 @@ struct ChatView: View {
 
     // MARK: - Input Area
 
+    private var composerSubmitAction: ChatComposerSubmitAction? {
+        ChatComposerAvailability.submitAction(
+            trimmedText: inputText.trimmingCharacters(in: .whitespacesAndNewlines),
+            hasAttachments: !pendingAttachments.isEmpty,
+            isProcessing: isProcessing,
+            pendingQuestions: pendingQuestionsForCurrentConversation,
+            hasPendingConfirmations: !pendingConfirmationsForCurrentConversation.isEmpty
+        )
+    }
+
     private var canSend: Bool {
-        let hasText = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let canAnswerPendingQuestion =
-            hasText &&
-            pendingAttachments.isEmpty &&
-            conversation.flatMap(singlePendingQuestionForComposerAnswer(in:)) != nil
-        return (hasText || !pendingAttachments.isEmpty) && (!isProcessing || canAnswerPendingQuestion)
+        composerSubmitAction != nil
     }
 
     @ViewBuilder
@@ -1354,7 +1410,7 @@ struct ChatView: View {
             )
             .frame(height: inputHeight)
             .xrayId("chat.messageInput")
-            .help("Return sends when there is text or attachments. Shift-Return inserts a new line. ⌘↩ also sends.")
+            .help("Return sends when there is text or attachments. Shift-Return inserts a new line. Sending during an active turn interrupts it. ⌘↩ also sends.")
             .padding(.horizontal, 14)
             .padding(.top, 10)
             .padding(.bottom, 6)
@@ -1372,13 +1428,26 @@ struct ChatView: View {
                 Button {
                     showAddAgentsSheet = true
                 } label: {
-                    Label("Add", systemImage: "plus.circle")
+                    Label(conversation?.isSharedRoom == true ? "My Agents" : "Add", systemImage: "plus.circle")
                         .font(captionFont)
                 }
                 .buttonStyle(.borderless)
                 .xrayId("chat.addParticipantsButton")
-                .accessibilityLabel("Add agents or groups")
-                .help("Add agents or groups to this thread")
+                .accessibilityLabel(conversation?.isSharedRoom == true ? "Add my agents" : "Add agents or groups")
+                .help(conversation?.isSharedRoom == true ? "Add your local agents to this shared room" : "Add agents or groups to this thread")
+                .disabled(isProcessing)
+
+                Button {
+                    windowState.sharedRoomInviteConversationId = conversationId
+                    windowState.showSharedRoomInviteSheet = true
+                } label: {
+                    Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room", systemImage: "person.badge.plus")
+                        .font(captionFont)
+                }
+                .buttonStyle(.borderless)
+                .xrayId("chat.shareRoomButton")
+                .accessibilityLabel(conversation?.isSharedRoom == true ? "Add people to room" : "Share this conversation as a room")
+                .help(conversation?.isSharedRoom == true ? "Invite people to this shared room" : "Convert this conversation into a shared room and invite people")
                 .disabled(isProcessing)
 
                 Button {
@@ -1445,7 +1514,7 @@ struct ChatView: View {
                 .accessibilityLabel("Send message")
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: .command)
-                .help("Send message (Return or ⌘Return)")
+                .help("Send message. If agents are still working, this interrupts the current turn and starts a new one. (Return or ⌘Return)")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
@@ -2316,20 +2385,23 @@ struct ChatView: View {
         let rawInput = inputText
         let text = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = pendingAttachments
-        guard !text.isEmpty || !attachments.isEmpty, let convo = conversation else {
+        guard let submitAction = composerSubmitAction,
+              let convo = conversation else {
             return
         }
 
-        if attachments.isEmpty, let pendingQuestion = singlePendingQuestionForComposerAnswer(in: convo), !text.isEmpty {
+        if case .answerPendingQuestion(let sessionId, let questionId) = submitAction {
             inputText = ""
             pendingAttachments = []
             appState.answerQuestion(
-                sessionId: pendingQuestion.sessionId,
-                questionId: pendingQuestion.id,
+                sessionId: sessionId,
+                questionId: questionId,
                 answer: text
             )
             return
         }
+
+        guard !text.isEmpty || !attachments.isEmpty else { return }
 
         if text.first == "/", !text.hasPrefix("//"), let slash = ChatSendRouting.parseSlashCommand(rawInput) {
             switch slash {
@@ -2353,6 +2425,10 @@ struct ChatView: View {
             inputText = ""
             pendingAttachments = []
             return
+        }
+
+        if case .sendNewMessage(let interruptsCurrentTurn) = submitAction, interruptsCurrentTurn {
+            interruptActiveWaveForNewTurn()
         }
 
         inputText = ""
@@ -2402,7 +2478,7 @@ struct ChatView: View {
             }
         }
 
-        guard !targetSessions.isEmpty else {
+        guard !targetSessions.isEmpty || convo.isSharedRoom else {
             mentionErrorDetail = "No agent session to send to. Pick an agent or use New Session."
             showMentionError = true
             return
@@ -2450,8 +2526,26 @@ struct ChatView: View {
 
         try? modelContext.save()
 
+        if convo.isSharedRoom {
+            Task {
+                await sharedRoomService.publishLocalParticipants(for: convo)
+                await sharedRoomService.publishLocalMessage(message, in: convo)
+            }
+        }
+
+        if targetSessions.isEmpty, convo.isSharedRoom {
+            isProcessing = false
+            isManagingWaveResponses = false
+            return
+        }
+
         guard appState.sidecarStatus == .connected,
               let manager = appState.sidecarManager else {
+            if convo.isSharedRoom {
+                isProcessing = false
+                isManagingWaveResponses = false
+                return
+            }
             isProcessing = false
             mentionErrorDetail = "Sidecar not connected. Check the connection status and try again."
             showMentionError = true
@@ -2470,7 +2564,8 @@ struct ChatView: View {
 
         let mentionHighlightNames = resolvedMentionAgents.map(\.name)
         let currentPlanMode = planModeEnabled
-        Task { @MainActor in
+        activeWaveTask?.cancel()
+        activeWaveTask = Task { @MainActor in
             await runParallelAgentTurns(
                 convo: convo,
                 rootMessage: message,
@@ -2483,14 +2578,6 @@ struct ChatView: View {
                 planMode: currentPlanMode
             )
         }
-    }
-
-    private func singlePendingQuestionForComposerAnswer(in convo: Conversation) -> AppState.AgentQuestion? {
-        let pending = convo.sessions.compactMap { session in
-            appState.pendingQuestions[session.id.uuidString]
-        }
-        guard pending.count == 1 else { return nil }
-        return pending[0]
     }
 
     private struct PendingGroupCompletion: Sendable {
@@ -2559,8 +2646,10 @@ struct ChatView: View {
             context: fanOutContext
         )
 
+        guard !Task.isCancelled else { return }
         isManagingWaveResponses = false
         isProcessing = false
+        activeWaveTask = nil
     }
 
     private func makeFreeformAgentConfig(for session: Session) -> AgentConfig {
@@ -2595,6 +2684,21 @@ struct ChatView: View {
         lastTokenTimes.removeValue(forKey: sidecarKey)
         lastStreamingTextLengths.removeValue(forKey: sidecarKey)
         expandedStreamingThinkingSessionKeys.remove(sidecarKey)
+    }
+
+    @MainActor
+    private func interruptActiveWaveForNewTurn() {
+        activeWaveTask?.cancel()
+        activeWaveTask = nil
+        isManagingWaveResponses = false
+        isProcessing = false
+        activeStreamingSessionKeys.removeAll()
+        activeStreamingDisplayNames.removeAll()
+        processingStartTimes.removeAll()
+        lastTokenTimes.removeAll()
+        lastStreamingTextLengths.removeAll()
+        expandedStreamingThinkingSessionKeys.removeAll()
+        queuedPeerDeliveriesBySession.removeAll()
     }
 
     @MainActor
@@ -2883,6 +2987,11 @@ struct ChatView: View {
             }
 
             while let completion = await group.next() {
+                if Task.isCancelled {
+                    group.cancelAll()
+                    break
+                }
+
                 guard let session = convo.sessions.first(where: { $0.id == completion.sessionId }) else {
                     finishStreamingState(for: completion.sidecarKey)
                     continue
@@ -2937,6 +3046,9 @@ struct ChatView: View {
         let maxWait = 1_200
         var iterations = 0
         while iterations < maxWait {
+            if Task.isCancelled {
+                return
+            }
             if let ev = await MainActor.run(body: { appState.lastSessionEvent[sidecarKey] }) {
                 switch ev {
                 case .result, .error:
@@ -3121,6 +3233,11 @@ struct ChatView: View {
         }
 
         try? modelContext.save()
+        if convo.isSharedRoom {
+            Task {
+                await sharedRoomService.publishLocalMessage(response, in: convo)
+            }
+        }
         clearFinishedStreamState(for: sidecarKey)
         return response
     }
@@ -3151,6 +3268,32 @@ struct ChatView: View {
             workspaceRoot: inspectorWorkspaceRoot,
             windowState: windowState
         )
+    }
+
+    private func sharedRoomStatusLabel(for conversation: Conversation) -> String {
+        switch conversation.roomStatus {
+        case .live:
+            return conversation.roomTransportMode == .direct ? "Live" : "Synced via CloudKit"
+        case .syncing:
+            return "Syncing room history…"
+        case .unavailable:
+            return "Room unavailable"
+        case .localOnly:
+            return "Local only"
+        }
+    }
+
+    private func sharedRoomStatusColor(for conversation: Conversation) -> Color {
+        switch conversation.roomStatus {
+        case .live:
+            return conversation.roomTransportMode == .direct ? .green : .blue
+        case .syncing:
+            return .orange
+        case .unavailable:
+            return .red
+        case .localOnly:
+            return .gray
+        }
     }
 
     // MARK: - Actions
