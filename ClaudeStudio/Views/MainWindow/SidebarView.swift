@@ -136,6 +136,7 @@ struct SidebarView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
     @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
     @AppStorage("sidebar.showProjectTasksSection") private var showsProjectTasksSection = false
     @AppStorage("sidebar.showProjectSchedulesSection") private var showsProjectSchedulesSection = false
@@ -331,14 +332,46 @@ struct SidebarView: View {
 
     private var utilitySection: some View {
         Section {
-            Button {
-                windowState.showNewSessionSheet = true
-            } label: {
-                Label("New Thread", systemImage: "square.and.pencil")
-            }
-            .buttonStyle(.plain)
-            .appXrayTapProxy(id: "sidebar.utility.newThread") {
-                windowState.showNewSessionSheet = true
+            if useLegacyChatChrome {
+                Button {
+                    windowState.showNewSessionSheet = true
+                } label: {
+                    Label("New Thread", systemImage: "square.and.pencil")
+                }
+                .buttonStyle(.plain)
+                .appXrayTapProxy(id: "sidebar.utility.newThread") {
+                    windowState.showNewSessionSheet = true
+                }
+            } else {
+                Menu {
+                    Button {
+                        windowState.showNewSessionSheet = true
+                    } label: {
+                        Label("New Thread", systemImage: "plus.bubble")
+                    }
+                    .keyboardShortcut("n", modifiers: .command)
+
+                    Button {
+                        windowState.showNewGroupThreadSheet = true
+                    } label: {
+                        Label("Group Thread", systemImage: "bubble.left.and.bubble.right.fill")
+                    }
+                    .keyboardShortcut("n", modifiers: [.command, .option])
+
+                    Button {
+                        createQuickChatFromSidebar()
+                    } label: {
+                        Label("Quick Chat", systemImage: "plus.message")
+                    }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                } label: {
+                    Label("New", systemImage: "plus")
+                }
+                .menuStyle(.borderlessButton)
+                .help("Create a new thread, group thread, or quick chat")
+                .xrayId("sidebar.utility.newMenu")
+                .accessibilityIdentifier("sidebar.utility.newMenu")
+                .accessibilityLabel("New")
             }
 
             Button {
@@ -1841,7 +1874,7 @@ struct SidebarView: View {
             projectId: convo.projectId,
             threadKind: convo.threadKind
         )
-        newConvo.selectiveRepliesEnabled = convo.selectiveRepliesEnabled
+        newConvo.routingMode = convo.routingMode
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
         newConvo.participants.append(userParticipant)
@@ -1947,6 +1980,31 @@ struct SidebarView: View {
 
         expandedProjectIds.insert(project.id)
         windowState.selectProject(project, preserveSelection: true)
+        windowState.selectedConversationId = conversation.id
+    }
+
+    private func createQuickChatFromSidebar() {
+        if let selectedProject = sortedProjects.first(where: { $0.id == windowState.selectedProjectId }) {
+            createQuickChat(in: selectedProject)
+            return
+        }
+
+        if let firstProject = sortedProjects.first {
+            createQuickChat(in: firstProject)
+            return
+        }
+
+        let conversation = Conversation(
+            topic: "New Thread",
+            projectId: nil,
+            threadKind: .freeform
+        )
+        let userParticipant = Participant(type: .user, displayName: "You")
+        userParticipant.conversation = conversation
+        conversation.participants.append(userParticipant)
+
+        modelContext.insert(conversation)
+        try? modelContext.save()
         windowState.selectedConversationId = conversation.id
     }
 

@@ -9,6 +9,8 @@ enum AppSettings {
     static let defaultProviderKey = "claudestudio.defaultProvider"
     static let defaultClaudeModelKey = defaultModelKey
     static let defaultCodexModelKey = "claudestudio.defaultCodexModel"
+    static let defaultFoundationModelKey = "claudestudio.defaultFoundationModel"
+    static let defaultMLXModelKey = "claudestudio.defaultMLXModel"
     static let defaultMaxTurnsKey = "claudestudio.defaultMaxTurns"
     static let defaultMaxBudgetKey = "claudestudio.defaultMaxBudget"
     static let autoConnectSidecarKey = "claudestudio.autoConnectSidecar"
@@ -18,6 +20,11 @@ enum AppSettings {
     static let httpPortKey = "claudestudio.httpPort"
     static let bunPathOverrideKey = "claudestudio.bunPathOverride"
     static let sidecarPathKey = "claudestudio.projectPath"
+    static let localAgentHostPathOverrideKey = "claudestudio.localAgentHostPathOverride"
+    static let mlxRunnerPathOverrideKey = "claudestudio.mlxRunnerPathOverride"
+    static let connectorBrokerBaseURLKey = "claudestudio.connectorBrokerBaseURL"
+    static let xClientIdKey = "claudestudio.connectorXClientId"
+    static let linkedinClientIdKey = "claudestudio.connectorLinkedInClientId"
 
     // MARK: - Instance
     static let instanceWorkingDirectoryKey = "claudestudio.instanceWorkingDirectory"
@@ -38,6 +45,7 @@ enum AppSettings {
     static let renderPDFKey = "claudestudio.chat.renderPDF"
     static let showSessionSummaryKey = "claudestudio.chat.showSessionSummary"
     static let showSuggestionChipsKey = "claudestudio.chat.showSuggestionChips"
+    static let useLegacyChatChromeKey = "claudestudio.chat.useLegacyChrome"
 
     // MARK: - Quick Actions
     static let quickActionUsageOrderKey = "claudestudio.chat.quickActionUsageOrder"
@@ -46,6 +54,8 @@ enum AppSettings {
     // MARK: - Advanced
     static let dataDirectoryKey = "claudestudio.dataDirectory"
     static let logLevelKey = "claudestudio.logLevel"
+    static let sharedRoomUserIdKey = "claudestudio.sharedRoom.userId"
+    static let sharedRoomDisplayNameKey = "claudestudio.sharedRoom.displayName"
 
     // MARK: - Defaults
     static let defaultWsPort = 9849
@@ -55,6 +65,8 @@ enum AppSettings {
     static let defaultProvider = ProviderSelection.claude.rawValue
     static let defaultClaudeModel = ClaudeModel.sonnet.rawValue
     static let defaultCodexModel = CodexModel.gpt5Codex.rawValue
+    static let defaultFoundationModel = FoundationModel.system.rawValue
+    static let defaultMLXModel = MLXModel.defaultModel.rawValue
     static let defaultTextSize = AppTextSize.standard.rawValue
     static let defaultDataDirectory = "~/.claudestudio"
     static let defaultLogLevel = "info"
@@ -65,15 +77,19 @@ enum AppSettings {
     static var allKeys: [String] {
         [
             appearanceKey, textSizeKey, defaultProviderKey, defaultClaudeModelKey,
-            defaultCodexModelKey, defaultMaxTurnsKey,
+            defaultCodexModelKey, defaultFoundationModelKey, defaultMLXModelKey, defaultMaxTurnsKey,
             defaultMaxBudgetKey, autoConnectSidecarKey,
             instanceWorkingDirectoryKey,
             wsPortKey, httpPortKey, bunPathOverrideKey, sidecarPathKey,
+            localAgentHostPathOverrideKey, mlxRunnerPathOverrideKey,
+            connectorBrokerBaseURLKey, xClientIdKey, linkedinClientIdKey,
             notificationsEnabledKey, notificationSoundEnabledKey,
             renderMermaidKey, renderHTMLKey, renderDiffsKey, renderTerminalKey,
             renderAdmonitionsKey, renderPDFKey, showSessionSummaryKey, showSuggestionChipsKey,
+            useLegacyChatChromeKey,
             quickActionUsageOrderKey, quickActionUsageCountsKey,
             dataDirectoryKey, logLevelKey,
+            sharedRoomUserIdKey, sharedRoomDisplayNameKey,
         ]
     }
 
@@ -226,6 +242,30 @@ enum ClaudeModel: String, CaseIterable, Identifiable {
         case .sonnet: "Claude Sonnet 4.6"
         case .opus: "Claude Opus 4.6"
         case .haiku: "Claude Haiku 4.5"
+        }
+    }
+}
+
+enum FoundationModel: String, CaseIterable, Identifiable {
+    case system = "foundation.system"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: "Apple Foundation Model"
+        }
+    }
+}
+
+enum MLXModel: String, CaseIterable, Identifiable {
+    case defaultModel = "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .defaultModel: "Qwen2.5 1.5B Instruct"
         }
     }
 }

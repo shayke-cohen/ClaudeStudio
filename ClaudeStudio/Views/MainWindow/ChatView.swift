@@ -277,6 +277,7 @@ struct ChatView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Environment(WindowState.self) private var windowState: WindowState
+    @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
     @StateObject private var quickActionTracker = QuickActionUsageTracker()
     @State private var inputText = ""
     @State private var inputHeight: CGFloat = PasteableTextField.minHeight
@@ -287,6 +288,9 @@ struct ChatView: View {
     @State private var processingStartTimes: [String: Date] = [:]
     @State private var isEditingTopic = false
     @State private var editedTopic = ""
+    @State private var isEditingMission = false
+    @State private var editedMission = ""
+    @State private var isMissionExpanded = false
     @State private var showClearConfirmation = false
     @State private var pendingAttachments: [(id: UUID, data: Data, mediaType: String, fileName: String)] = []
     @State private var showFileImporter = false
@@ -322,6 +326,7 @@ struct ChatView: View {
     /// The ID of the last assistant message produced while plan mode was active (for showing the Execute Plan action bar).
     @State private var lastPlanResponseMessageId: UUID?
     @FocusState private var topicFieldFocused: Bool
+    @FocusState private var missionFieldFocused: Bool
 
     @Query private var allAgents: [Agent]
     @Query private var allGroups: [AgentGroup]
@@ -460,17 +465,47 @@ struct ChatView: View {
     }
 
     private var sendingToSubtitle: String? {
-        guard let c = conversation, c.sessions.count > 1 else { return nil }
-        let names = c.sessions.compactMap { $0.agent?.name ?? "Assistant" }
-        let suffix = c.selectiveRepliesEnabled
-            ? " · unmentioned agents reply only when useful"
-            : " · peer replies can fan out to the group"
-        return "Group — " + names.joined(separator: ", ") + suffix
+        guard let convo = conversation, convo.sessions.count > 1,
+              let plan = routingPreviewPlan else { return nil }
+        let mode = convo.routingMode.displayName
+        let recipients = plan.recipientAgentNames.joined(separator: ", ")
+        switch plan.deliveryReason {
+        case .directMention:
+            if convo.routingMode == .mentionAware {
+                return "\(mode) — sending to @\(plan.mentionedAgentNames.joined(separator: ", @"))"
+            }
+            return "\(mode) — sending to everyone, highlighting @\(plan.mentionedAgentNames.joined(separator: ", @"))"
+        case .broadcast:
+            return "\(mode) — broadcasting to everyone: \(recipients)"
+        case .coordinatorLead:
+            let coordinator = plan.coordinatorAgentName ?? recipients
+            return "\(mode) — no mention, so @\(coordinator) leads first"
+        case .implicitFallback:
+            return "\(mode) — no coordinator, so sending to everyone: \(recipients)"
+        case .broad:
+            return "\(mode) — sending to everyone: \(recipients)"
+        }
     }
 
-    private var selectiveRepliesEnabledForConversation: Bool {
-        guard let convo = conversation, convo.sessions.count > 1 else { return false }
-        return convo.selectiveRepliesEnabled
+    private var groupRoutingModeForConversation: GroupRoutingMode {
+        conversation?.routingMode ?? .mentionAware
+    }
+
+    private var routingPreviewPlan: GroupRoutingPlanner.UserWavePlan? {
+        guard let convo = conversation, convo.sessions.count > 1 else { return nil }
+        let mentionNames = ChatSendRouting.mentionedAgentNames(in: inputText)
+        let mentionedAll = ChatSendRouting.containsMentionAll(in: inputText)
+        let (resolvedMentionAgents, _) = ChatSendRouting.resolveMentionedAgents(
+            names: mentionNames,
+            agents: allAgents
+        )
+        return GroupRoutingPlanner.planUserWave(
+            routingMode: convo.routingMode,
+            sessions: conversationSessions,
+            sourceGroup: sourceGroup(for: convo),
+            mentionedAgents: resolvedMentionAgents,
+            mentionedAll: mentionedAll
+        )
     }
 
     /// Maps participantId → AgentAppearance for multi-agent conversations. `nil` for single-agent.
@@ -512,6 +547,26 @@ struct ChatView: View {
         return AgentAppearance(color: Color.fromAgentColor(agent.color), icon: agent.icon)
     }
 
+    private func setGroupRoutingMode(_ mode: GroupRoutingMode) {
+        conversation?.routingMode = mode
+        try? modelContext.save()
+    }
+
+    @ViewBuilder
+    private var routingModeMenuItems: some View {
+        ForEach(GroupRoutingMode.allCases, id: \.self) { mode in
+            Button {
+                setGroupRoutingMode(mode)
+            } label: {
+                Label(
+                    mode.displayName,
+                    systemImage: groupRoutingModeForConversation == mode ? "checkmark.circle.fill" : "circle"
+                )
+            }
+            .xrayId("chat.groupSettings.routingMode.\(mode.rawValue)")
+        }
+    }
+
     private var streamingAppendix: ChatTranscriptStreamingAppendix? {
         guard isProcessing else { return nil }
         let key = streamSessionKeyForUI ?? ""
@@ -541,6 +596,52 @@ struct ChatView: View {
         !sortedMessages.isEmpty || streamingAppendix != nil
     }
 
+    private var activeChatHeader: some View {
+        Group {
+            if useLegacyChatChrome {
+                legacyChatHeader
+            } else {
+                simplifiedChatHeader
+            }
+        }
+    }
+
+    private var activeInputArea: some View {
+        Group {
+            if useLegacyChatChrome {
+                legacyInputArea
+            } else {
+                simplifiedInputArea
+            }
+        }
+    }
+
+    private var currentMissionText: String? {
+        let trimmed = primarySession?.mission?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var shouldShowContextualQuickActions: Bool {
+        guard !isProcessing,
+              mentionAutocompleteAgents.isEmpty,
+              inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              pendingAttachments.isEmpty else {
+            return false
+        }
+        return !hasUserChatMessages || latestNonUserChatMessage != nil
+    }
+
+    private var latestNonUserChatMessage: ConversationMessage? {
+        sortedMessages.reversed().first { message in
+            guard message.type == .chat,
+                  let senderId = message.senderParticipantId,
+                  let sender = conversation?.participants.first(where: { $0.id == senderId }) else {
+                return false
+            }
+            return sender.type != .user
+        }
+    }
+
     private var shouldShowJumpToLatest: Bool {
         !isNearBottom && (!displayMessages.isEmpty || isProcessing)
     }
@@ -563,11 +664,11 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            chatHeader
+            activeChatHeader
             Divider()
             messageList
             Divider()
-            inputArea
+            activeInputArea
         }
         .task {
             try? await Task.sleep(for: .milliseconds(300))
@@ -719,7 +820,7 @@ struct ChatView: View {
     // MARK: - Chat Header
 
     @ViewBuilder
-    private var chatHeader: some View {
+    private var legacyChatHeader: some View {
         VStack(spacing: 4) {
             HStack(alignment: .center, spacing: 8) {
                 agentIconButton
@@ -857,7 +958,7 @@ struct ChatView: View {
                 }
 
                 if let convo = conversation {
-                    headerActions(convo)
+                    legacyHeaderActions(convo)
                 }
             }
 
@@ -979,7 +1080,7 @@ struct ChatView: View {
     }
 
     @ViewBuilder
-    private func headerActions(_ convo: Conversation) -> some View {
+    private func legacyHeaderActions(_ convo: Conversation) -> some View {
         HStack(spacing: 6) {
             let sessionKeys = convo.sessions.map(\.id.uuidString)
             let hasLiveActivity = sessionKeys.contains { appState.sessionActivity[$0]?.isActive == true }
@@ -1124,6 +1225,454 @@ struct ChatView: View {
             .accessibilityLabel("More options")
         }
         .buttonStyle(.borderless)
+    }
+
+    @ViewBuilder
+    private var simplifiedChatHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                agentIconButton
+
+                if isEditingTopic {
+                    TextField("Conversation name", text: $editedTopic)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.headline)
+                        .focused($topicFieldFocused)
+                        .frame(maxWidth: 320)
+                        .onSubmit { commitRename() }
+                        .onExitCommand { cancelRename() }
+                        .xrayId("chat.topicField")
+                } else {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(conversation?.topic ?? "Chat")
+                            .font(.headline)
+                            .lineLimit(1)
+                            .xrayId("chat.topicTitle")
+
+                        if let subtitle = sendingToSubtitle {
+                            Text(subtitle)
+                                .font(caption2Font)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .xrayId("chat.sendingToHint")
+                        }
+                    }
+                }
+
+                Spacer()
+
+                simplifiedHeaderStatusPills
+
+                if let convo = conversation {
+                    simplifiedSessionMenu(convo)
+                }
+            }
+
+            simplifiedMissionSection
+
+            if hasRecoverableInterruption {
+                recoveryBanner
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    @ViewBuilder
+    private var simplifiedHeaderStatusPills: some View {
+        HStack(spacing: 6) {
+            if planModeEnabled {
+                Text("Plan Mode")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.orange, in: Capsule())
+                    .xrayId("chat.planModeBadge")
+            }
+
+            if let convo = conversation, convo.isSharedRoom {
+                Text(sharedRoomStatusLabel(for: convo))
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(sharedRoomStatusColor(for: convo), in: Capsule())
+                    .xrayId("chat.sharedRoomStatusBadge")
+            }
+
+            if let convo = conversation {
+                let sessionKeys = convo.sessions.map(\.id.uuidString)
+                let hasLiveActivity = sessionKeys.contains { appState.sessionActivity[$0]?.isActive == true }
+                let hasInterruptedSessions = convo.sessions.contains { $0.status == .interrupted }
+
+                if hasLiveActivity {
+                    Button {
+                        pauseSession()
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                            .font(captionFont.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .xrayId("chat.stopButton")
+                    .accessibilityLabel("Stop agent")
+                } else if hasInterruptedSessions {
+                    Button {
+                        restoreInterruptedSessions()
+                    } label: {
+                        Label("Restore", systemImage: "arrow.clockwise")
+                            .font(captionFont.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .xrayId("chat.restoreContextButton")
+                    .accessibilityLabel("Restore agent context")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var simplifiedMissionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if isEditingMission {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Describe the mission for this thread", text: $editedMission, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($missionFieldFocused)
+                        .lineLimit(2...5)
+                        .onSubmit { commitMissionEdit() }
+                        .xrayId("chat.missionEditor")
+                        .accessibilityIdentifier("chat.missionEditor")
+
+                    HStack(spacing: 8) {
+                        Button("Save") { commitMissionEdit() }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .xrayId("chat.missionSaveButton")
+                            .accessibilityIdentifier("chat.missionSaveButton")
+
+                        Button("Cancel") { cancelMissionEdit() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .xrayId("chat.missionCancelButton")
+                            .accessibilityIdentifier("chat.missionCancelButton")
+                    }
+                }
+                .padding(12)
+                .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(.quaternary, lineWidth: 1)
+                )
+                .xrayId("chat.missionCard")
+                .accessibilityIdentifier("chat.missionCard")
+            } else if let mission = currentMissionText {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Label("Mission", systemImage: "scope")
+                            .font(captionFont.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .xrayId("chat.missionCard.label")
+
+                        Spacer()
+
+                        Button(isMissionExpanded ? "Collapse" : "Expand") {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isMissionExpanded.toggle()
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .font(caption2Font)
+                        .xrayId("chat.missionToggleButton")
+                        .accessibilityIdentifier("chat.missionToggleButton")
+
+                        Button("Edit") { beginMissionEdit() }
+                            .buttonStyle(.borderless)
+                            .font(caption2Font)
+                            .xrayId("chat.missionEditButton")
+                            .accessibilityIdentifier("chat.missionEditButton")
+
+                        Button("Schedule") {
+                            scheduleDraft = makeScheduleDraft(from: latestUserChatMessage)
+                            showingScheduleEditor = true
+                        }
+                        .buttonStyle(.borderless)
+                        .font(caption2Font)
+                        .xrayId("chat.missionScheduleButton")
+                        .accessibilityIdentifier("chat.missionScheduleButton")
+                    }
+
+                    Text(mission)
+                        .font(captionFont)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(isMissionExpanded ? nil : 2)
+                        .truncationMode(.tail)
+                        .xrayId("chat.missionPreview")
+                }
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+                )
+                .xrayId("chat.missionCard")
+                .accessibilityIdentifier("chat.missionCard")
+            } else {
+                HStack(spacing: 10) {
+                    Label("No mission yet", systemImage: "scope")
+                        .font(captionFont.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("Add mission") { beginMissionEdit() }
+                        .buttonStyle(.borderless)
+                        .font(caption2Font)
+                        .xrayId("chat.missionAddButton")
+                        .accessibilityIdentifier("chat.missionAddButton")
+
+                    Button("Schedule") {
+                        scheduleDraft = makeScheduleDraft(from: latestUserChatMessage)
+                        showingScheduleEditor = true
+                    }
+                    .buttonStyle(.borderless)
+                    .font(caption2Font)
+                    .xrayId("chat.missionScheduleButton")
+                    .accessibilityIdentifier("chat.missionScheduleButton")
+                }
+                .padding(12)
+                .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                .xrayId("chat.missionCard")
+                .accessibilityIdentifier("chat.missionCard")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func simplifiedSessionMenu(_ convo: Conversation) -> some View {
+        Menu {
+            Button {
+                windowState.openInspector(tab: .blackboard)
+            } label: {
+                Label("Open Blackboard", systemImage: "square.grid.2x2")
+            }
+            .xrayId("chat.sessionMenu.openBlackboard")
+
+            if let model = currentModel {
+                Button {} label: {
+                    Label("Model: \(modelShortName(model))", systemImage: "cpu")
+                }
+                .disabled(true)
+                .xrayId("chat.sessionMenu.model")
+            }
+
+            if let cost = liveCost, cost > 0 {
+                Button {} label: {
+                    Label(String(format: "Cost: $%.4f", cost), systemImage: "dollarsign.circle")
+                }
+                .disabled(true)
+                .xrayId("chat.sessionMenu.cost")
+            }
+
+            if conversationSessions.count > 1 {
+                Divider()
+                groupSettingsMenuContent
+            }
+
+            Divider()
+
+            if !convo.sessions.isEmpty {
+                Button { forkConversation() } label: {
+                    Label("Fork Conversation", systemImage: "arrow.branch")
+                }
+                .xrayId("chat.moreOptions.fork")
+            }
+            if convo.status == .active {
+                Button { closeConversation(convo) } label: {
+                    Label("Close Conversation", systemImage: "xmark.circle")
+                }
+                .xrayId("chat.moreOptions.closeConversation")
+                .accessibilityLabel("Close conversation")
+            }
+
+            Divider()
+
+            Button {
+                editedTopic = convo.topic ?? ""
+                isEditingTopic = true
+                topicFieldFocused = true
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+            .xrayId("chat.moreOptions.rename")
+
+            Button {
+                beginMissionEdit()
+            } label: {
+                Label("Edit Mission", systemImage: "scope")
+            }
+            .xrayId("chat.sessionMenu.editMission")
+
+            Button {
+                scheduleDraft = makeScheduleDraft(from: latestUserChatMessage)
+                showingScheduleEditor = true
+            } label: {
+                Label("Schedule This Mission", systemImage: "clock.badge")
+            }
+            .xrayId("chat.moreOptions.scheduleMission")
+            .accessibilityIdentifier("chat.moreOptions.scheduleMission")
+            .accessibilityLabel("Schedule This Mission")
+
+            Button { duplicateConversation(convo) } label: {
+                Label("Duplicate", systemImage: "doc.on.doc")
+            }
+            .xrayId("chat.moreOptions.duplicate")
+
+            Divider()
+
+            Menu {
+                Button {
+                    Task { await exportChatTranscript(kind: .markdown, destination: .save) }
+                } label: {
+                    Label("Markdown…", systemImage: "doc.richtext")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.export.markdown")
+
+                Button {
+                    Task { await exportChatTranscript(kind: .html, destination: .save) }
+                } label: {
+                    Label("HTML…", systemImage: "doc.richtext")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.export.html")
+
+                Button {
+                    Task { await exportChatTranscript(kind: .pdf, destination: .save) }
+                } label: {
+                    Label("PDF…", systemImage: "doc.fill")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.export.pdf")
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.down")
+            }
+            .disabled(!canExportChat)
+            .xrayId("chat.exportSubmenu")
+            .accessibilityLabel("Export chat")
+
+            Menu {
+                Button {
+                    Task { await exportChatTranscript(kind: .markdown, destination: .share) }
+                } label: {
+                    Label("Markdown", systemImage: "doc.richtext")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.share.markdown")
+
+                Button {
+                    Task { await exportChatTranscript(kind: .html, destination: .share) }
+                } label: {
+                    Label("HTML", systemImage: "doc.richtext")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.share.html")
+
+                Button {
+                    Task { await exportChatTranscript(kind: .pdf, destination: .share) }
+                } label: {
+                    Label("PDF", systemImage: "doc.fill")
+                }
+                .disabled(!canExportChat)
+                .xrayId("chat.share.pdf")
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .disabled(!canExportChat)
+            .xrayId("chat.shareSubmenu")
+            .accessibilityLabel("Share chat")
+
+            Divider()
+
+            Toggle(isOn: Binding(
+                get: { AppSettings.store.object(forKey: AppSettings.notificationsEnabledKey) as? Bool ?? true },
+                set: { AppSettings.store.set($0, forKey: AppSettings.notificationsEnabledKey) }
+            )) {
+                Label("Notifications", systemImage: "bell")
+            }
+            .xrayId("chat.moreOptions.notificationsToggle")
+
+            Toggle(isOn: Binding(
+                get: { AppSettings.store.object(forKey: AppSettings.notificationSoundEnabledKey) as? Bool ?? true },
+                set: { AppSettings.store.set($0, forKey: AppSettings.notificationSoundEnabledKey) }
+            )) {
+                Label("Sound", systemImage: "speaker.wave.2")
+            }
+            .xrayId("chat.moreOptions.soundToggle")
+
+            Divider()
+
+            Button { showClearConfirmation = true } label: {
+                Label("Clear Messages", systemImage: "trash")
+            }
+            .xrayId("chat.moreOptions.clearMessages")
+        } label: {
+            Label("Session", systemImage: "slider.horizontal.3")
+                .font(captionFont.weight(.medium))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .xrayId("chat.sessionMenu")
+        .accessibilityIdentifier("chat.sessionMenu")
+        .accessibilityLabel("Session menu")
+    }
+
+    @ViewBuilder
+    private var groupSettingsMenuContent: some View {
+        Menu {
+            routingModeMenuItems
+
+            Divider()
+
+            let allEnabled = enabledPeerCategories.count == PeerChannelCategory.allCases.count
+            Button {
+                if allEnabled {
+                    enabledPeerCategories.removeAll()
+                } else {
+                    enabledPeerCategories = Set(PeerChannelCategory.allCases)
+                }
+            } label: {
+                Label(allEnabled ? "Hide All Comms" : "Show All Comms",
+                      systemImage: allEnabled ? "eye.slash" : "eye")
+            }
+            .xrayId("chat.groupSettings.toggleAllComms")
+
+            ForEach(PeerChannelCategory.allCases, id: \.self) { category in
+                Button {
+                    if enabledPeerCategories.contains(category) {
+                        enabledPeerCategories.remove(category)
+                    } else {
+                        enabledPeerCategories.insert(category)
+                    }
+                } label: {
+                    Label(category.rawValue,
+                          systemImage: enabledPeerCategories.contains(category)
+                            ? "checkmark.circle.fill"
+                            : "circle")
+                }
+            }
+        } label: {
+            Label("Group Settings", systemImage: "person.3.sequence")
+        }
+        .fixedSize()
+        .xrayId("chat.groupSettingsMenu")
+        .accessibilityIdentifier("chat.groupSettingsMenu")
+        .accessibilityLabel("Group settings")
     }
 
     // MARK: - Message List
@@ -1330,7 +1879,7 @@ struct ChatView: View {
     }
 
     @ViewBuilder
-    private var inputArea: some View {
+    private var legacyInputArea: some View {
         VStack(spacing: 0) {
             if !pendingAttachments.isEmpty {
                 pendingAttachmentStrip
@@ -1477,21 +2026,20 @@ struct ChatView: View {
                 .disabled(isProcessing)
 
                 if conversation?.sessions.count ?? 0 > 1 {
-                    Button {
-                        conversation?.selectiveRepliesEnabled.toggle()
-                        try? modelContext.save()
+                    Menu {
+                        routingModeMenuItems
                     } label: {
-                        Label("Selective", systemImage: "line.3.horizontal.decrease.circle")
+                        Label(groupRoutingModeForConversation.shortLabel, systemImage: "arrow.triangle.branch")
                             .font(captionFont)
-                            .foregroundStyle(selectiveRepliesEnabledForConversation ? .green : .secondary)
+                            .foregroundStyle(groupRoutingModeForConversation == .mentionAware ? .green : .secondary)
                     }
-                    .buttonStyle(.borderless)
-                    .xrayId("chat.selectiveRepliesToggle")
-                    .accessibilityLabel("Toggle selective replies")
+                    .menuStyle(.borderlessButton)
+                    .xrayId("chat.routingModeMenu")
+                    .accessibilityLabel("Choose routing mode")
                     .help(
-                        selectiveRepliesEnabledForConversation
-                        ? "Selective replies on — unmentioned agents should stay quiet unless they can materially advance the conversation"
-                        : "Selective replies off — peer replies may fan out more broadly"
+                        groupRoutingModeForConversation == .mentionAware
+                        ? "Mention-aware routing: @mentions target specific agents, otherwise the coordinator leads if one exists"
+                        : "Broad routing: user turns go to everyone and peer replies may fan out across the group"
                     )
                     .disabled(isProcessing)
                 }
@@ -1518,6 +2066,170 @@ struct ChatView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
+            .padding(.bottom, 4)
+        }
+        .background(.bar)
+        .onDrop(of: [.image, .fileURL, .plainText, .pdf], isTargeted: nil) { providers in
+            handleDrop(providers)
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private var simplifiedInputArea: some View {
+        VStack(spacing: 0) {
+            if !pendingAttachments.isEmpty {
+                pendingAttachmentStrip
+            }
+
+            if shouldShowMentionAllSuggestion || !mentionAutocompleteAgents.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        if shouldShowMentionAllSuggestion {
+                            Button {
+                                insertMentionCompletion(agentName: ChatSendRouting.mentionAllToken)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("@all")
+                                        .font(captionFont)
+                                    Text("Broadcast to everyone in chat")
+                                        .font(caption2Font)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .xrayId("chat.mentionSuggestion.all")
+                        }
+
+                        ForEach(mentionAutocompleteAgents) { agent in
+                            Button {
+                                insertMentionCompletion(agentName: agent.name)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(agent.name)
+                                        .font(captionFont)
+                                    Text(agentMentionHint(for: agent))
+                                        .font(caption2Font)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .xrayId("chat.mentionSuggestion.\(agent.id.uuidString)")
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                }
+                .xrayId("chat.mentionSuggestions")
+            }
+
+            PasteableTextField(
+                text: $inputText,
+                desiredHeight: $inputHeight,
+                onImagePaste: { data, mediaType in
+                    guard AttachmentStore.validate(data: data, mediaType: mediaType) else { return }
+                    pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: "pasted.png"))
+                },
+                onSubmit: { if canSend { sendMessage() } },
+                canSubmitOnReturn: { canSend }
+            )
+            .frame(height: inputHeight)
+            .xrayId("chat.messageInput")
+            .help("Return sends when there is text or attachments. Shift-Return inserts a new line. Sending during an active turn interrupts it. ⌘↩ also sends.")
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            if shouldShowContextualQuickActions {
+                QuickActionsRow(
+                    actions: quickActionTracker.orderedActions,
+                    isProcessing: isProcessing,
+                    onAction: { sendQuickAction($0) }
+                )
+                .xrayId("chat.quickActions")
+            }
+
+            HStack(spacing: 8) {
+                Menu {
+                    Button {
+                        showAddAgentsSheet = true
+                    } label: {
+                        Label(conversation?.isSharedRoom == true ? "Add My Agents" : "Add Agents or Groups",
+                              systemImage: "plus.circle")
+                    }
+
+                    Button {
+                        windowState.sharedRoomInviteConversationId = conversationId
+                        windowState.showSharedRoomInviteSheet = true
+                    } label: {
+                        Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room",
+                              systemImage: "person.badge.plus")
+                    }
+
+                    Button {
+                        showFileImporter = true
+                    } label: {
+                        Label("Attach File", systemImage: "paperclip")
+                    }
+                } label: {
+                    Label("Tools", systemImage: "plus")
+                        .font(captionFont.weight(.medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .disabled(isProcessing)
+                .xrayId("chat.toolsMenu")
+                .accessibilityIdentifier("chat.toolsMenu")
+                .accessibilityLabel("Tools")
+
+                Button {
+                    conversation?.planModeEnabled.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Label("Plan", systemImage: "doc.text.magnifyingglass")
+                        .font(captionFont.weight(.medium))
+                        .foregroundStyle(planModeEnabled ? .orange : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .xrayId("chat.planModeToggle")
+                .accessibilityLabel("Toggle plan mode")
+                .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
+                .disabled(isProcessing)
+
+                if conversation?.sessions.count ?? 0 > 1 {
+                    groupSettingsMenuContent
+                        .menuStyle(.borderlessButton)
+                        .disabled(isProcessing)
+                }
+
+                Spacer()
+
+                Button {
+                    sendMessage()
+                } label: {
+                    Text("Send ↵")
+                        .font(.system(size: 12 * appTextScale, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
+                        .background(Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .xrayId("chat.sendButton")
+                .accessibilityLabel("Send message")
+                .disabled(!canSend)
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("Send message. If agents are still working, this interrupts the current turn and starts a new one. (Return or ⌘Return)")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .padding(.bottom, 4)
         }
         .background(.bar)
@@ -2198,6 +2910,29 @@ struct ChatView: View {
         isEditingTopic = false
     }
 
+    private func beginMissionEdit() {
+        editedMission = currentMissionText ?? ""
+        isEditingMission = true
+        isMissionExpanded = true
+        Task { @MainActor in
+            missionFieldFocused = true
+        }
+    }
+
+    private func commitMissionEdit() {
+        let mission = editedMission.trimmingCharacters(in: .whitespacesAndNewlines)
+        for session in conversationSessions {
+            session.mission = mission.isEmpty ? nil : mission
+        }
+        try? modelContext.save()
+        isEditingMission = false
+    }
+
+    private func cancelMissionEdit() {
+        editedMission = currentMissionText ?? ""
+        isEditingMission = false
+    }
+
     // MARK: - Auto Naming
 
     private func autoNameConversation(_ convo: Conversation, firstMessage: String) {
@@ -2562,7 +3297,13 @@ struct ChatView: View {
         expandedStreamingThinkingSessionKeys.removeAll()
         queuedPeerDeliveriesBySession.removeAll()
 
-        let mentionHighlightNames = resolvedMentionAgents.map(\.name)
+        let userWavePlan = GroupRoutingPlanner.planUserWave(
+            routingMode: convo.routingMode,
+            sessions: targetSessions,
+            sourceGroup: sourceGroup(for: convo),
+            mentionedAgents: resolvedMentionAgents,
+            mentionedAll: mentionedAll
+        )
         let currentPlanMode = planModeEnabled
         activeWaveTask?.cancel()
         activeWaveTask = Task { @MainActor in
@@ -2571,8 +3312,7 @@ struct ChatView: View {
                 rootMessage: message,
                 targetSessions: targetSessions,
                 latestUserText: text,
-                highlightedMentionAgentNames: mentionHighlightNames,
-                mentionedAll: mentionedAll,
+                userWavePlan: userWavePlan,
                 wireAttachments: wireAttachments,
                 manager: manager,
                 planMode: currentPlanMode
@@ -2600,8 +3340,7 @@ struct ChatView: View {
         rootMessage: ConversationMessage,
         targetSessions: [Session],
         latestUserText: String,
-        highlightedMentionAgentNames: [String],
-        mentionedAll: Bool,
+        userWavePlan: GroupRoutingPlanner.UserWavePlan,
         wireAttachments: [WireAttachment],
         manager: SidecarManager,
         planMode: Bool = false
@@ -2622,14 +3361,13 @@ struct ChatView: View {
         let rootWave = await fanOutContext.makeRootWave(
             triggerMessageId: rootMessage.id,
             transcriptBoundaryMessageId: rootMessage.id,
-            recipientSessionIds: targetSessions.map(\.id)
+            recipientSessionIds: Array(userWavePlan.recipientSessionIds)
         )
         let initialPending = await launchUserWave(
             convo: convo,
             targetSessions: targetSessions,
             latestUserText: latestUserText,
-            highlightedMentionAgentNames: highlightedMentionAgentNames,
-            mentionedAll: mentionedAll,
+            userWavePlan: userWavePlan,
             wireAttachments: wireAttachments,
             manager: manager,
             provisioner: provisioner,
@@ -2815,8 +3553,7 @@ struct ChatView: View {
         convo: Conversation,
         targetSessions: [Session],
         latestUserText: String,
-        highlightedMentionAgentNames: [String],
-        mentionedAll: Bool,
+        userWavePlan: GroupRoutingPlanner.UserWavePlan,
         wireAttachments: [WireAttachment],
         manager: SidecarManager,
         provisioner: AgentProvisioner,
@@ -2835,9 +3572,10 @@ struct ChatView: View {
                 targetSession: session,
                 latestUserMessageText: latestUserText,
                 participants: participants,
-                highlightedMentionAgentNames: highlightedMentionAgentNames,
-                mentionedAll: mentionedAll,
-                selectiveRepliesEnabled: convo.selectiveRepliesEnabled,
+                highlightedMentionAgentNames: userWavePlan.mentionedAgentNames,
+                mentionedAll: userWavePlan.mentionedAll,
+                routingMode: convo.routingMode,
+                deliveryReason: userWavePlan.deliveryReason,
                 transcriptBoundaryMessageId: wave.transcriptBoundaryMessageId,
                 allowNoReply: true,
                 groupInstruction: groupInstruction,
@@ -2883,35 +3621,20 @@ struct ChatView: View {
         let sortedOthers = convo.sessions
             .filter { $0.id != fromSession.id }
             .sorted { $0.startedAt < $1.startedAt }
-
-        let mentionNames = ChatSendRouting.mentionedAgentNames(in: triggerMessage.text)
-        let isAllMention = ChatSendRouting.containsMentionAll(in: triggerMessage.text)
-        let selectiveRepliesEnabled = convo.selectiveRepliesEnabled
-
-        let mentionedSessionIds: Set<UUID>
-        if isAllMention {
-            mentionedSessionIds = Set(sortedOthers.map(\.id))
-        } else {
-            let agentMentionNames = mentionNames.filter { $0.caseInsensitiveCompare("all") != .orderedSame }
-            mentionedSessionIds = Set(sortedOthers.filter { session in
-                guard let agentName = session.agent?.name else { return false }
-                return agentMentionNames.contains { $0.caseInsensitiveCompare(agentName) == .orderedSame }
-            }.map(\.id))
+        guard let peerPlan = GroupRoutingPlanner.planPeerWave(
+            routingMode: convo.routingMode,
+            triggerText: triggerMessage.text,
+            otherSessions: sortedOthers
+        ) else {
+            return []
         }
-
-        let candidateSessions: [Session]
-        if selectiveRepliesEnabled {
-            guard isAllMention || !mentionedSessionIds.isEmpty else { return [] }
-            candidateSessions = sortedOthers.filter { mentionedSessionIds.contains($0.id) }
-        } else {
-            candidateSessions = sortedOthers
-        }
+        let candidateSessions = sortedOthers.filter { peerPlan.candidateSessionIds.contains($0.id) }
 
         guard let wave = await context.reservePeerWave(
             triggerMessageId: triggerMessage.id,
             transcriptBoundaryMessageId: triggerMessage.id,
             candidateSessionIds: candidateSessions.map(\.id),
-            prioritySessionIds: mentionedSessionIds
+            prioritySessionIds: peerPlan.prioritySessionIds
         ) else {
             return []
         }
@@ -2920,19 +3643,14 @@ struct ChatView: View {
         for other in candidateSessions where wave.recipientSessionIds.contains(other.id) {
             let key = other.id.uuidString
 
-            let deliveryReason: GroupPromptBuilder.PeerDeliveryReason
-            if mentionedSessionIds.contains(other.id) {
-                deliveryReason = isAllMention ? .broadcast : .directMention
-            } else {
-                deliveryReason = .generic
-            }
+            let deliveryReason = peerPlan.deliveryReasons[other.id] ?? .generic
 
             let prompt = GroupPromptBuilder.buildPeerNotifyPrompt(
                 senderLabel: senderLabel,
                 peerMessageText: triggerMessage.text,
                 recipientSession: other,
                 deliveryReason: deliveryReason,
-                selectiveRepliesEnabled: convo.selectiveRepliesEnabled,
+                routingMode: convo.routingMode,
                 allowNoReply: true,
                 role: groupRole(for: other, sourceGroup: sourceGroup),
                 teamMembers: teamMembers(excluding: other, in: convo, sourceGroup: sourceGroup)
@@ -3420,7 +4138,7 @@ struct ChatView: View {
             projectId: source.projectId,
             threadKind: source.threadKind
         )
-        newConvo.selectiveRepliesEnabled = source.selectiveRepliesEnabled
+        newConvo.routingMode = source.routingMode
         newConvo.parentConversationId = source.id
 
         let userParticipant = Participant(type: .user, displayName: "You")
@@ -3595,7 +4313,7 @@ struct ChatView: View {
             projectId: convo.projectId,
             threadKind: convo.threadKind
         )
-        newConvo.selectiveRepliesEnabled = convo.selectiveRepliesEnabled
+        newConvo.routingMode = convo.routingMode
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
         newConvo.participants.append(userParticipant)

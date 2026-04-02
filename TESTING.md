@@ -179,17 +179,21 @@ Each table lists every interactive control, its `accessibilityIdentifier`, its `
 |---------|-----------|-------|----------|
 | No-conversation placeholder | `mainWindow.noConversationPlaceholder` | — | `@testId("mainWindow.noConversationPlaceholder")` |
 | Inspector placeholder | `mainWindow.inspectorPlaceholder` | — | `@testId("mainWindow.inspectorPlaceholder")` |
-| Toolbar: New Session | `mainWindow.newSessionButton` | — | `@testId("mainWindow.newSessionButton")` |
-| Toolbar: Quick Chat | `mainWindow.quickChatButton` | — | `@testId("mainWindow.quickChatButton")` |
-| Toolbar: Schedules | `mainWindow.schedulesButton` | `Schedules` | `@testId("mainWindow.schedulesButton")` |
-| Toolbar: Agent Comms | `mainWindow.agentCommsButton` | — | `@testId("mainWindow.agentCommsButton")` |
-| Toolbar: Peer Network | `mainWindow.peerNetworkButton` | — | `@testId("mainWindow.peerNetworkButton")` |
+| Toolbar: Workspace menu | `mainWindow.workspaceMenu` | `Workspace` | `@testId("mainWindow.workspaceMenu")` |
 | Toolbar: Inspector toggle | `mainWindow.inspectorToggle` | — | `@testId("mainWindow.inspectorToggle")` |
 | Sidecar status pill | `mainWindow.sidecarStatusPill` | `Sidecar {status}` | `@testId("mainWindow.sidecarStatusPill")` |
 | Status popover | `mainWindow.statusPopover` | — | `@testId("mainWindow.statusPopover")` |
 | Popover: Reconnect | `mainWindow.statusPopover.reconnectButton` | — | `@testId("mainWindow.statusPopover.reconnectButton")` |
 | Popover: Stop | `mainWindow.statusPopover.stopButton` | — | `@testId("mainWindow.statusPopover.stopButton")` |
 | Popover: Connect | `mainWindow.statusPopover.connectButton` | — | `@testId("mainWindow.statusPopover.connectButton")` |
+
+Legacy comparison mode also exposes:
+- `mainWindow.newSessionButton`
+- `mainWindow.quickChatButton`
+- `mainWindow.schedulesButton`
+- `mainWindow.agentCommsButton`
+- `mainWindow.peerNetworkButton`
+- `mainWindow.newGroupThreadButton`
 
 **Sheets opened from MainWindowView:**
 - `NewSessionSheet` via `appState.showNewSessionSheet`
@@ -206,7 +210,7 @@ Each table lists every interactive control, its `accessibilityIdentifier`, its `
 | Control | Identifier | Label | Selector |
 |---------|-----------|-------|----------|
 | Sidebar list | `sidebar.conversationList` | — | `@testId("sidebar.conversationList")` |
-| Utility: New Thread | `sidebar.utility.newThread` | — | `@testId("sidebar.utility.newThread")` |
+| Utility: New menu | `sidebar.utility.newMenu` | `New` | `@testId("sidebar.utility.newMenu")` |
 | Utility: Library | `sidebar.utility.library` | — | `@testId("sidebar.utility.library")` |
 | Utility: Add Project | `sidebar.utility.addProject` | — | `@testId("sidebar.utility.addProject")` |
 | Project row | `sidebar.projectRow.{uuid}` | — | `@testId("sidebar.projectRow.{uuid}")` |
@@ -217,7 +221,7 @@ Each table lists every interactive control, its `accessibilityIdentifier`, its `
 | Thread row | `sidebar.conversationRow.{uuid}` | — | `@testId("sidebar.conversationRow.{uuid}")` |
 | Archived threads section | `sidebar.archivedSection` | — | `@testId("sidebar.archivedSection")` |
 
-The sidebar is now **project-first**: utilities live above projects, and each project disclosure contains Threads, Tasks, Team, and Schedules subsections. Legacy bottom-bar references should not be used for new tests.
+The sidebar is now **project-first**: utilities live above projects, and each project disclosure contains Threads, Tasks, Team, and Schedules subsections. In legacy comparison mode, the utility section still exposes `sidebar.utility.newThread`; new tests should prefer `sidebar.utility.newMenu`.
 
 **Context menu on thread rows** (Rename, Pin/Unpin, Close, Duplicate, Archive/Unarchive, Delete) and **swipe actions** do not have explicit identifiers.
 
@@ -232,9 +236,17 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 |---------|-----------|-------|----------|
 | Topic text (display) | `chat.topicTitle` | — | `@testId("chat.topicTitle")` |
 | Topic text field (editing) | `chat.topicField` | — | `@testId("chat.topicField")` |
-| Model pill | `chat.modelPill` | — | `@testId("chat.modelPill")` |
-| Live cost label | `chat.liveCostLabel` | — | `@testId("chat.liveCostLabel")` |
 | Mission preview | `chat.missionPreview` | — | `@testId("chat.missionPreview")` |
+| Mission card | `chat.missionCard` | — | `@testId("chat.missionCard")` |
+| Mission editor | `chat.missionEditor` | — | `@testId("chat.missionEditor")` |
+| Mission save | `chat.missionSaveButton` | — | `@testId("chat.missionSaveButton")` |
+| Mission cancel | `chat.missionCancelButton` | — | `@testId("chat.missionCancelButton")` |
+| Mission edit | `chat.missionEditButton` | — | `@testId("chat.missionEditButton")` |
+| Mission add | `chat.missionAddButton` | — | `@testId("chat.missionAddButton")` |
+| Mission expand/collapse | `chat.missionToggleButton` | — | `@testId("chat.missionToggleButton")` |
+| Session menu | `chat.sessionMenu` | `Session menu` | `@testId("chat.sessionMenu")` |
+| Tools menu | `chat.toolsMenu` | `Tools` | `@testId("chat.toolsMenu")` |
+| Group settings menu | `chat.groupSettingsMenu` | `Group settings` | `@testId("chat.groupSettingsMenu")` |
 | Agent icon button | `chat.agentIconButton` | `Open agent {name}` | `@testId("chat.agentIconButton")` |
 | Default chat icon | `chat.chatIcon` | — | `@testId("chat.chatIcon")` |
 | Stop button | `chat.stopButton` | `Stop agent` | `@testId("chat.stopButton")` |
@@ -260,10 +272,16 @@ The sidebar is now **project-first**: utilities live above projects, and each pr
 | Group “Sending to” hint | `chat.sendingToHint` | — | `@testId("chat.sendingToHint")` |
 | Mention suggestion strip | `chat.mentionSuggestions` | — | `@testId("chat.mentionSuggestions")` |
 | Mention suggestion row | `chat.mentionSuggestion.{agentUuid}` | — | `@testId("chat.mentionSuggestion.{agentUuid}")` |
-| Open blackboard | `chat.openBlackboardButton` | `Open blackboard` | `@testId("chat.openBlackboardButton")` |
 | Jump to latest | `chat.jumpToLatestButton` | `Jump to latest message` | `@testId("chat.jumpToLatestButton")` |
 | Send button | `chat.sendButton` | `Send message` | `@testId("chat.sendButton")` |
 | Pending attachments strip | `chat.pendingAttachments` | — | `@testId("chat.pendingAttachments")` |
+
+Legacy comparison mode also exposes:
+- `chat.modelPill`
+- `chat.liveCostLabel`
+- `chat.openBlackboardButton`
+- `chat.moreOptionsMenu`
+- `chat.attachButton`
 | Pending attachment thumb | `chat.pendingAttachment.{index}` | — | `@testId("chat.pendingAttachment.{index}")` |
 | Remove pending attachment | `chat.pendingAttachment.remove.{index}` | `Remove attachment` | `@testId("chat.pendingAttachment.remove.{index}")` |
 | Delegate button | `chat.delegateButton` | `Delegate to agent` | `@testId("chat.delegateButton")` |
