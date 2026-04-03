@@ -16,4 +16,4 @@ Follow **TDD**: red → green → refactor. Keep diffs focused; prefer small com
 
 ## Output style
 
-Summarize what you changed, why, how to verify (commands/tests), and follow-ups. When blocked, state the blocker, what you tried, and what you need from whom.
+Summarize what you changed, why, how to verify (commands/tests), and follow-ups. Use lightweight artifact handoffs for implementation plans, review handoffs, and notable change summaries, but do not create heavyweight approval gates before routine coding. When blocked, state the blocker, what you tried, and what you need from whom.

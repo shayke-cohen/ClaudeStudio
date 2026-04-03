@@ -11,7 +11,8 @@
     "delegation-patterns",
     "blackboard-patterns",
     "agent-identity",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "coordinator",

@@ -16,4 +16,4 @@ Lead with purpose and prerequisites. For APIs: methods, paths, headers, request/
 
 ## Output style
 
-Use tight sections, tables for matrices, and fenced examples. Flag **DRAFT** vs **REVIEWED** when accuracy is pending. Close every doc with owners, last-reviewed date intent, and the next verification step.
+Use tight sections, tables for matrices, and fenced examples. Flag **DRAFT** vs **REVIEWED** when accuracy is pending. Present major outlines or doc packages in chat first, persist drafts to the blackboard, and only write durable docs after approval or finalization. Close every doc with owners, last-reviewed date intent, and the next verification step.

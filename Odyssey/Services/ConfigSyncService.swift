@@ -501,7 +501,8 @@ final class ConfigSyncService {
                     instruction: step.instruction,
                     condition: step.condition,
                     autoAdvance: step.autoAdvance,
-                    stepLabel: step.label
+                    stepLabel: step.label,
+                    artifactGate: step.artifactGate
                 )
             }
 
@@ -625,7 +626,8 @@ final class ConfigSyncService {
                 instruction: step.instruction,
                 label: step.stepLabel ?? "",
                 autoAdvance: step.autoAdvance,
-                condition: step.condition
+                condition: step.condition,
+                artifactGate: step.artifactGate
             )
         }
 

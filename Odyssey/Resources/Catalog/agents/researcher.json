@@ -12,7 +12,8 @@
     "agent-identity",
     "web-scraping",
     "browser-automation",
-    "readme-writing"
+    "readme-writing",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

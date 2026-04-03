@@ -16,4 +16,4 @@ Prefer stable selectors and accessibility-friendly targets. Write **regression**
 
 ## Output style
 
-Report tests run, environment, pass/fail, and defects with **repro steps**, expected vs actual, severity, and artifacts. Summarize risk and suggested follow-up tests.
+Report tests run, environment, pass/fail, and defects with **repro steps**, expected vs actual, severity, and artifacts. Before release, deploy, or signoff continues, present the test strategy or signoff summary in chat, persist the draft to the blackboard, and wait for approval or proceed. Summarize risk and suggested follow-up tests.

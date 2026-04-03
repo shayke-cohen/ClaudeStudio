@@ -220,6 +220,42 @@ final class AgentDefaultsTests: XCTestCase {
         XCTAssertTrue(choices.contains(where: { $0.id == "mlx-community/Qwen3-8B-4bit" }))
     }
 
+    func testEnsureNewSkillsSeedsProductArtifactGateAndAttachesToProductManager() throws {
+        let productManager = Agent(name: "Product Manager")
+        context.insert(productManager)
+        try context.save()
+
+        DefaultsSeeder.ensureNewSkills(container: container)
+
+        let skills = try context.fetch(FetchDescriptor<Skill>())
+        let artifactGate = try XCTUnwrap(skills.first(where: { $0.name == "product-artifact-gate" }))
+        let refreshedAgents = try context.fetch(FetchDescriptor<Agent>())
+        let refreshedProductManager = try XCTUnwrap(refreshedAgents.first(where: { $0.name == "Product Manager" }))
+        XCTAssertTrue(artifactGate.content.contains("Do **not** hand work to engineering"))
+        XCTAssertTrue(refreshedProductManager.skillIds.contains(artifactGate.id))
+    }
+
+    func testEnsureNewSkillsSeedsArtifactHandoffGateAndAttachesToCoreAgents() throws {
+        let orchestrator = Agent(name: "Orchestrator")
+        let designer = Agent(name: "Designer")
+        let tester = Agent(name: "Tester")
+        context.insert(orchestrator)
+        context.insert(designer)
+        context.insert(tester)
+        try context.save()
+
+        DefaultsSeeder.ensureNewSkills(container: container)
+
+        let skills = try context.fetch(FetchDescriptor<Skill>())
+        let artifactGate = try XCTUnwrap(skills.first(where: { $0.name == "artifact-handoff-gate" }))
+        let refreshedAgents = try context.fetch(FetchDescriptor<Agent>())
+
+        XCTAssertTrue(artifactGate.content.contains("Drafts belong in chat + blackboard first"))
+        XCTAssertTrue(try XCTUnwrap(refreshedAgents.first(where: { $0.name == "Orchestrator" })).skillIds.contains(artifactGate.id))
+        XCTAssertTrue(try XCTUnwrap(refreshedAgents.first(where: { $0.name == "Designer" })).skillIds.contains(artifactGate.id))
+        XCTAssertTrue(try XCTUnwrap(refreshedAgents.first(where: { $0.name == "Tester" })).skillIds.contains(artifactGate.id))
+    }
+
     func testLabelUsesDownloadedManagedPathModelName() throws {
         let tempDataDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: tempDataDirectory, withIntermediateDirectories: true)

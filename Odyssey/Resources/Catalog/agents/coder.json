@@ -16,7 +16,8 @@
     "debugging",
     "tdd",
     "odyssey-accessibility",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [
     "octocode"

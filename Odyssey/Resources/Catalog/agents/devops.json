@@ -13,7 +13,8 @@
     "docker-containerization",
     "ci-pipeline",
     "monitoring-setup",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "worker",

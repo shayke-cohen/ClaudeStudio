@@ -13,7 +13,8 @@
     "component-design",
     "accessibility-audit",
     "responsive-design",
-    "design-system"
+    "design-system",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

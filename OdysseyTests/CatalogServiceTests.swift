@@ -157,6 +157,22 @@ final class CatalogServiceTests: XCTestCase {
         XCTAssertTrue(skill!.content.contains("Tester and Reviewer should file issues for durable defects or must-fix findings"))
     }
 
+    func testProductArtifactGateSkillLoadsAsFallbackCatalogSkill() {
+        let skill = CatalogService.shared.findSkill("product-artifact-gate")
+        XCTAssertNotNil(skill)
+        XCTAssertEqual(skill?.name, "Product Artifact Gate")
+        XCTAssertTrue(skill!.content.contains("PRD draft has been shown in chat"))
+        XCTAssertTrue(skill!.content.contains("docs/prd/<feature-slug>.md"))
+    }
+
+    func testArtifactHandoffGateSkillLoadsAsFallbackCatalogSkill() {
+        let skill = CatalogService.shared.findSkill("artifact-handoff-gate")
+        XCTAssertNotNil(skill)
+        XCTAssertEqual(skill?.name, "Artifact Handoff Gate")
+        XCTAssertTrue(skill!.content.contains("Before downstream work continues at a major handoff"))
+        XCTAssertTrue(skill!.content.contains("artifacts.<role>.<profile>.current"))
+    }
+
     func testCoordinatorTemplateIncludesGitHubDurabilityGuidance() throws {
         let template = try loadSystemPromptTemplate(named: "coordinator")
         XCTAssertTrue(template.contains("Use GitHub for durable artifacts that should outlive the session"))
@@ -277,6 +293,19 @@ final class CatalogServiceTests: XCTestCase {
             XCTAssertTrue(CatalogService.shared.isSkillInstalled(skillId, context: context),
                          "Required skill '\(skillId)' should be auto-installed with agent")
         }
+    }
+
+    func testInstallProductManagerIncludesArtifactGateSkill() {
+        let agent = CatalogService.shared.installAgent("product-manager", into: context)
+        XCTAssertNotNil(agent)
+        XCTAssertTrue(CatalogService.shared.isSkillInstalled("product-artifact-gate", context: context))
+        XCTAssertTrue(CatalogService.shared.isSkillInstalled("artifact-handoff-gate", context: context))
+    }
+
+    func testInstallTechnicalLeadIncludesArtifactHandoffGateSkill() {
+        let agent = CatalogService.shared.installAgent("technical-lead", into: context)
+        XCTAssertNotNil(agent)
+        XCTAssertTrue(CatalogService.shared.isSkillInstalled("artifact-handoff-gate", context: context))
     }
 
     func testInstallCoderInstallsOctocodeMCP() {

@@ -13,7 +13,8 @@
     "code-architecture",
     "technical-rfc",
     "adr-writing",
-    "code-review"
+    "code-review",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [
     "octocode"

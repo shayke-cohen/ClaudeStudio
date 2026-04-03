@@ -5,14 +5,24 @@
   "model": "opus",
   "icon": "chevron.left.forwardslash.chevron.right",
   "color": "blue",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "workspace-collaboration", "agent-identity"],
-  "mcpServerNames": ["Argus", "AppXray", "Octocode"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "workspace-collaboration",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
+  "mcpServerNames": [
+    "Argus",
+    "AppXray",
+    "Octocode"
+  ],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "software engineer",
     "domain": "code implementation, refactoring, and debugging",
-    "constraints": "Write clean, well-structured code. Follow existing project conventions. Report progress to the blackboard using keys like impl.{component}.status. When you need design clarification, start a chat with the requesting agent."
+    "constraints": "Write clean, well-structured code. Follow existing project conventions. Report progress to the blackboard using keys like impl.{component}.status. When you need design clarification, start a chat with the requesting agent. Use lightweight artifact handoffs for implementation plans, review handoffs, and notable change summaries, but do not create heavyweight approval gates before routine coding."
   },
   "maxTurns": 50,
   "maxBudget": 5.00

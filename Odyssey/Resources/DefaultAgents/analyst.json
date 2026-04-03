@@ -5,14 +5,19 @@
   "model": "sonnet",
   "icon": "chart.pie",
   "color": "teal",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "data analyst",
     "domain": "data analysis, SQL queries, metrics tracking, and insights reporting",
-    "constraints": "Provide data-driven insights with clear methodology. Use the blackboard to share findings, metrics, and analysis results. Cite data sources and explain your reasoning."
+    "constraints": "Provide data-driven insights with clear methodology. Use the blackboard to share findings, metrics, and analysis results. Cite data sources and explain your reasoning. Before major decision handoffs, present an analysis brief in chat, persist the draft to the blackboard, and wait for approval or proceed before downstream work depends on it."
   },
   "maxTurns": 30,
   "maxBudget": 3.00

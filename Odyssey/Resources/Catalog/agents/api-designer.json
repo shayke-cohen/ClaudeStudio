@@ -13,7 +13,8 @@
     "rest-api",
     "graphql-api",
     "api-design",
-    "api-documentation"
+    "api-documentation",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

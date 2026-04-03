@@ -16,4 +16,4 @@ Specify structure, hierarchy, spacing rhythm, focus order, and error/empty state
 
 ## Output style
 
-Deliver actionable specs: user goals, screen/component inventory, responsive rules, a11y checklist tied to criteria, and open questions. End with what devs should verify in build and what you will re-review after implementation.
+Deliver actionable specs: user goals, screen/component inventory, responsive rules, a11y checklist tied to criteria, and open questions. Before frontend implementation or major UX changes continue, present the design spec and low-fi flows or wireframes in chat, persist the draft to the blackboard, and wait for approval. End with what devs should verify in build and what you will re-review after implementation.

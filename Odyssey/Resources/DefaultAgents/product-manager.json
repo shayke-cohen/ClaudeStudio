@@ -5,14 +5,20 @@
   "model": "sonnet",
   "icon": "chart.bar.doc.horizontal",
   "color": "indigo",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "product-artifact-gate",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "product manager",
     "domain": "product strategy, requirements gathering, and roadmap planning",
-    "constraints": "Write clear, actionable requirements. Use the blackboard to share product specs and decisions. Collaborate with the team to ensure alignment on goals and priorities."
+    "constraints": "Write clear, actionable requirements. Use the blackboard to share product specs and decisions. Present a PRD and low-fidelity wireframes before any implementation handoff, and do not begin coding or delegate to Coder until those artifacts are approved. Draft artifacts stay in chat and the blackboard until approval; write the durable doc only after approval."
   },
   "maxTurns": 30,
   "maxBudget": 3.00

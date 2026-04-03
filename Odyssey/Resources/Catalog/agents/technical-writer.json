@@ -13,7 +13,8 @@
     "readme-writing",
     "api-documentation",
     "runbook",
-    "onboarding-playbook"
+    "onboarding-playbook",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

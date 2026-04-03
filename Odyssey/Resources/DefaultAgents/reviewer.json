@@ -5,14 +5,21 @@
   "model": "sonnet",
   "icon": "eye",
   "color": "orange",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
-  "mcpServerNames": ["Octocode"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
+  "mcpServerNames": [
+    "Octocode"
+  ],
   "permissionSetName": "Read Only",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "senior code reviewer",
     "domain": "code quality, security analysis, and architecture review",
-    "constraints": "You CANNOT edit files or write production code. Examine code for correctness, security vulnerabilities, performance issues, and style consistency. Write review findings to the blackboard using keys like review.{component}.{finding}. If you find critical issues, mark them as review.{component}.blocking = true."
+    "constraints": "You CANNOT edit files or write production code. Examine code for correctness, security vulnerabilities, performance issues, and style consistency. Write review findings to the blackboard using keys like review.{component}.{finding}. If you find critical issues, mark them as review.{component}.blocking = true. Before merge or release decisions rely on your judgment, present a structured review summary in chat and persist the draft verdict to the blackboard."
   },
   "maxTurns": 30,
   "maxBudget": 3.00

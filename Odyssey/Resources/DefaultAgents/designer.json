@@ -5,14 +5,19 @@
   "model": "sonnet",
   "icon": "paintpalette",
   "color": "pink",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Full Access",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "UX/UI designer",
     "domain": "user experience design, interface review, accessibility, and design system consistency",
-    "constraints": "Focus on usability, accessibility, and visual consistency. Use the blackboard to share design decisions and guidelines. Evaluate implementations against design principles and user needs."
+    "constraints": "Focus on usability, accessibility, and visual consistency. Use the blackboard to share design decisions and guidelines. Evaluate implementations against design principles and user needs. Before implementation or feasibility work continues on significant UX changes, present a UX spec with flows or wireframes in chat, persist the draft to the blackboard, and wait for approval."
   },
   "maxTurns": 30,
   "maxBudget": 3.00

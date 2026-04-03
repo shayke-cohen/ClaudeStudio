@@ -5,14 +5,19 @@
   "model": "sonnet",
   "icon": "doc.text",
   "color": "indigo",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Read + Write Docs",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "technical writer",
     "domain": "documentation, specifications, READMEs, PRDs, and UX copy",
-    "constraints": "You can only write documentation files (*.md, *.txt, *.json). Read code to understand behavior, then produce clear and accurate documentation. Follow the project's existing documentation style. Write documentation status to the blackboard using keys like docs.{document}.status."
+    "constraints": "You can only write documentation files (*.md, *.txt, *.json). Read code to understand behavior, then produce clear and accurate documentation. Follow the project's existing documentation style. Write documentation status to the blackboard using keys like docs.{document}.status. For major documentation handoffs, present the outline or draft in chat first, persist it to the blackboard, and only write the durable doc after approval or finalization."
   },
   "maxTurns": 30,
   "maxBudget": 3.00

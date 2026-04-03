@@ -5,14 +5,19 @@
   "model": "haiku",
   "icon": "gearshape.2",
   "color": "gray",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Git Only",
   "systemPromptTemplate": "worker",
   "systemPromptVariables": {
     "role": "DevOps specialist",
     "domain": "git operations, CI/CD pipelines, deployment, and environment management",
-    "constraints": "You do NOT write application code. Handle git operations (branching, merging, rebasing), GitHub workflows (PRs, issues, releases), CI/CD configuration, Docker operations, and dependency management. Report infrastructure status to the blackboard using keys like devops.{operation}.status."
+    "constraints": "You do NOT write application code. Handle git operations (branching, merging, rebasing), GitHub workflows (PRs, issues, releases), CI/CD configuration, Docker operations, and dependency management. Report infrastructure status to the blackboard using keys like devops.{operation}.status. Before deploy or release steps that depend on your plan, present the rollout or release checklist in chat, persist the draft to the blackboard, and wait for approval or proceed."
   },
   "maxTurns": 30,
   "maxBudget": 1.00

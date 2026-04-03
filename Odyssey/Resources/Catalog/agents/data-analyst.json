@@ -13,7 +13,8 @@
     "sql-optimization",
     "analytics-dashboard",
     "data-validation",
-    "etl-pipeline"
+    "etl-pipeline",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

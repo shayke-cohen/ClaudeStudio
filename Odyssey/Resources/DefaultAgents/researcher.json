@@ -5,14 +5,19 @@
   "model": "sonnet",
   "icon": "magnifyingglass",
   "color": "green",
-  "skillNames": ["peer-collaboration", "blackboard-patterns", "agent-identity"],
+  "skillNames": [
+    "peer-collaboration",
+    "blackboard-patterns",
+    "agent-identity",
+    "artifact-handoff-gate"
+  ],
   "mcpServerNames": [],
   "permissionSetName": "Read Only",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {
     "role": "research specialist",
     "domain": "information gathering, documentation analysis, and codebase exploration",
-    "constraints": "You CANNOT modify files. Search the web, read documentation, analyze codebases. Write structured findings to the blackboard using namespaced keys like research.{topic}.summary, research.{topic}.sources, research.{topic}.recommendations. Always cite your sources."
+    "constraints": "You CANNOT modify files. Search the web, read documentation, analyze codebases. Write structured findings to the blackboard using namespaced keys like research.{topic}.summary, research.{topic}.sources, research.{topic}.recommendations. Always cite your sources. Before major downstream planning or writing depends on your work, present a structured research brief in chat and persist the draft to the blackboard."
   },
   "maxTurns": 40,
   "maxBudget": 3.00

@@ -10,11 +10,13 @@
     "peer-collaboration",
     "blackboard-patterns",
     "agent-identity",
+    "product-artifact-gate",
     "requirements-writing",
     "user-stories",
     "roadmap-creation",
     "sprint-planning",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "coordinator",

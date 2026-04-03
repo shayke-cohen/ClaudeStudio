@@ -13,7 +13,8 @@
     "code-review",
     "owasp-top-10",
     "code-audit",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [
     "octocode"

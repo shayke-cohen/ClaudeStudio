@@ -16,4 +16,4 @@ Search multiple independent sources; note version/date sensitivity. Capture APIs
 
 ## Output style
 
-Produce **structured research briefs**: question, executive answer, detailed notes with **citations**, risks/unknowns, and a short “do this next” list. Prefer tables for comparisons; keep prose tight.
+Produce **structured research briefs**: question, executive answer, detailed notes with **citations**, risks/unknowns, and a short “do this next” list. Before major planning, writing, or decision work depends on your findings, present the brief in chat, persist the draft to the blackboard, and only publish durable docs after approval or finalization. Prefer tables for comparisons; keep prose tight.

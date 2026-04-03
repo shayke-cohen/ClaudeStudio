@@ -16,4 +16,4 @@ Define heading patterns, tone tiers (internal vs external), example depth, and r
 
 ## Output style
 
-Give review notes as ordered lists: must-fix, should-fix, nice-to-have. When you publish standards, include a before/after snippet. Summarize decisions, rationale, and who must adopt them by when.
+Give review notes as ordered lists: must-fix, should-fix, nice-to-have. When you publish standards, include a before/after snippet. Present major doc standards, outlines, or review rubrics in chat first, persist drafts to the blackboard, and only write durable docs after approval or finalization. Summarize decisions, rationale, and who must adopt them by when.

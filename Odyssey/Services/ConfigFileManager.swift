@@ -153,6 +153,7 @@ struct WorkflowStepDTO: Codable {
     let label: String
     let autoAdvance: Bool
     let condition: String?
+    let artifactGate: WorkflowArtifactGate?
 }
 
 struct MCPConfigDTO: Codable {
@@ -577,7 +578,7 @@ enum ConfigFileManager {
     }
 
     private static func copyBundleSkills() throws {
-        let skillNames = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "config-editing", "github-workflow"]
+        let skillNames = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "artifact-handoff-gate", "product-artifact-gate", "config-editing", "github-workflow"]
 
         for name in skillNames {
             guard let content = loadBundleSkillContent(name: name) else { continue }
@@ -592,7 +593,7 @@ enum ConfigFileManager {
     /// Ensure any new bundle skills that aren't yet in the config directory get copied.
     /// Called on every launch before performFullSync to handle incremental additions.
     static func ensureBundleSkillsPresent() {
-        let allBundleSkills = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "config-editing", "github-workflow"]
+        let allBundleSkills = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "artifact-handoff-gate", "product-artifact-gate", "config-editing", "github-workflow"]
         let fm = FileManager.default
 
         for name in allBundleSkills {
@@ -718,9 +719,9 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Coder", "Reviewer", "Tester"], sortOrder: 0,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requested changes. Write clean, well-structured code.", label: "Implement", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the code from the previous step. Check for bugs, style issues, and architectural concerns. List any changes needed.", label: "Review", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Write and run tests for the implementation. Verify the code works correctly and edge cases are covered.", label: "Test", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requested changes. Write clean, well-structured code.", label: "Implement", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the code from the previous step. Check for bugs, style issues, and architectural concerns. List any changes needed.", label: "Review", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Write and run tests for the implementation. Verify the code works correctly and edge cases are covered.", label: "Test", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("code-review-pair", GroupConfigDTO(
@@ -730,8 +731,8 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Coder", "Reviewer"], sortOrder: 1,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requested changes or propose a solution.", label: "Code", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the code critically. Approve if quality is met, or list specific changes needed.", label: "Review", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requested changes or propose a solution.", label: "Code", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the code critically. Approve if quality is met, or list specific changes needed.", label: "Review", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("full-stack-team", GroupConfigDTO(
@@ -741,10 +742,10 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Coder", "Reviewer", "Tester", "DevOps"], sortOrder: 2,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the feature or fix.", label: "Implement", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review code quality, architecture, and correctness.", label: "Review", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Write tests and validate the implementation.", label: "Test", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "DevOps", instruction: "Prepare deployment: update configs, CI/CD pipelines, and infrastructure as needed.", label: "Deploy", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the feature or fix.", label: "Implement", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review code quality, architecture, and correctness.", label: "Review", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Write tests and validate the implementation. Present a signoff summary with risks and evidence before deployment continues.", label: "Test", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "test-signoff", approvalRequired: true, publishRepoDoc: false, blockedDownstreamAgentNames: ["DevOps"])),
+                    WorkflowStepDTO(agentName: "DevOps", instruction: "Prepare deployment: update configs, CI/CD pipelines, and infrastructure as needed.", label: "Deploy", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("devops-pipeline", GroupConfigDTO(
@@ -754,9 +755,9 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Coder", "Tester", "DevOps"], sortOrder: 3,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Write or update the pipeline code, scripts, or infrastructure config.", label: "Build", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Validate the pipeline works correctly. Run smoke tests.", label: "Validate", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "DevOps", instruction: "Deploy to the target environment. Verify health checks pass.", label: "Deploy", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Write or update the pipeline code, scripts, or infrastructure config.", label: "Build", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Validate the pipeline works correctly. Run smoke tests. Present a signoff summary before deployment continues.", label: "Validate", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "test-signoff", approvalRequired: true, publishRepoDoc: false, blockedDownstreamAgentNames: ["DevOps"])),
+                    WorkflowStepDTO(agentName: "DevOps", instruction: "Deploy to the target environment. Verify health checks pass.", label: "Deploy", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("security-audit", GroupConfigDTO(
@@ -767,9 +768,9 @@ enum ConfigFileManager {
                 agentNames: ["Coder", "Reviewer", "Tester"], sortOrder: 4,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Scan the codebase for security vulnerabilities: injection, auth issues, data exposure, dependency risks. List all findings.", label: "Scan", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Assess the severity and risk of each finding. Prioritize by impact. Recommend mitigations.", label: "Assess", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Write proof-of-concept tests that demonstrate each vulnerability. Verify mitigations work.", label: "Exploit Tests", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Scan the codebase for security vulnerabilities: injection, auth issues, data exposure, dependency risks. List all findings.", label: "Scan", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Assess the severity and risk of each finding. Prioritize by impact. Recommend mitigations.", label: "Assess", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Write proof-of-concept tests that demonstrate each vulnerability. Verify mitigations work.", label: "Exploit Tests", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("plan-and-build", GroupConfigDTO(
@@ -780,9 +781,9 @@ enum ConfigFileManager {
                 autoReplyEnabled: true, autonomousCapable: true, coordinatorAgentName: "Orchestrator",
                 roles: ["Orchestrator": "coordinator"],
                 workflow: [
-                    WorkflowStepDTO(agentName: "Orchestrator", instruction: "Break down the task into a step-by-step implementation plan. List each step with clear acceptance criteria.", label: "Plan", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the plan from the previous step. Follow each step in order.", label: "Implement", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Validate the implementation against the plan's acceptance criteria. Report pass/fail for each step.", label: "Validate", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Orchestrator", instruction: "Break down the task into a step-by-step implementation plan. Present the plan in chat, persist it to the blackboard, and pause for explicit proceed before implementation begins.", label: "Plan", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "implementation-plan", approvalRequired: false, publishRepoDoc: false, blockedDownstreamAgentNames: ["Coder"])),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the plan from the previous step. Follow each step in order.", label: "Implement", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Validate the implementation against the plan's acceptance criteria. Report pass/fail for each step.", label: "Validate", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("product-crew", GroupConfigDTO(
@@ -793,9 +794,9 @@ enum ConfigFileManager {
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil,
                 roles: ["Product Manager": "coordinator"],
                 workflow: [
-                    WorkflowStepDTO(agentName: "Researcher", instruction: "Research the topic: gather competitive insights, user needs, and market context.", label: "Research", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Analyst", instruction: "Analyze the research findings. Identify key metrics, trends, and data-driven insights.", label: "Analyze", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Synthesize research and analysis into a product recommendation: goals, requirements, and success criteria.", label: "Recommend", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Researcher", instruction: "Research the topic: gather competitive insights, user needs, and market context.", label: "Research", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Analyst", instruction: "Analyze the research findings. Identify key metrics, trends, and data-driven insights.", label: "Analyze", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Synthesize research and analysis into a product recommendation: goals, requirements, and success criteria.", label: "Recommend", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("pm-plus-dev", GroupConfigDTO(
@@ -806,10 +807,10 @@ enum ConfigFileManager {
                 autoReplyEnabled: true, autonomousCapable: true, coordinatorAgentName: "Product Manager",
                 roles: ["Product Manager": "coordinator"],
                 workflow: [
-                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Write clear requirements and acceptance criteria for this task.", label: "Requirements", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requirements from the previous step.", label: "Implement", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the implementation against the original requirements.", label: "Review", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Tester", instruction: "Test the implementation against the acceptance criteria. Report results.", label: "Test", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Gather requirements, present a PRD and low-fidelity wireframes in chat, persist the draft artifacts to the blackboard, ask for approval, and only after approval hand off implementation.", label: "Product Spec", autoAdvance: false, condition: nil, artifactGate: WorkflowArtifactGate(profile: "product-spec", approvalRequired: true, publishRepoDoc: true, blockedDownstreamAgentNames: ["Coder"])),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Implement the requirements from the previous step.", label: "Implement", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the implementation against the original requirements.", label: "Review", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Tester", instruction: "Test the implementation against the acceptance criteria. Report results.", label: "Test", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("content-studio", GroupConfigDTO(
@@ -819,9 +820,9 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Researcher", "Writer", "Reviewer"], sortOrder: 8,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Researcher", instruction: "Research the topic thoroughly. Gather key facts, sources, and relevant context.", label: "Research", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Writer", instruction: "Draft the content using the research from the previous step. Write clearly and engagingly.", label: "Draft", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the draft for accuracy, clarity, tone, and completeness. Suggest edits.", label: "Edit", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Researcher", instruction: "Research the topic thoroughly. Gather key facts, sources, and relevant context.", label: "Research", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Writer", instruction: "Draft the content using the research from the previous step. Write clearly and engagingly.", label: "Draft", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review the draft for accuracy, clarity, tone, and completeness. Suggest edits.", label: "Edit", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("growth-team", GroupConfigDTO(
@@ -832,9 +833,9 @@ enum ConfigFileManager {
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil,
                 roles: ["Product Manager": "coordinator"],
                 workflow: [
-                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Define the growth objective and strategy. What metric are we moving and how?", label: "Strategy", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Analyst", instruction: "Analyze current metrics and identify the highest-impact opportunities for the strategy.", label: "Analysis", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Writer", instruction: "Create the messaging, copy, or content needed to execute the growth strategy.", label: "Content", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Product Manager", instruction: "Define the growth objective and strategy. What metric are we moving and how?", label: "Strategy", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Analyst", instruction: "Analyze current metrics and identify the highest-impact opportunities for the strategy.", label: "Analysis", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Writer", instruction: "Create the messaging, copy, or content needed to execute the growth strategy.", label: "Content", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("design-review", GroupConfigDTO(
@@ -844,9 +845,9 @@ enum ConfigFileManager {
                 defaultMission: nil, agentNames: ["Designer", "Coder", "Reviewer"], sortOrder: 10,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
-                    WorkflowStepDTO(agentName: "Designer", instruction: "Evaluate the UX/UI. Identify usability issues, accessibility gaps, and design improvements.", label: "UX Review", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Coder", instruction: "Assess feasibility of the design recommendations. Note implementation complexity and trade-offs.", label: "Feasibility", autoAdvance: true, condition: nil),
-                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review for consistency with existing design patterns and code conventions. Final recommendation.", label: "Consistency", autoAdvance: false, condition: nil),
+                    WorkflowStepDTO(agentName: "Designer", instruction: "Evaluate the UX/UI. Present a concise UX spec with flows or wireframes in chat, persist it to the blackboard, and wait for approval before feasibility or implementation continues.", label: "UX Review", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "ux-spec", approvalRequired: true, publishRepoDoc: true, blockedDownstreamAgentNames: ["Coder"])),
+                    WorkflowStepDTO(agentName: "Coder", instruction: "Assess feasibility of the design recommendations. Note implementation complexity and trade-offs.", label: "Feasibility", autoAdvance: true, condition: nil, artifactGate: nil),
+                    WorkflowStepDTO(agentName: "Reviewer", instruction: "Review for consistency with existing design patterns and code conventions. Final recommendation.", label: "Consistency", autoAdvance: false, condition: nil, artifactGate: nil),
                 ]
             )),
             ("full-ensemble", GroupConfigDTO(

@@ -13,7 +13,8 @@
     "api-documentation",
     "runbook",
     "onboarding-playbook",
-    "changelog"
+    "changelog",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "specialist",

@@ -13,7 +13,8 @@
     "cd-deployment",
     "environment-management",
     "ci-pipeline",
-    "github-workflow"
+    "github-workflow",
+    "artifact-handoff-gate"
   ],
   "extraMCPs": [],
   "systemPromptTemplate": "worker",

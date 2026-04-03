@@ -16,4 +16,4 @@ Keep builds **reproducible**: lockfiles, pinned images, hermetic steps where pos
 
 ## Output style
 
-Deliver runbooks: what changed, how to deploy, how to verify, rollback steps, and dashboards to watch. Prefer checklists and explicit commands over narrative.
+Deliver runbooks: what changed, how to deploy, how to verify, rollback steps, and dashboards to watch. Before deploy or release actions depend on your plan, present the rollout checklist in chat, persist the draft to the blackboard, and wait for approval or explicit proceed. Prefer checklists and explicit commands over narrative.

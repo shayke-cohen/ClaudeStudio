@@ -23,7 +23,13 @@ final class GroupWorkflowTests: XCTestCase {
             instruction: "Do something",
             condition: "if approved",
             autoAdvance: true,
-            stepLabel: "Step 1"
+            stepLabel: "Step 1",
+            artifactGate: WorkflowArtifactGate(
+                profile: "architecture-decision",
+                approvalRequired: true,
+                publishRepoDoc: true,
+                blockedDownstreamAgentNames: ["Coder"]
+            )
         )
 
         let data = try JSONEncoder().encode(step)
@@ -34,6 +40,8 @@ final class GroupWorkflowTests: XCTestCase {
         XCTAssertTrue(decoded.autoAdvance)
         XCTAssertEqual(decoded.stepLabel, "Step 1")
         XCTAssertEqual(decoded.agentId, step.agentId)
+        XCTAssertEqual(decoded.artifactGate?.profile, "architecture-decision")
+        XCTAssertEqual(decoded.artifactGate?.blockedDownstreamAgentNames, ["Coder"])
     }
 
     func testWorkflowStepArrayCodable() throws {
@@ -48,6 +56,218 @@ final class GroupWorkflowTests: XCTestCase {
         XCTAssertEqual(decoded.count, 2)
         XCTAssertEqual(decoded[0].instruction, "First")
         XCTAssertEqual(decoded[1].instruction, "Second")
+    }
+
+    // MARK: - GroupWorkflowEngine
+
+    func testInteractiveProductManagerStepPausesBeforeCoderEvenIfAutoAdvanceIsTrue() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let productManager = Agent(name: "Product Manager")
+        let coder = Agent(name: "Coder")
+        ctx.insert(productManager)
+        ctx.insert(coder)
+
+        let pmSession = Session(agent: productManager, workingDirectory: "/tmp")
+        let coderSession = Session(agent: coder, workingDirectory: "/tmp")
+        ctx.insert(pmSession)
+        ctx.insert(coderSession)
+
+        let conversation = Conversation(topic: "New feature")
+        conversation.executionMode = .interactive
+        conversation.sessions = [pmSession, coderSession]
+        pmSession.conversations = [conversation]
+        coderSession.conversations = [conversation]
+
+        let group = AgentGroup(name: "PM + Dev")
+        group.agentIds = [productManager.id, coder.id]
+        group.workflow = [
+            WorkflowStep(agentId: productManager.id, instruction: "Prepare the product spec.", autoAdvance: true, stepLabel: "Product Spec"),
+            WorkflowStep(agentId: coder.id, instruction: "Implement the approved spec.", autoAdvance: true, stepLabel: "Implement"),
+        ]
+        ctx.insert(conversation)
+        ctx.insert(group)
+        try ctx.save()
+
+        let engine = GroupWorkflowEngine(
+            conversation: conversation,
+            group: group,
+            workflow: try XCTUnwrap(group.workflow),
+            appState: AppState(),
+            modelContext: ctx
+        )
+
+        var visitedAgents: [String] = []
+        await engine.execute(userMessage: "Build onboarding", manager: SidecarManager()) { session, _, _ in
+            visitedAgents.append(session.agent?.name ?? "Unknown")
+            return "PRD and wireframes are ready for approval."
+        }
+
+        XCTAssertEqual(visitedAgents, ["Product Manager"])
+        XCTAssertEqual(conversation.workflowCurrentStep, 1)
+        XCTAssertEqual(conversation.workflowCompletedSteps ?? [], [0])
+        XCTAssertEqual(conversation.messages.last?.type, .system)
+        XCTAssertTrue(conversation.messages.last?.text.contains("Review the PRD and wireframes") == true)
+    }
+
+    func testInteractiveDesignerStepPausesBeforeCoderWhenArtifactGateMetadataIsPresent() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let designer = Agent(name: "Designer")
+        let coder = Agent(name: "Coder")
+        ctx.insert(designer)
+        ctx.insert(coder)
+
+        let designerSession = Session(agent: designer, workingDirectory: "/tmp")
+        let coderSession = Session(agent: coder, workingDirectory: "/tmp")
+        ctx.insert(designerSession)
+        ctx.insert(coderSession)
+
+        let conversation = Conversation(topic: "Improve onboarding UI")
+        conversation.executionMode = .interactive
+        conversation.sessions = [designerSession, coderSession]
+        designerSession.conversations = [conversation]
+        coderSession.conversations = [conversation]
+
+        let group = AgentGroup(name: "Design Review")
+        group.agentIds = [designer.id, coder.id]
+        group.workflow = [
+            WorkflowStep(
+                agentId: designer.id,
+                instruction: "Prepare UX spec",
+                autoAdvance: true,
+                stepLabel: "UX Review",
+                artifactGate: WorkflowArtifactGate(
+                    profile: "ux-spec",
+                    approvalRequired: true,
+                    publishRepoDoc: true,
+                    blockedDownstreamAgentNames: ["Coder"]
+                )
+            ),
+            WorkflowStep(agentId: coder.id, instruction: "Assess feasibility", autoAdvance: true, stepLabel: "Feasibility"),
+        ]
+        ctx.insert(conversation)
+        ctx.insert(group)
+        try ctx.save()
+
+        let engine = GroupWorkflowEngine(
+            conversation: conversation,
+            group: group,
+            workflow: try XCTUnwrap(group.workflow),
+            appState: AppState(),
+            modelContext: ctx
+        )
+
+        var visitedAgents: [String] = []
+        await engine.execute(userMessage: "Modernize onboarding", manager: SidecarManager()) { session, _, _ in
+            visitedAgents.append(session.agent?.name ?? "Unknown")
+            return "Design spec and wireframes are ready."
+        }
+
+        XCTAssertEqual(visitedAgents, ["Designer"])
+        XCTAssertEqual(conversation.workflowCurrentStep, 1)
+        XCTAssertTrue(conversation.messages.last?.text.contains("design spec, flows, and wireframes") == true)
+    }
+
+    func testInteractiveTesterLegacyInferencePausesBeforeDevOps() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let tester = Agent(name: "Tester")
+        let devOps = Agent(name: "DevOps")
+        ctx.insert(tester)
+        ctx.insert(devOps)
+
+        let testerSession = Session(agent: tester, workingDirectory: "/tmp")
+        let devOpsSession = Session(agent: devOps, workingDirectory: "/tmp")
+        ctx.insert(testerSession)
+        ctx.insert(devOpsSession)
+
+        let conversation = Conversation(topic: "Deploy release")
+        conversation.executionMode = .interactive
+        conversation.sessions = [testerSession, devOpsSession]
+        testerSession.conversations = [conversation]
+        devOpsSession.conversations = [conversation]
+
+        let group = AgentGroup(name: "Full Stack Team")
+        group.agentIds = [tester.id, devOps.id]
+        group.workflow = [
+            WorkflowStep(agentId: tester.id, instruction: "Prepare signoff", autoAdvance: true, stepLabel: "Test"),
+            WorkflowStep(agentId: devOps.id, instruction: "Deploy", autoAdvance: true, stepLabel: "Deploy"),
+        ]
+        ctx.insert(conversation)
+        ctx.insert(group)
+        try ctx.save()
+
+        let engine = GroupWorkflowEngine(
+            conversation: conversation,
+            group: group,
+            workflow: try XCTUnwrap(group.workflow),
+            appState: AppState(),
+            modelContext: ctx
+        )
+
+        var visitedAgents: [String] = []
+        await engine.execute(userMessage: "Ship release", manager: SidecarManager()) { session, _, _ in
+            visitedAgents.append(session.agent?.name ?? "Unknown")
+            return "Validation complete."
+        }
+
+        XCTAssertEqual(visitedAgents, ["Tester"])
+        XCTAssertEqual(conversation.workflowCurrentStep, 1)
+        XCTAssertTrue(conversation.messages.last?.text.contains("test strategy or signoff summary") == true)
+    }
+
+    func testAutonomousProductManagerStepStillAutoAdvancesIntoCoder() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+
+        let productManager = Agent(name: "Product Manager")
+        let coder = Agent(name: "Coder")
+        ctx.insert(productManager)
+        ctx.insert(coder)
+
+        let pmSession = Session(agent: productManager, workingDirectory: "/tmp")
+        let coderSession = Session(agent: coder, workingDirectory: "/tmp")
+        ctx.insert(pmSession)
+        ctx.insert(coderSession)
+
+        let conversation = Conversation(topic: "Autonomous build")
+        conversation.executionMode = .autonomous
+        conversation.sessions = [pmSession, coderSession]
+        pmSession.conversations = [conversation]
+        coderSession.conversations = [conversation]
+
+        let group = AgentGroup(name: "PM + Dev")
+        group.agentIds = [productManager.id, coder.id]
+        group.workflow = [
+            WorkflowStep(agentId: productManager.id, instruction: "Prepare the product spec.", autoAdvance: true, stepLabel: "Product Spec"),
+            WorkflowStep(agentId: coder.id, instruction: "Implement the approved spec.", autoAdvance: true, stepLabel: "Implement"),
+        ]
+        ctx.insert(conversation)
+        ctx.insert(group)
+        try ctx.save()
+
+        let engine = GroupWorkflowEngine(
+            conversation: conversation,
+            group: group,
+            workflow: try XCTUnwrap(group.workflow),
+            appState: AppState(),
+            modelContext: ctx
+        )
+
+        var visitedAgents: [String] = []
+        await engine.execute(userMessage: "Build onboarding", manager: SidecarManager()) { session, _, _ in
+            visitedAgents.append(session.agent?.name ?? "Unknown")
+            return session.agent?.name == "Product Manager" ? "PRD approved." : "Implementation complete."
+        }
+
+        XCTAssertEqual(visitedAgents, ["Product Manager", "Coder"])
+        XCTAssertNil(conversation.workflowCurrentStep)
+        XCTAssertEqual(Set(conversation.workflowCompletedSteps ?? []), Set([0, 1]))
+        XCTAssertEqual(conversation.messages.last?.text, "Workflow complete (2 steps).")
     }
 
     // MARK: - GroupPromptBuilder.buildWorkflowStepPrompt

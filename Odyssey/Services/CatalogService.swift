@@ -110,7 +110,7 @@ final class CatalogService {
     }
 
     private func loadFallbackSkillItems() -> [String: CatalogSkill] {
-        let fallbackIds = ["github-workflow"]
+        let fallbackIds = ["github-workflow", "artifact-handoff-gate", "product-artifact-gate"]
         var skills: [String: CatalogSkill] = [:]
 
         for id in fallbackIds {
@@ -135,6 +135,30 @@ final class CatalogService {
                 requiredMCPs: [],
                 triggers: ["github", "gh cli", "pull request", "code review", "release"],
                 tags: ["github", "workflow", "collaboration"],
+                content: content
+            )
+        case "artifact-handoff-gate":
+            return CatalogSkill(
+                catalogId: id,
+                name: "Artifact Handoff Gate",
+                description: "Shared artifact-first handoff rules for design, architecture, testing, release, and planning agents.",
+                category: "Odyssey Collaboration",
+                icon: "arrowshape.right.circle",
+                requiredMCPs: [],
+                triggers: ["architecture handoff", "design handoff", "test strategy", "signoff", "implementation plan"],
+                tags: ["handoff", "artifacts", "approval"],
+                content: content
+            )
+        case "product-artifact-gate":
+            return CatalogSkill(
+                catalogId: id,
+                name: "Product Artifact Gate",
+                description: "Artifact-first product planning with approval before implementation handoff.",
+                category: "Odyssey Collaboration",
+                icon: "doc.text.image",
+                requiredMCPs: [],
+                triggers: ["PRD", "wireframe", "product spec", "requirements handoff"],
+                tags: ["product", "planning", "handoff"],
                 content: content
             )
         default:

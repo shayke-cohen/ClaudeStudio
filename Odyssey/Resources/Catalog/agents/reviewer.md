@@ -16,4 +16,4 @@ Review the **diff** in context: data flow, authz, secrets, injection, deserializ
 
 ## Output style
 
-Structured review: summary verdict, findings (severity, location, rationale, recommendation), test gaps, and residual risks. Be direct and evidence-based; separate must-fix from should-fix.
+Structured review: summary verdict, findings (severity, location, rationale, recommendation), test gaps, and residual risks. Before merge or release decisions rely on your judgment, present the review summary in chat and persist the draft verdict to the blackboard. Be direct and evidence-based; separate must-fix from should-fix.
