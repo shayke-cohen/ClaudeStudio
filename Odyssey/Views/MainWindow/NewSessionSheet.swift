@@ -69,6 +69,8 @@ struct NewSessionSheet: View {
     @State private var groupSearchText = ""
     @State private var agentPickerStyle: CreateThreadPickerStyle = .list
     @State private var groupPickerStyle: CreateThreadPickerStyle = .list
+    @State private var didRefreshOllama = false
+    @State private var ollamaRefreshTick = 0
 
     init(initialStartKind: CreateThreadStartKind = .agents) {
         self.initialStartKind = initialStartKind
@@ -227,7 +229,8 @@ struct NewSessionSheet: View {
         if FoundationModel.allCases.contains(where: { $0.rawValue == normalizedModel }) {
             return ProviderSelection.foundation.rawValue
         }
-        if ClaudeModel.allCases.contains(where: { $0.rawValue == normalizedModel }) {
+        if ClaudeModel.allCases.contains(where: { $0.rawValue == normalizedModel })
+            || AgentDefaults.isOllamaBackedClaudeModel(normalizedModel) {
             return ProviderSelection.claude.rawValue
         }
         if AgentDefaults.isLikelyMLXModelSelection(normalizedModel) {
@@ -251,7 +254,8 @@ struct NewSessionSheet: View {
                 let normalizedModel = modelOverrideSelection(for: agent)
                 let availableModels = AgentDefaults.availableThreadModelChoices(
                     for: effectiveProviderForOverrides(agent: agent),
-                    inheritLabel: "Inherit from Agent"
+                    inheritLabel: "Inherit from Agent",
+                    preserving: normalizedModel
                 )
 
                 if availableModels.contains(where: { $0.id == normalizedModel }) {
@@ -452,11 +456,17 @@ struct NewSessionSheet: View {
             let normalizedModel = AgentDefaults.normalizedModelSelection(blankModelOverride)
             let availableModels = AgentDefaults.availableThreadModelChoices(
                 for: blankEffectiveProvider,
-                inheritLabel: "Use Provider Default"
+                inheritLabel: "Use Provider Default",
+                preserving: normalizedModel
             )
             blankModelOverride = availableModels.contains(where: { $0.id == normalizedModel })
                 ? normalizedModel
                 : AgentDefaults.inheritMarker
+        }
+        .task {
+            guard !didRefreshOllama else { return }
+            didRefreshOllama = true
+            await refreshOllamaCatalogIfNeeded()
         }
     }
 
@@ -485,6 +495,12 @@ struct NewSessionSheet: View {
             .accessibilityLabel("Close")
         }
         .padding(16)
+    }
+
+    private func refreshOllamaCatalogIfNeeded() async {
+        guard OllamaCatalogService.modelsEnabled() else { return }
+        _ = await OllamaCatalogService.refresh()
+        ollamaRefreshTick += 1
     }
 
     @ViewBuilder
@@ -580,7 +596,8 @@ struct NewSessionSheet: View {
                             selection: $blankModelOverride,
                             options: AgentDefaults.availableThreadModelChoices(
                                 for: blankEffectiveProvider,
-                                inheritLabel: blankModelDefaultLabel
+                                inheritLabel: blankModelDefaultLabel,
+                                preserving: blankModelOverride
                             ),
                             xrayId: "newSession.blankModelPicker"
                         )
@@ -1443,7 +1460,8 @@ struct NewSessionSheet: View {
                         selection: modelSelectionBinding(for: agent),
                         options: AgentDefaults.availableThreadModelChoices(
                             for: effectiveProviderForOverrides(agent: agent),
-                            inheritLabel: modelDefaultLabel(for: agent)
+                            inheritLabel: modelDefaultLabel(for: agent),
+                            preserving: modelOverrideSelection(for: agent)
                         ),
                         xrayId: modelXrayId
                     )
@@ -1467,7 +1485,8 @@ struct NewSessionSheet: View {
                         selection: modelSelectionBinding(for: agent),
                         options: AgentDefaults.availableThreadModelChoices(
                             for: effectiveProviderForOverrides(agent: agent),
-                            inheritLabel: modelDefaultLabel(for: agent)
+                            inheritLabel: modelDefaultLabel(for: agent),
+                            preserving: modelOverrideSelection(for: agent)
                         ),
                         xrayId: modelXrayId
                     )

@@ -18,8 +18,13 @@ final class AgentDefaultsTests: XCTestCase {
         AppSettings.store.removeObject(forKey: AppSettings.defaultCodexModelKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultFoundationModelKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMLXModelKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaModelsEnabledKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaBaseURLKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaCachedModelsKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaCachedStatusKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMaxTurnsKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMaxBudgetKey)
+        AppSettings.store.removeObject(forKey: AppSettings.builtInConfigOverridePolicyKey)
         AppSettings.store.removeObject(forKey: AppSettings.dataDirectoryKey)
         originalDataDir = ProcessInfo.processInfo.environment["ODYSSEY_DATA_DIR"]
         originalLegacyDataDir = ProcessInfo.processInfo.environment["CLAUDESTUDIO_DATA_DIR"]
@@ -39,8 +44,13 @@ final class AgentDefaultsTests: XCTestCase {
         AppSettings.store.removeObject(forKey: AppSettings.defaultCodexModelKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultFoundationModelKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMLXModelKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaModelsEnabledKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaBaseURLKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaCachedModelsKey)
+        AppSettings.store.removeObject(forKey: AppSettings.ollamaCachedStatusKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMaxTurnsKey)
         AppSettings.store.removeObject(forKey: AppSettings.defaultMaxBudgetKey)
+        AppSettings.store.removeObject(forKey: AppSettings.builtInConfigOverridePolicyKey)
         if let originalStoredDataDir {
             AppSettings.store.set(originalStoredDataDir, forKey: AppSettings.dataDirectoryKey)
         } else {
@@ -135,6 +145,56 @@ final class AgentDefaultsTests: XCTestCase {
         XCTAssertTrue(AgentDefaults.isModel("mlx-community/custom-model", compatibleWith: ProviderSelection.mlx.rawValue))
         XCTAssertEqual(AgentDefaults.normalizedModelSelection("   "), AgentDefaults.inheritMarker)
         XCTAssertTrue(AgentDefaults.isModel("   ", compatibleWith: ProviderSelection.mlx.rawValue))
+    }
+
+    func testClaudeProviderAcceptsOllamaBackedModelsAndLabelsThem() {
+        OllamaCatalogService.cache(
+            snapshot: OllamaCatalogSnapshot(
+                baseURL: AppSettings.defaultOllamaBaseURL,
+                available: true,
+                models: [OllamaCachedModel(name: "qwen3-coder:latest", size: nil)],
+                summary: "ready"
+            )
+        )
+
+        XCTAssertTrue(AgentDefaults.isModel("ollama:qwen3-coder:latest", compatibleWith: ProviderSelection.claude.rawValue))
+        XCTAssertEqual(AgentDefaults.label(for: "ollama:qwen3-coder:latest"), "Ollama: qwen3-coder:latest")
+    }
+
+    func testClaudeChoicesIncludeCachedOllamaModelsWhenEnabled() {
+        AppSettings.store.set(true, forKey: AppSettings.ollamaModelsEnabledKey)
+        OllamaCatalogService.cache(
+            snapshot: OllamaCatalogSnapshot(
+                baseURL: AppSettings.defaultOllamaBaseURL,
+                available: true,
+                models: [OllamaCachedModel(name: "qwen3-coder:latest", size: nil)],
+                summary: "ready"
+            )
+        )
+
+        let choices = AgentDefaults.availableThreadModelChoices(for: ProviderSelection.claude.rawValue)
+
+        XCTAssertTrue(choices.contains(where: { $0.id == "ollama:qwen3-coder:latest" }))
+    }
+
+    func testDisabledOllamaChoicesAreHiddenButPreserved() {
+        AppSettings.store.set(false, forKey: AppSettings.ollamaModelsEnabledKey)
+        OllamaCatalogService.cache(
+            snapshot: OllamaCatalogSnapshot(
+                baseURL: AppSettings.defaultOllamaBaseURL,
+                available: true,
+                models: [OllamaCachedModel(name: "qwen3-coder:latest", size: nil)],
+                summary: "ready"
+            )
+        )
+
+        let choices = AgentDefaults.availableThreadModelChoices(
+            for: ProviderSelection.claude.rawValue,
+            preserving: "ollama:qwen3-coder:latest"
+        )
+
+        XCTAssertFalse(choices.contains(where: { $0.id == "ollama:qwen3-coder:latest" && $0.label == "Ollama: qwen3-coder:latest" }))
+        XCTAssertTrue(choices.contains(where: { $0.id == "ollama:qwen3-coder:latest" && $0.label.contains("Unavailable") }))
     }
 
     func testMLXProviderRejectsClaudeDefaultSelection() {
@@ -486,6 +546,10 @@ final class AgentDefaultsTests: XCTestCase {
         AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
         AppSettings.store.set(FoundationModel.system.rawValue, forKey: AppSettings.defaultFoundationModelKey)
         AppSettings.store.set("mlx-community/test-model", forKey: AppSettings.defaultMLXModelKey)
+        AppSettings.store.set(true, forKey: AppSettings.ollamaModelsEnabledKey)
+        AppSettings.store.set("http://127.0.0.1:11434", forKey: AppSettings.ollamaBaseURLKey)
+        AppSettings.store.set(Data(), forKey: AppSettings.ollamaCachedModelsKey)
+        AppSettings.store.set(Data(), forKey: AppSettings.ollamaCachedStatusKey)
         AppSettings.store.set(42, forKey: AppSettings.defaultMaxTurnsKey)
         AppSettings.store.set(12.5, forKey: AppSettings.defaultMaxBudgetKey)
 
@@ -496,6 +560,10 @@ final class AgentDefaultsTests: XCTestCase {
         XCTAssertNil(AppSettings.store.string(forKey: AppSettings.defaultCodexModelKey))
         XCTAssertNil(AppSettings.store.string(forKey: AppSettings.defaultFoundationModelKey))
         XCTAssertNil(AppSettings.store.string(forKey: AppSettings.defaultMLXModelKey))
+        XCTAssertNil(AppSettings.store.object(forKey: AppSettings.ollamaModelsEnabledKey))
+        XCTAssertNil(AppSettings.store.string(forKey: AppSettings.ollamaBaseURLKey))
+        XCTAssertNil(AppSettings.store.object(forKey: AppSettings.ollamaCachedModelsKey))
+        XCTAssertNil(AppSettings.store.object(forKey: AppSettings.ollamaCachedStatusKey))
         XCTAssertNil(AppSettings.store.object(forKey: AppSettings.defaultMaxTurnsKey))
         XCTAssertNil(AppSettings.store.object(forKey: AppSettings.defaultMaxBudgetKey))
     }
@@ -569,7 +637,6 @@ final class AgentDefaultsTests: XCTestCase {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
         try ConfigFileManager.createDirectoryStructure()
-
         try ConfigFileManager.writeMCP(
             MCPConfigDTO(
                 name: "Argus",
@@ -726,6 +793,7 @@ final class AgentDefaultsTests: XCTestCase {
         )
 
         let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .no
         syncService.start(container: container)
         defer {
             try? FileManager.default.removeItem(at: tempDir)
@@ -852,7 +920,6 @@ final class AgentDefaultsTests: XCTestCase {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
         try ConfigFileManager.createDirectoryStructure()
-
         let gitHubTarget = tempDir.appendingPathComponent("config/mcps/github.json")
         try ConfigFileManager.writeMCP(
             MCPConfigDTO(
@@ -872,11 +939,267 @@ final class AgentDefaultsTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: gitHubTarget.path))
 
         let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .yes
         syncService.start(container: container)
         defer {
             try? FileManager.default.removeItem(at: tempDir)
         }
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: gitHubTarget.path))
+    }
+
+    func testBuiltInConfigOverridePolicyDefaultsToYes() {
+        XCTAssertEqual(AppSettings.defaultBuiltInConfigOverridePolicy, BuiltInConfigOverridePolicy.yes.rawValue)
+    }
+
+    func testConfigSyncOverwritesStaleBuiltInAgentAndSkillWhenAskPolicyIsAccepted() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        try ConfigFileManager.createDirectoryStructure()
+        try seedStaleProductManagerBuiltIns()
+
+        let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .ask
+        var promptWasCalled = false
+        syncService.builtInOverridePromptHandler = { driftSummary in
+            promptWasCalled = true
+            XCTAssertFalse(driftSummary.isEmpty)
+            XCTAssertTrue((driftSummary.itemsByKind[.agents] ?? []).contains("product-manager"))
+            XCTAssertTrue((driftSummary.itemsByKind[.skills] ?? []).contains("product-artifact-gate"))
+            return true
+        }
+        syncService.start(container: container)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        XCTAssertTrue(promptWasCalled)
+
+        let productManagerFile = try XCTUnwrap(
+            ConfigFileManager.readAllAgents().first(where: { $0.slug == "product-manager" })?.dto
+        )
+        XCTAssertTrue(productManagerFile.skillNames.contains("product-artifact-gate"))
+        XCTAssertTrue(productManagerFile.skillNames.contains("artifact-handoff-gate"))
+
+        let productArtifactSkill = try XCTUnwrap(
+            ConfigFileManager.readAllSkills().first(where: { $0.slug == "product-artifact-gate" })?.dto
+        )
+        XCTAssertTrue(productArtifactSkill.content.contains("wireframes"))
+        XCTAssertFalse(productArtifactSkill.content.contains("Old content."))
+    }
+
+    func testConfigSyncOverwritesStaleBuiltInAgentAndSkillWhenPolicyIsYes() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        try ConfigFileManager.createDirectoryStructure()
+        try ConfigFileManager.writeAgent(
+            AgentConfigDTO(
+                name: "Product Manager",
+                enabled: true,
+                agentDescription: "Old product manager",
+                provider: ProviderSelection.system.rawValue,
+                model: "sonnet",
+                icon: "clipboard",
+                color: "blue",
+                skillNames: ["peer-collaboration", "agent-identity"],
+                mcpServerNames: [],
+                permissionSetName: "Full Access",
+                systemPromptTemplate: "specialist",
+                systemPromptVariables: ["focus": "product strategy only"],
+                maxTurns: 20,
+                maxBudget: 0,
+                maxThinkingTokens: nil,
+                defaultWorkingDirectory: nil
+            ),
+            slug: "product-manager"
+        )
+
+        try ConfigFileManager.writeSkill(
+            SkillFrontmatterDTO(
+                name: "Product Artifact Gate",
+                description: "Old instructions",
+                category: "Planning",
+                enabled: true,
+                triggers: [],
+                version: "0.1",
+                mcpServerNames: [],
+                content: """
+                ---
+                name: Product Artifact Gate
+                description: Old instructions
+                category: Planning
+                enabled: true
+                version: "0.1"
+                ---
+                Old content.
+                """
+            ),
+            slug: "product-artifact-gate"
+        )
+
+        let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .yes
+        syncService.start(container: container)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let productManagerFile = try XCTUnwrap(
+            ConfigFileManager.readAllAgents().first(where: { $0.slug == "product-manager" })?.dto
+        )
+        XCTAssertTrue(productManagerFile.skillNames.contains("product-artifact-gate"))
+        XCTAssertTrue(productManagerFile.skillNames.contains("artifact-handoff-gate"))
+
+        let productArtifactSkill = try XCTUnwrap(
+            ConfigFileManager.readAllSkills().first(where: { $0.slug == "product-artifact-gate" })?.dto
+        )
+        XCTAssertTrue(productArtifactSkill.content.contains("wireframes"))
+        XCTAssertFalse(productArtifactSkill.content.contains("Old content."))
+    }
+
+    func testConfigSyncPreservesStaleBuiltInAgentAndSkillWhenAskPolicyIsDeclined() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        try ConfigFileManager.createDirectoryStructure()
+        try seedStaleProductManagerBuiltIns()
+
+        let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .ask
+        var promptWasCalled = false
+        syncService.builtInOverridePromptHandler = { driftSummary in
+            promptWasCalled = true
+            XCTAssertFalse(driftSummary.isEmpty)
+            return false
+        }
+        syncService.start(container: container)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        XCTAssertTrue(promptWasCalled)
+
+        let productManagerFile = try XCTUnwrap(
+            ConfigFileManager.readAllAgents().first(where: { $0.slug == "product-manager" })?.dto
+        )
+        XCTAssertEqual(productManagerFile.skillNames, ["peer-collaboration", "agent-identity"])
+
+        let productArtifactSkill = try XCTUnwrap(
+            ConfigFileManager.readAllSkills().first(where: { $0.slug == "product-artifact-gate" })?.dto
+        )
+        XCTAssertTrue(productArtifactSkill.content.contains("Old content."))
+    }
+
+    func testConfigSyncPreservesStaleBuiltInAgentAndSkillWhenPolicyIsNo() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        try ConfigFileManager.createDirectoryStructure()
+        try ConfigFileManager.writeAgent(
+            AgentConfigDTO(
+                name: "Product Manager",
+                enabled: true,
+                agentDescription: "Old product manager",
+                provider: ProviderSelection.system.rawValue,
+                model: "sonnet",
+                icon: "clipboard",
+                color: "blue",
+                skillNames: ["peer-collaboration", "agent-identity"],
+                mcpServerNames: [],
+                permissionSetName: "Full Access",
+                systemPromptTemplate: "specialist",
+                systemPromptVariables: ["focus": "product strategy only"],
+                maxTurns: 20,
+                maxBudget: 0,
+                maxThinkingTokens: nil,
+                defaultWorkingDirectory: nil
+            ),
+            slug: "product-manager"
+        )
+
+        try ConfigFileManager.writeSkill(
+            SkillFrontmatterDTO(
+                name: "Product Artifact Gate",
+                description: "Old instructions",
+                category: "Planning",
+                enabled: true,
+                triggers: [],
+                version: "0.1",
+                mcpServerNames: [],
+                content: """
+                ---
+                name: Product Artifact Gate
+                description: Old instructions
+                category: Planning
+                enabled: true
+                version: "0.1"
+                ---
+                Old content.
+                """
+            ),
+            slug: "product-artifact-gate"
+        )
+
+        let syncService = ConfigSyncService()
+        syncService.builtInOverridePolicyOverride = .no
+        syncService.start(container: container)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let productManagerFile = try XCTUnwrap(
+            ConfigFileManager.readAllAgents().first(where: { $0.slug == "product-manager" })?.dto
+        )
+        XCTAssertEqual(productManagerFile.skillNames, ["peer-collaboration", "agent-identity"])
+
+        let productArtifactSkill = try XCTUnwrap(
+            ConfigFileManager.readAllSkills().first(where: { $0.slug == "product-artifact-gate" })?.dto
+        )
+        XCTAssertTrue(productArtifactSkill.content.contains("Old content."))
+    }
+
+    private func seedStaleProductManagerBuiltIns() throws {
+        try ConfigFileManager.writeAgent(
+            AgentConfigDTO(
+                name: "Product Manager",
+                enabled: true,
+                agentDescription: "Old product manager",
+                provider: ProviderSelection.system.rawValue,
+                model: "sonnet",
+                icon: "clipboard",
+                color: "blue",
+                skillNames: ["peer-collaboration", "agent-identity"],
+                mcpServerNames: [],
+                permissionSetName: "Full Access",
+                systemPromptTemplate: "specialist",
+                systemPromptVariables: ["focus": "product strategy only"],
+                maxTurns: 20,
+                maxBudget: 0,
+                maxThinkingTokens: nil,
+                defaultWorkingDirectory: nil
+            ),
+            slug: "product-manager"
+        )
+
+        try ConfigFileManager.writeSkill(
+            SkillFrontmatterDTO(
+                name: "Product Artifact Gate",
+                description: "Old instructions",
+                category: "Planning",
+                enabled: true,
+                triggers: [],
+                version: "0.1",
+                mcpServerNames: [],
+                content: """
+                ---
+                name: Product Artifact Gate
+                description: Old instructions
+                category: Planning
+                enabled: true
+                version: "0.1"
+                ---
+                Old content.
+                """
+            ),
+            slug: "product-artifact-gate"
+        )
     }
 }

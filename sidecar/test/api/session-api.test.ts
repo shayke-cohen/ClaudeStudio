@@ -102,6 +102,7 @@ afterEach(() => {
 describe("Session API recovery routes", () => {
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
+    { provider: "claude", model: "ollama:qwen3-coder:latest" },
     { provider: "codex", model: "gpt-5-codex" },
   ])("POST /sessions preserves $provider provider on spawned session config", async ({ provider, model }) => {
     const { ctx, spawnCalls } = makeContext();
@@ -137,6 +138,7 @@ describe("Session API recovery routes", () => {
 
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
+    { provider: "claude", model: "ollama:qwen3-coder:latest" },
     { provider: "codex", model: "gpt-5-codex" },
   ])("agent endpoints expose $provider provider metadata", async ({ provider, model }) => {
     const { ctx } = makeContext();
@@ -174,6 +176,7 @@ describe("Session API recovery routes", () => {
 
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
+    { provider: "claude", model: "ollama:qwen3-coder:latest" },
     { provider: "codex", model: "gpt-5-codex" },
   ])("session endpoints expose $provider provider metadata", async ({ provider, model }) => {
     const { ctx, sessions } = makeContext();
@@ -194,6 +197,8 @@ describe("Session API recovery routes", () => {
     expect(sessionBody.id).toBe(sessionId);
     expect(sessionBody.agentName).toBe(`${provider}-agent`);
     expect(sessionBody.provider).toBe(provider);
+    expect(sessions.get(sessionId)?.provider).toBe(provider);
+    expect(sessions.getConfig(sessionId)?.model).toBe(model);
 
     const listResponse = await handleApiRequest(
       new Request(`${BASE}/sessions`, { method: "GET" }),

@@ -72,7 +72,14 @@ final class ConnectorServiceTests: XCTestCase {
         )
 
         XCTAssertTrue(handled)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        try await waitUntil {
+            let storedCredentials = try ConnectionVault.loadCredentials(connectionId: connection.id)
+            return storedCredentials?.accessToken == "access-123"
+                && storedCredentials?.refreshToken == "refresh-456"
+                && storedCredentials?.codeVerifier == nil
+                && connection.status == .connected
+                && connection.statusMessage == "Authorization complete."
+        }
 
         let storedCredentials = try ConnectionVault.loadCredentials(connectionId: connection.id)
         XCTAssertEqual(storedCredentials?.accessToken, "access-123")
@@ -174,5 +181,20 @@ final class ConnectorServiceTests: XCTestCase {
         XCTAssertEqual(ConnectorCatalog.missingConfiguration(for: .slack), [])
         XCTAssertEqual(ConnectorCatalog.missingConfiguration(for: .x), [])
         XCTAssertEqual(ConnectorCatalog.missingConfiguration(for: .linkedin), [])
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 2.0,
+        interval: UInt64 = 50_000_000,
+        _ condition: () throws -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if try condition() {
+                return
+            }
+            try await Task.sleep(nanoseconds: interval)
+        }
+        XCTAssertTrue(try condition(), "Timed out waiting for async connector callback to finish")
     }
 }

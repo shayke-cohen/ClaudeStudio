@@ -246,10 +246,66 @@ struct SkillFrontmatterDTO {
     var content: String // full file content including frontmatter
 }
 
+enum BuiltInConfigKind: String, CaseIterable {
+    case agents
+    case groups
+    case skills
+    case mcps
+    case permissions
+    case templates
+
+    var label: String {
+        switch self {
+        case .agents: "agents"
+        case .groups: "groups"
+        case .skills: "skills"
+        case .mcps: "MCPs"
+        case .permissions: "permission presets"
+        case .templates: "prompt templates"
+        }
+    }
+}
+
+struct BuiltInConfigDriftSummary {
+    var itemsByKind: [BuiltInConfigKind: [String]]
+
+    var isEmpty: Bool {
+        itemsByKind.values.allSatisfy(\.isEmpty)
+    }
+
+    var totalItemCount: Int {
+        itemsByKind.values.reduce(0) { $0 + $1.count }
+    }
+
+    var kindSummary: String {
+        BuiltInConfigKind.allCases
+            .compactMap { kind -> String? in
+                guard let count = itemsByKind[kind]?.count, count > 0 else { return nil }
+                return count == 1 ? "1 \(kind.label)" : "\(count) \(kind.label)"
+            }
+            .joined(separator: ", ")
+    }
+
+    func preview(limit: Int = 8) -> String {
+        let names = BuiltInConfigKind.allCases
+            .flatMap { kind in
+                (itemsByKind[kind] ?? []).map { "\(kind.label): \($0)" }
+            }
+        guard names.count > limit else {
+            return names.joined(separator: "\n")
+        }
+        let shown = names.prefix(limit).joined(separator: "\n")
+        return shown + "\n…"
+    }
+}
+
 // MARK: - ConfigFileManager
 
 /// Pure file I/O for config directory. No SwiftData dependency.
 enum ConfigFileManager {
+    private static let bundledAgentSlugs = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent"]
+    private static let bundledSkillSlugs = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "artifact-handoff-gate", "product-artifact-gate", "config-editing", "github-workflow"]
+    private static let bundledTemplateNames = ["specialist", "worker", "coordinator"]
 
     static var configDirectory: URL {
         let dataDir = ProcessInfo.processInfo.environment["ODYSSEY_DATA_DIR"]
@@ -260,6 +316,31 @@ enum ConfigFileManager {
 
     static var factoryDirectory: URL {
         configDirectory.appendingPathComponent(".factory")
+    }
+
+    static func syncBundledBuiltIns(overwriteExisting: Bool) {
+        do {
+            try createDirectoryStructure()
+            try syncBundledBuiltIns(into: factoryDirectory, overwriteExisting: true)
+            try syncBundledBuiltIns(into: configDirectory, overwriteExisting: overwriteExisting)
+        } catch {
+            Log.configSync.error("Failed to sync bundled built-ins: \(error)")
+        }
+    }
+
+    static func bundledBuiltInDriftSummary() -> BuiltInConfigDriftSummary {
+        var itemsByKind: [BuiltInConfigKind: [String]] = [:]
+
+        for kind in BuiltInConfigKind.allCases {
+            itemsByKind[kind] = bundledItemNames(for: kind).filter { itemName in
+                let targetFile = targetURL(for: kind, itemName: itemName, baseDirectory: configDirectory)
+                guard FileManager.default.fileExists(atPath: targetFile.path) else { return false }
+                guard let expectedData = try? bundledData(for: kind, itemName: itemName) else { return false }
+                return currentData(at: targetFile) != expectedData
+            }
+        }
+
+        return BuiltInConfigDriftSummary(itemsByKind: itemsByKind)
     }
 
     // MARK: - Directory Management
@@ -361,14 +442,8 @@ enum ConfigFileManager {
     /// Copy factory defaults from the app bundle to both ~/.odyssey/config/ and .factory/
     static func copyFactoryDefaults() throws {
         try createDirectoryStructure()
-        try copyBundleAgents()
-        try copyBundleMCPs()
-        try copyBundlePermissions()
-        try copyBundleSkills()
-        try copyBundleTemplates()
-        try createFactoryGroups()
-        // Also write factory reference copies
-        try copyToFactory()
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
+        try syncBundledBuiltIns(into: factoryDirectory, overwriteExisting: true)
     }
 
     /// Restore a single entity's factory default
@@ -534,107 +609,178 @@ enum ConfigFileManager {
         return dto
     }
 
-    // MARK: - Bundle Copy Helpers
-
-    private static func copyBundleAgents() throws {
-        let agentNames = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent"]
-        let targetDir = configDirectory.appendingPathComponent("agents")
-
-        for name in agentNames {
-            guard let data = loadBundleResource(name: name, ext: "json", subdirectory: "DefaultAgents") else { continue }
-            // Read existing format, re-encode with "enabled" field
-            if var dto = try? JSONDecoder().decode(AgentConfigDTO.self, from: data) {
-                dto.enabled = true
-                try writeJSON(dto, subdirectory: "agents", slug: name)
-            } else {
-                // Fallback: write raw data
-                try data.write(to: targetDir.appendingPathComponent("\(name).json"))
+    private static func syncBundledBuiltIns(into baseDirectory: URL, overwriteExisting: Bool) throws {
+        for kind in BuiltInConfigKind.allCases {
+            for itemName in bundledItemNames(for: kind) {
+                let targetFile = targetURL(for: kind, itemName: itemName, baseDirectory: baseDirectory)
+                let expectedData = try bundledData(for: kind, itemName: itemName)
+                try writeBundledData(expectedData, to: targetFile, overwriteExisting: overwriteExisting)
             }
         }
     }
 
-    private static func copyBundleMCPs() throws {
-        guard let data = loadBundleResource(name: "DefaultMCPs", ext: "json") else { return }
-        guard let mcps = try? JSONDecoder().decode([MCPConfigDTO].self, from: data) else { return }
-
-        for mcp in mcps {
-            var dto = mcp
-            dto.enabled = true
-            let slug = slugify(dto.name)
-            try writeJSON(dto, subdirectory: "mcps", slug: slug)
+    private static func bundledItemNames(for kind: BuiltInConfigKind) -> [String] {
+        switch kind {
+        case .agents:
+            bundledAgentSlugs
+        case .groups:
+            builtInGroupDTOs().map(\.slug)
+        case .skills:
+            bundledSkillSlugs
+        case .mcps:
+            bundledMCPDTOs().map { slugify($0.name) }
+        case .permissions:
+            bundledPermissionDTOs().map { slugify($0.name) }
+        case .templates:
+            bundledTemplateNames
         }
+    }
+
+    private static func targetURL(for kind: BuiltInConfigKind, itemName: String, baseDirectory: URL) -> URL {
+        switch kind {
+        case .skills:
+            baseDirectory.appendingPathComponent("skills/\(itemName)/SKILL.md")
+        case .templates:
+            baseDirectory.appendingPathComponent("templates/\(itemName).md")
+        default:
+            baseDirectory.appendingPathComponent("\(kind.rawValue)/\(itemName).json")
+        }
+    }
+
+    private static func bundledData(for kind: BuiltInConfigKind, itemName: String) throws -> Data {
+        switch kind {
+        case .agents:
+            guard let data = loadBundleResource(name: itemName, ext: "json", subdirectory: "DefaultAgents"),
+                  var dto = try? JSONDecoder().decode(AgentConfigDTO.self, from: data) else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled agent \(itemName)"]
+                )
+            }
+            dto.enabled = true
+            return try encodedJSONData(dto)
+
+        case .groups:
+            guard let dto = builtInGroupDTOs().first(where: { $0.slug == itemName })?.dto else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled group \(itemName)"]
+                )
+            }
+            var enabledDTO = dto
+            enabledDTO.enabled = true
+            return try encodedJSONData(enabledDTO)
+
+        case .skills:
+            guard let content = loadBundleSkillContent(name: itemName) else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled skill \(itemName)"]
+                )
+            }
+            return Data(ensureEnabledInFrontmatter(content).utf8)
+
+        case .mcps:
+            guard let dto = bundledMCPDTOs().first(where: { slugify($0.name) == itemName }) else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled MCP \(itemName)"]
+                )
+            }
+            var enabledDTO = dto
+            enabledDTO.enabled = true
+            return try encodedJSONData(enabledDTO)
+
+        case .permissions:
+            guard let dto = bundledPermissionDTOs().first(where: { slugify($0.name) == itemName }) else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 5,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled permission \(itemName)"]
+                )
+            }
+            var enabledDTO = dto
+            enabledDTO.enabled = true
+            return try encodedJSONData(enabledDTO)
+
+        case .templates:
+            guard let content = loadBundleTemplateContent(name: itemName) else {
+                throw NSError(
+                    domain: "ConfigFileManager",
+                    code: 6,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing bundled template \(itemName)"]
+                )
+            }
+            return Data(content.utf8)
+        }
+    }
+
+    private static func bundledMCPDTOs() -> [MCPConfigDTO] {
+        guard let data = loadBundleResource(name: "DefaultMCPs", ext: "json"),
+              let mcps = try? JSONDecoder().decode([MCPConfigDTO].self, from: data) else { return [] }
+        return mcps
+    }
+
+    private static func bundledPermissionDTOs() -> [PermissionConfigDTO] {
+        guard let data = loadBundleResource(name: "DefaultPermissionPresets", ext: "json"),
+              let perms = try? JSONDecoder().decode([PermissionConfigDTO].self, from: data) else { return [] }
+        return perms
+    }
+
+    private static func writeBundledData(_ data: Data, to targetFile: URL, overwriteExisting: Bool) throws {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: targetFile.path) {
+            guard overwriteExisting else { return }
+            guard currentData(at: targetFile) != data else { return }
+            try fm.removeItem(at: targetFile)
+        }
+
+        try fm.createDirectory(at: targetFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: targetFile, options: .atomic)
+    }
+
+    private static func currentData(at url: URL) -> Data? {
+        try? Data(contentsOf: url)
+    }
+
+    private static func encodedJSONData<T: Encodable>(_ dto: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(dto)
+    }
+
+    // MARK: - Bundle Copy Helpers
+
+    private static func copyBundleAgents() throws {
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
+    }
+
+    private static func copyBundleMCPs() throws {
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
     }
 
     private static func copyBundlePermissions() throws {
-        guard let data = loadBundleResource(name: "DefaultPermissionPresets", ext: "json") else { return }
-        guard let perms = try? JSONDecoder().decode([PermissionConfigDTO].self, from: data) else { return }
-
-        for perm in perms {
-            var dto = perm
-            dto.enabled = true
-            let slug = slugify(dto.name)
-            try writeJSON(dto, subdirectory: "permissions", slug: slug)
-        }
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
     }
 
     private static func copyBundleSkills() throws {
-        let skillNames = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "artifact-handoff-gate", "product-artifact-gate", "config-editing", "github-workflow"]
-
-        for name in skillNames {
-            guard let content = loadBundleSkillContent(name: name) else { continue }
-            // Ensure enabled: true is in frontmatter
-            let updatedContent = ensureEnabledInFrontmatter(content)
-            let dir = configDirectory.appendingPathComponent("skills/\(name)")
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try updatedContent.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
-        }
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
     }
 
     /// Ensure any new bundle skills that aren't yet in the config directory get copied.
     /// Called on every launch before performFullSync to handle incremental additions.
     static func ensureBundleSkillsPresent() {
-        let allBundleSkills = ["peer-collaboration", "blackboard-patterns", "delegation-patterns", "workspace-collaboration", "agent-identity", "artifact-handoff-gate", "product-artifact-gate", "config-editing", "github-workflow"]
-        let fm = FileManager.default
-
-        for name in allBundleSkills {
-            let targetFile = configDirectory.appendingPathComponent("skills/\(name)/SKILL.md")
-            guard !fm.fileExists(atPath: targetFile.path) else { continue }
-            guard let content = loadBundleSkillContent(name: name) else { continue }
-
-            let updatedContent = ensureEnabledInFrontmatter(content)
-            let dir = configDirectory.appendingPathComponent("skills/\(name)")
-            do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                try updatedContent.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
-                Log.configSync.info("Copied missing bundle skill: \(name, privacy: .public)")
-            } catch {
-                Log.configSync.error("Failed to copy bundle skill \(name, privacy: .public): \(error)")
-            }
-        }
+        syncBundledBuiltIns(overwriteExisting: false)
     }
 
     /// Ensure any new bundled MCP configs that aren't yet in the config directory get copied.
     /// Called on every launch before performFullSync to handle incremental additions.
     static func ensureBundleMCPsPresent() {
-        guard let data = loadBundleResource(name: "DefaultMCPs", ext: "json"),
-              let mcps = try? JSONDecoder().decode([MCPConfigDTO].self, from: data) else { return }
-
-        let fm = FileManager.default
-
-        for mcp in mcps {
-            let slug = slugify(mcp.name)
-            let targetFile = configDirectory.appendingPathComponent("mcps/\(slug).json")
-            guard !fm.fileExists(atPath: targetFile.path) else { continue }
-
-            do {
-                var dto = mcp
-                dto.enabled = true
-                try writeJSON(dto, subdirectory: "mcps", slug: slug)
-                Log.configSync.info("Copied missing bundle MCP: \(mcp.name, privacy: .public)")
-            } catch {
-                Log.configSync.error("Failed to copy bundle MCP \(mcp.name, privacy: .public): \(error)")
-            }
-        }
+        syncBundledBuiltIns(overwriteExisting: false)
     }
 
     /// Remove retired bundled MCP configs so stale defaults do not survive forever on existing installs.
@@ -655,13 +801,7 @@ enum ConfigFileManager {
     }
 
     private static func copyBundleTemplates() throws {
-        let templateNames = ["specialist", "worker", "coordinator"]
-        let targetDir = configDirectory.appendingPathComponent("templates")
-
-        for name in templateNames {
-            guard let content = loadBundleTemplateContent(name: name) else { continue }
-            try content.write(to: targetDir.appendingPathComponent("\(name).md"), atomically: true, encoding: .utf8)
-        }
+        try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
     }
 
     /// Create group JSON files from the built-in group definitions

@@ -15,6 +15,11 @@ struct LocalProviderStatusReport: Equatable {
     let mlxRunnerPath: String?
     let mlxDownloadDirectory: String
     let installedMLXModels: [ManagedInstalledMLXModel]
+    let ollamaEnabled: Bool
+    let ollamaBaseURL: String
+    let ollamaAvailable: Bool
+    let ollamaSummary: String
+    let ollamaModels: [OllamaCachedModel]
 }
 
 enum LocalProviderSupport {
@@ -169,6 +174,14 @@ enum LocalProviderSupport {
         let downloadDirectory = LocalProviderInstaller.managedMLXDownloadDirectory(dataDirectoryPath: dataDirectoryPath)
         environment["ODYSSEY_MLX_DOWNLOAD_DIR"] = downloadDirectory
         environment["CLAUDESTUDIO_MLX_DOWNLOAD_DIR"] = downloadDirectory
+        let ollamaBaseURL = OllamaCatalogService.normalizedBaseURL(
+            InstanceConfig.userDefaults.string(forKey: AppSettings.ollamaBaseURLKey)
+        )
+        let ollamaEnabled = OllamaCatalogService.modelsEnabled(defaults: InstanceConfig.userDefaults)
+        environment["ODYSSEY_OLLAMA_BASE_URL"] = ollamaBaseURL
+        environment["CLAUDESTUDIO_OLLAMA_BASE_URL"] = ollamaBaseURL
+        environment["ODYSSEY_OLLAMA_MODELS_ENABLED"] = ollamaEnabled ? "1" : "0"
+        environment["CLAUDESTUDIO_OLLAMA_MODELS_ENABLED"] = ollamaEnabled ? "1" : "0"
 
         return environment
     }
@@ -181,7 +194,11 @@ enum LocalProviderSupport {
         mlxRunnerOverride: String? = InstanceConfig.userDefaults.string(forKey: AppSettings.mlxRunnerPathOverrideKey),
         dataDirectoryPath: String = InstanceConfig.userDefaults.string(forKey: AppSettings.dataDirectoryKey)
             ?? AppSettings.defaultDataDirectory,
-        defaultMLXModel: String = InstanceConfig.userDefaults.string(forKey: AppSettings.defaultMLXModelKey) ?? AppSettings.defaultMLXModel
+        defaultMLXModel: String = InstanceConfig.userDefaults.string(forKey: AppSettings.defaultMLXModelKey) ?? AppSettings.defaultMLXModel,
+        ollamaBaseURL: String = OllamaCatalogService.normalizedBaseURL(
+            InstanceConfig.userDefaults.string(forKey: AppSettings.ollamaBaseURLKey)
+        ),
+        ollamaEnabled: Bool = OllamaCatalogService.modelsEnabled(defaults: InstanceConfig.userDefaults)
     ) -> LocalProviderStatusReport {
         let hostBinaryPath = resolveHostBinaryPath(
             bundleResourcePath: bundleResourcePath,
@@ -223,6 +240,25 @@ enum LocalProviderSupport {
             installedModels: installedMLXModels,
             downloadDirectory: mlxDownloadDirectory
         )
+        let cachedOllamaStatus = OllamaCatalogService.cachedStatus(defaults: InstanceConfig.userDefaults)
+        let cachedOllamaModels = ollamaEnabled && cachedOllamaStatus?.baseURL == ollamaBaseURL
+            ? OllamaCatalogService.cachedModels(defaults: InstanceConfig.userDefaults)
+            : []
+        let resolvedOllamaSummary: String = {
+            guard ollamaEnabled else {
+                return "Ollama-backed Claude models are disabled."
+            }
+            guard let cachedOllamaStatus else {
+                return "Ollama status has not been checked yet. Refresh the Models tab to detect local models."
+            }
+            guard cachedOllamaStatus.baseURL == ollamaBaseURL else {
+                return "Ollama base URL changed to \(ollamaBaseURL). Refresh to load models from the new endpoint."
+            }
+            return cachedOllamaStatus.summary
+        }()
+        let resolvedOllamaAvailable = ollamaEnabled
+            && cachedOllamaStatus?.baseURL == ollamaBaseURL
+            && cachedOllamaStatus?.available == true
 
         return LocalProviderStatusReport(
             hostSummary: hostSummary,
@@ -234,7 +270,12 @@ enum LocalProviderSupport {
             mlxSummary: mlxStatus.summary,
             mlxRunnerPath: mlxRunnerPath,
             mlxDownloadDirectory: mlxDownloadDirectory,
-            installedMLXModels: installedMLXModels
+            installedMLXModels: installedMLXModels,
+            ollamaEnabled: ollamaEnabled,
+            ollamaBaseURL: ollamaBaseURL,
+            ollamaAvailable: resolvedOllamaAvailable,
+            ollamaSummary: resolvedOllamaSummary,
+            ollamaModels: cachedOllamaModels
         )
     }
 

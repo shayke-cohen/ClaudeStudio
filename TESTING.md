@@ -85,7 +85,44 @@ Test files in `sidecar/test/`:
 - `api/ws-protocol.test.ts` — WebSocket protocol conformance
 - `e2e/full-flow.test.ts` — end-to-end session lifecycle
 - `e2e/scenarios.test.ts` — multi-session scenarios (includes **GC-1** group transcript chain and **GC-2** peer-notify prompt shape; live sidecar + API key)
+- `e2e/backend-live.test.ts` — focused live backend regressions for native Claude and Ollama-backed Claude
 - `e2e/connector-live.test.ts` — live connector/provider smoke tests (env-gated; WhatsApp read smoke supported, write smoke opt-in)
+
+### Live backend regression smokes
+
+Run the focused native Claude regression:
+
+```bash
+ODYSSEY_E2E_CLAUDE=1 \
+bun test sidecar/test/e2e/backend-live.test.ts
+```
+
+Optional model override:
+
+```bash
+ODYSSEY_E2E_CLAUDE=1 \
+ODYSSEY_E2E_CLAUDE_MODEL=claude-sonnet-4-6 \
+bun test sidecar/test/e2e/backend-live.test.ts
+```
+
+Run the focused Ollama-backed Claude regression against a real local daemon:
+
+```bash
+ODYSSEY_E2E_OLLAMA=1 \
+ODYSSEY_OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+bun test sidecar/test/e2e/backend-live.test.ts
+```
+
+Optional explicit local model selection:
+
+```bash
+ODYSSEY_E2E_OLLAMA=1 \
+ODYSSEY_OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+ODYSSEY_E2E_OLLAMA_MODEL=qwen3-coder:latest \
+bun test sidecar/test/e2e/backend-live.test.ts
+```
+
+If `ODYSSEY_E2E_OLLAMA_MODEL` is omitted, the suite discovers installed models from `GET /api/tags` and uses the first returned tag.
 
 ### Live Connector Smoke
 

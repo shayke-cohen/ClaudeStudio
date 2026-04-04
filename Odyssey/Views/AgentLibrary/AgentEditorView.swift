@@ -32,6 +32,8 @@ struct AgentEditorView: View {
     @State private var skillsExpanded = true
     @State private var mcpsExpanded = true
     @State private var permissionsExpanded = false
+    @State private var didRefreshOllama = false
+    @State private var ollamaRefreshTick = 0
 
     init(agent: Agent?, onSave: @escaping (Agent) -> Void) {
         self.agent = agent
@@ -81,6 +83,11 @@ struct AgentEditorView: View {
         .onChange(of: provider) { _, newValue in
             model = AgentDefaults.preferredModelSelection(model, providerSelection: newValue)
         }
+        .task {
+            guard !didRefreshOllama else { return }
+            didRefreshOllama = true
+            await refreshOllamaCatalogIfNeeded()
+        }
     }
 
     // MARK: - Header
@@ -103,6 +110,12 @@ struct AgentEditorView: View {
             .accessibilityLabel("Close")
         }
         .padding()
+    }
+
+    private func refreshOllamaCatalogIfNeeded() async {
+        guard OllamaCatalogService.modelsEnabled() else { return }
+        _ = await OllamaCatalogService.refresh()
+        ollamaRefreshTick += 1
     }
 
     // MARK: - Step Indicator
@@ -164,7 +177,7 @@ struct AgentEditorView: View {
                 .xrayId("agentEditor.providerPicker")
 
                 Picker("Model", selection: $model) {
-                    ForEach(AgentDefaults.availableAgentModelChoices(for: provider)) { choice in
+                    ForEach(AgentDefaults.availableAgentModelChoices(for: provider, preserving: model)) { choice in
                         Text(choice.label).tag(choice.id)
                     }
                 }

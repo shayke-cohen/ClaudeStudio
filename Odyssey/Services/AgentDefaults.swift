@@ -47,6 +47,7 @@ struct ModelChoice: Identifiable, Equatable {
 enum AgentDefaults {
     static let inheritMarker = ProviderSelection.system.rawValue
     static let defaultFreeformSystemPrompt = "You are a helpful assistant. Be concise and clear."
+    static let ollamaModelPrefix = "ollama:"
 
     static func normalizedProviderSelection(_ value: String?) -> ProviderSelection {
         switch value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
@@ -153,6 +154,7 @@ enum AgentDefaults {
             return isCompatibleMLXModelSelection(normalized)
         default:
             return ClaudeModel.allCases.contains { $0.rawValue == normalized }
+                || isOllamaBackedClaudeModel(normalized)
         }
     }
 
@@ -160,13 +162,16 @@ enum AgentDefaults {
         "Default (\(label(for: defaultModel(for: provider))))"
     }
 
-    static func availableAgentModelChoices(for providerSelection: String) -> [ModelChoice] {
+    static func availableAgentModelChoices(
+        for providerSelection: String,
+        preserving currentSelection: String? = nil
+    ) -> [ModelChoice] {
         let selection = normalizedProviderSelection(providerSelection)
         var choices = [ModelChoice(id: inheritMarker, label: selection == .system ? "System Default" : "Default for \(selection.label)")]
 
         switch selection {
         case .claude:
-            choices.append(contentsOf: ClaudeModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
+            choices.append(contentsOf: claudeModelChoices())
         case .codex:
             choices.append(contentsOf: CodexModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
         case .foundation:
@@ -180,12 +185,13 @@ enum AgentDefaults {
             choices.append(contentsOf: mlxConfiguredModelChoices())
         }
 
-        return choices
+        return preserveUnavailableSelection(currentSelection, in: choices)
     }
 
     static func availableThreadModelChoices(
         for provider: String,
-        inheritLabel: String = "Inherit from Agent"
+        inheritLabel: String = "Inherit from Agent",
+        preserving currentSelection: String? = nil
     ) -> [ModelChoice] {
         var choices = [ModelChoice(id: inheritMarker, label: inheritLabel)]
         switch provider {
@@ -196,9 +202,27 @@ enum AgentDefaults {
         case ProviderSelection.mlx.rawValue:
             choices.append(contentsOf: mlxConfiguredModelChoices())
         default:
-            choices.append(contentsOf: ClaudeModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
+            choices.append(contentsOf: claudeModelChoices())
         }
-        return choices
+        return preserveUnavailableSelection(currentSelection, in: choices)
+    }
+
+    static func availableDefaultModelChoices(
+        for provider: String,
+        preserving currentSelection: String? = nil
+    ) -> [ModelChoice] {
+        let choices: [ModelChoice]
+        switch provider {
+        case ProviderSelection.codex.rawValue:
+            choices = CodexModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) }
+        case ProviderSelection.foundation.rawValue:
+            choices = FoundationModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) }
+        case ProviderSelection.mlx.rawValue:
+            choices = mlxConfiguredModelChoices()
+        default:
+            choices = claudeModelChoices()
+        }
+        return preserveUnavailableSelection(currentSelection, in: choices)
     }
 
     static func preferredModelSelection(_ current: String?, providerSelection: String) -> String {
@@ -215,6 +239,9 @@ enum AgentDefaults {
         }
         if let match = ClaudeModel.allCases.first(where: { $0.rawValue == normalized }) {
             return match.label
+        }
+        if isOllamaBackedClaudeModel(normalized) {
+            return ollamaLabel(for: normalized)
         }
         if let match = CodexModel.allCases.first(where: { $0.rawValue == normalized }) {
             return match.label
@@ -283,9 +310,30 @@ enum AgentDefaults {
         )
     }
 
+    static func isOllamaBackedClaudeModel(_ selection: String?) -> Bool {
+        let trimmed = selection?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.lowercased().hasPrefix(ollamaModelPrefix)
+            && trimmed.count > ollamaModelPrefix.count
+    }
+
+    static func stripOllamaPrefix(from selection: String?) -> String? {
+        guard let selection, isOllamaBackedClaudeModel(selection) else { return nil }
+        return String(selection.dropFirst(ollamaModelPrefix.count))
+    }
+
     private static func explicitModelSelection(from value: String?) -> String? {
         let normalized = normalizedModelSelection(value)
         return normalized == inheritMarker ? nil : normalized
+    }
+
+    private static func claudeModelChoices() -> [ModelChoice] {
+        var choices = ClaudeModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) }
+        if OllamaCatalogService.modelsEnabled() {
+            choices.append(contentsOf: OllamaCatalogService.cachedModels().map { cachedModel in
+                ModelChoice(id: cachedModel.selectionValue, label: cachedModel.label)
+            })
+        }
+        return deduplicatedModelChoices(choices, appending: nil)
     }
 
     private static func mlxConfiguredModelChoices() -> [ModelChoice] {
@@ -366,6 +414,47 @@ enum AgentDefaults {
         }
 
         return false
+    }
+
+    private static func ollamaLabel(for selection: String) -> String {
+        if let cachedModel = OllamaCatalogService.cachedModels().first(where: { $0.selectionValue == selection }) {
+            return cachedModel.label
+        }
+        if let stripped = stripOllamaPrefix(from: selection) {
+            return "Ollama: \(stripped)"
+        }
+        return selection
+    }
+
+    private static func preserveUnavailableSelection(
+        _ currentSelection: String?,
+        in choices: [ModelChoice]
+    ) -> [ModelChoice] {
+        guard let currentSelection else { return choices }
+        let normalized = normalizedModelSelection(currentSelection)
+        guard normalized != inheritMarker else { return choices }
+        guard !choices.contains(where: { $0.id == normalized }) else { return choices }
+        return deduplicatedModelChoices(
+            choices,
+            appending: ModelChoice(id: normalized, label: "\(label(for: normalized)) (Unavailable)")
+        )
+    }
+
+    private static func deduplicatedModelChoices(_ choices: [ModelChoice], appending extraChoice: ModelChoice?) -> [ModelChoice] {
+        var seen = Set<String>()
+        var ordered = [ModelChoice]()
+
+        for choice in choices {
+            if seen.insert(choice.id).inserted {
+                ordered.append(choice)
+            }
+        }
+
+        if let extraChoice, seen.insert(extraChoice.id).inserted {
+            ordered.append(extraChoice)
+        }
+
+        return ordered
     }
 
     private static func isAgentSuitableMLXSelection(_ selection: String) -> Bool {

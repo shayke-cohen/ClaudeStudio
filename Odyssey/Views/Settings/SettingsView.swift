@@ -290,6 +290,7 @@ private struct ModelsInstallProgress: Equatable {
 private final class ModelsSettingsState: ObservableObject {
     @Published var modelsCatalog: ManagedMLXModelsCatalog?
     @Published var isLoadingCatalog = false
+    @Published var isRefreshingOllama = false
     @Published var catalogMessage: String?
     @Published var customModelInput = ""
     @Published var showCustomDefaultMLXInput = false
@@ -398,6 +399,8 @@ private struct ModelsSettingsTab: View {
     @AppStorage(AppSettings.defaultCodexModelKey, store: AppSettings.store) private var defaultCodexModel = AppSettings.defaultCodexModel
     @AppStorage(AppSettings.defaultFoundationModelKey, store: AppSettings.store) private var defaultFoundationModel = AppSettings.defaultFoundationModel
     @AppStorage(AppSettings.defaultMLXModelKey, store: AppSettings.store) private var defaultMLXModel = AppSettings.defaultMLXModel
+    @AppStorage(AppSettings.ollamaModelsEnabledKey, store: AppSettings.store) private var ollamaModelsEnabled = AppSettings.defaultOllamaModelsEnabled
+    @AppStorage(AppSettings.ollamaBaseURLKey, store: AppSettings.store) private var ollamaBaseURL = AppSettings.defaultOllamaBaseURL
     @AppStorage(AppSettings.sidecarPathKey, store: AppSettings.store) private var sidecarPath = ""
     @AppStorage(AppSettings.localAgentHostPathOverrideKey, store: AppSettings.store) private var localAgentHostPathOverride = ""
     @AppStorage(AppSettings.mlxRunnerPathOverrideKey, store: AppSettings.store) private var mlxRunnerPathOverride = ""
@@ -411,10 +414,16 @@ private struct ModelsSettingsTab: View {
         )
     }
 
-    private var selectedClaudeModel: Binding<ClaudeModel> {
+    private var selectedClaudeModel: Binding<String> {
         Binding(
-            get: { ClaudeModel(rawValue: AgentDefaults.normalizedModelSelection(defaultClaudeModel)) ?? .sonnet },
-            set: { defaultClaudeModel = $0.rawValue }
+            get: {
+                let normalized = AgentDefaults.normalizedModelSelection(defaultClaudeModel)
+                if availableClaudeDefaultChoices.contains(where: { $0.id == normalized }) {
+                    return normalized
+                }
+                return availableClaudeDefaultChoices.first?.id ?? AppSettings.defaultClaudeModel
+            },
+            set: { defaultClaudeModel = AgentDefaults.normalizedModelSelection($0) }
         )
     }
 
@@ -438,7 +447,16 @@ private struct ModelsSettingsTab: View {
             hostOverride: localAgentHostPathOverride.isEmpty ? nil : localAgentHostPathOverride,
             mlxRunnerOverride: mlxRunnerPathOverride.isEmpty ? nil : mlxRunnerPathOverride,
             dataDirectoryPath: dataDirectory,
-            defaultMLXModel: defaultMLXModel
+            defaultMLXModel: defaultMLXModel,
+            ollamaBaseURL: OllamaCatalogService.normalizedBaseURL(ollamaBaseURL),
+            ollamaEnabled: ollamaModelsEnabled
+        )
+    }
+
+    private var availableClaudeDefaultChoices: [ModelChoice] {
+        AgentDefaults.availableDefaultModelChoices(
+            for: ProviderSelection.claude.rawValue,
+            preserving: defaultClaudeModel
         )
     }
 
@@ -583,7 +601,16 @@ private struct ModelsSettingsTab: View {
     }
 
     private var reloadToken: String {
-        [sidecarPath, localAgentHostPathOverride, mlxRunnerPathOverride, dataDirectory, defaultMLXModel].joined(separator: "|")
+        [
+            sidecarPath,
+            localAgentHostPathOverride,
+            mlxRunnerPathOverride,
+            dataDirectory,
+            defaultMLXModel,
+            defaultClaudeModel,
+            ollamaBaseURL,
+            ollamaModelsEnabled ? "1" : "0",
+        ].joined(separator: "|")
     }
 
     var body: some View {
@@ -599,6 +626,7 @@ private struct ModelsSettingsTab: View {
         .settingsDetailLayout(maxWidth: .infinity)
         .task(id: reloadToken) {
             await refreshCatalog()
+            await refreshOllama()
         }
         .alert("Delete downloaded model?", isPresented: deleteConfirmationPresented, presenting: state.deleteConfirmationModel) { model in
             Button("Cancel", role: .cancel) {
@@ -638,8 +666,49 @@ private struct ModelsSettingsTab: View {
             }
 
             settingsPickerRow("Default Claude Model", xrayId: "settings.models.defaultClaudeModelPicker", selection: selectedClaudeModel) {
-                ForEach(ClaudeModel.allCases) { model in
-                    Text(model.label).tag(model)
+                ForEach(availableClaudeDefaultChoices) { choice in
+                    Text(choice.label).tag(choice.id)
+                }
+            }
+
+            modelSurface {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable Ollama-backed Claude models", isOn: $ollamaModelsEnabled)
+                        .toggleStyle(.switch)
+                        .xrayId("settings.models.ollamaEnabledToggle")
+
+                    Text("When enabled, Odyssey adds downloaded Ollama models to Claude model pickers and routes those sessions through Claude Code using Ollama’s Anthropic-compatible API.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(alignment: .center, spacing: 12) {
+                        TextField("http://127.0.0.1:11434", text: $ollamaBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .xrayId("settings.models.ollamaBaseURLField")
+
+                        Button(state.isRefreshingOllama ? "Refreshing…" : "Refresh Ollama") {
+                            Task { await refreshOllama() }
+                        }
+                        .disabled(state.isRefreshingOllama || !ollamaModelsEnabled)
+                        .xrayId("settings.models.refreshOllamaButton")
+                    }
+
+                    settingsStatusRow(
+                        title: "Ollama",
+                        summary: localProviderReport.ollamaSummary,
+                        available: localProviderReport.ollamaAvailable,
+                        identifier: "settings.models.localProviders.ollamaStatus"
+                    )
+
+                    if ollamaModelsEnabled {
+                        Text(localProviderReport.ollamaModels.isEmpty
+                             ? "Downloaded Ollama models will appear here after Odyssey refreshes /api/tags."
+                             : "Downloaded models: \(localProviderReport.ollamaModels.map(\.name).joined(separator: ", "))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .xrayId("settings.models.ollamaModelsSummary")
+                    }
                 }
             }
 
@@ -1306,6 +1375,13 @@ private struct ModelsSettingsTab: View {
             )
             state.catalogMessage = error.localizedDescription
         }
+    }
+
+    private func refreshOllama() async {
+        guard ollamaModelsEnabled else { return }
+        state.isRefreshingOllama = true
+        defer { state.isRefreshingOllama = false }
+        _ = await OllamaCatalogService.refresh(baseURL: ollamaBaseURL)
     }
 
     private func installMLXRunner() {
@@ -2243,6 +2319,7 @@ private struct DeveloperSettingsTab: View {
     @AppStorage(AppSettings.mlxRunnerPathOverrideKey, store: AppSettings.store) private var mlxRunnerPathOverride = ""
     @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
     @AppStorage(AppSettings.logLevelKey, store: AppSettings.store) private var logLevel = AppSettings.defaultLogLevel
+    @AppStorage(AppSettings.builtInConfigOverridePolicyKey, store: AppSettings.store) private var builtInConfigOverridePolicy = AppSettings.defaultBuiltInConfigOverridePolicy
     @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
     @State private var showResetConfirmation = false
 
@@ -2358,6 +2435,25 @@ private struct DeveloperSettingsTab: View {
                     Task {
                         try? await manager.send(.configSetLogLevel(level: newValue))
                     }
+                }
+            }
+
+            Section("Built-In Config") {
+                Picker("Refresh bundled defaults on launch", selection: $builtInConfigOverridePolicy) {
+                    ForEach(BuiltInConfigOverridePolicy.allCases) { policy in
+                        Text(policy.label).tag(policy.rawValue)
+                    }
+                }
+                .xrayId("settings.developer.builtInConfigOverridePolicyPicker")
+
+                Text("Controls whether Odyssey updates bundled prompts, skills, MCPs, agents, groups, permissions, and templates in your local config directory when the app ships new built-in versions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if let selectedPolicy = BuiltInConfigOverridePolicy(rawValue: builtInConfigOverridePolicy) {
+                    Text(selectedPolicy.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 

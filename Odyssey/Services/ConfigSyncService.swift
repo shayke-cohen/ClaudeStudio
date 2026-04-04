@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import OSLog
 import SwiftData
@@ -84,6 +85,8 @@ final class ConfigSyncService {
     private var isWritingBack = false // prevents feedback loop during UI write-back
 
     private var modelContainer: ModelContainer?
+    var builtInOverridePolicyOverride: BuiltInConfigOverridePolicy?
+    var builtInOverridePromptHandler: ((BuiltInConfigDriftSummary) -> Bool)?
 
     // MARK: - Lifecycle
 
@@ -111,10 +114,8 @@ final class ConfigSyncService {
             }
         }
 
-        // Ensure any new bundle MCPs and skills are copied before sync
-        ConfigFileManager.ensureBundleMCPsPresent()
-        ConfigFileManager.removeRetiredBundleMCPs(slugs: Self.retiredBuiltInMCPSlugs)
-        ConfigFileManager.ensureBundleSkillsPresent()
+        // Refresh bundled defaults according to the user's built-in override policy.
+        applyBundledBuiltInSyncPolicy()
 
         // Full sync to pick up any offline edits or new factory defaults
         performFullSync()
@@ -129,6 +130,54 @@ final class ConfigSyncService {
     }
 
     // MARK: - Full Sync (files → SwiftData)
+
+    private func applyBundledBuiltInSyncPolicy() {
+        let policy = builtInOverridePolicyOverride
+            ?? BuiltInConfigOverridePolicy(
+                rawValue: AppSettings.store.string(forKey: AppSettings.builtInConfigOverridePolicyKey)
+                    ?? AppSettings.defaultBuiltInConfigOverridePolicy
+            )
+            ?? .yes
+        let driftSummary = ConfigFileManager.bundledBuiltInDriftSummary()
+
+        let overwriteExisting: Bool
+        switch policy {
+        case .yes:
+            overwriteExisting = true
+        case .no:
+            overwriteExisting = false
+        case .ask:
+            overwriteExisting = !driftSummary.isEmpty && shouldOverwriteBuiltInsAfterPrompt(driftSummary)
+        }
+
+        ConfigFileManager.syncBundledBuiltIns(overwriteExisting: overwriteExisting)
+
+        if overwriteExisting {
+            ConfigFileManager.removeRetiredBundleMCPs(slugs: Self.retiredBuiltInMCPSlugs)
+        }
+    }
+
+    private func shouldOverwriteBuiltInsAfterPrompt(_ driftSummary: BuiltInConfigDriftSummary) -> Bool {
+        if let builtInOverridePromptHandler {
+            return builtInOverridePromptHandler(driftSummary)
+        }
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Update Odyssey built-in configs from the app bundle?"
+
+        let preview = driftSummary.preview()
+        let previewSuffix = preview.isEmpty ? "" : "\n\nChanged items:\n\(preview)"
+        alert.informativeText = """
+        Your local built-in config files differ from the versions bundled with this app (\(driftSummary.kindSummary)).
+
+        Choose “Update Built-Ins” to replace the local bundled copies. Choose “Keep Local Copies” to leave your current files as-is for this launch. You can change the default behavior in Settings > Developer.
+        \(previewSuffix)
+        """
+        alert.addButton(withTitle: "Update Built-Ins")
+        alert.addButton(withTitle: "Keep Local Copies")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
 
     func performFullSync() {
         guard let container = modelContainer else { return }

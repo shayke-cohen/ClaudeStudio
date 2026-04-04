@@ -129,6 +129,10 @@ describe("WebSocket Command Dispatch", () => {
       model: "claude-sonnet-4-6",
     },
     {
+      provider: "claude",
+      model: "ollama:qwen3-coder:latest",
+    },
+    {
       provider: "codex",
       model: "gpt-5-codex",
     },

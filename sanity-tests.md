@@ -46,6 +46,10 @@ bun test test/e2e/full-flow.test.ts
 # E2E: all scenario groups
 ODYSSEY_E2E_LIVE=1 bun test test/e2e/scenarios.test.ts
 
+# E2E: focused live backend regressions
+ODYSSEY_E2E_CLAUDE=1 bun test test/e2e/backend-live.test.ts
+ODYSSEY_E2E_OLLAMA=1 bun test test/e2e/backend-live.test.ts
+
 # E2E: specific scenario group
 bun test test/e2e/scenarios.test.ts -t "BB: Blackboard"
 ```
@@ -210,6 +214,17 @@ Comprehensive E2E scenarios with a real sidecar subprocess. The main sanity suit
 
 ---
 
+### 7. `test/e2e/backend-live.test.ts` — 2 tests
+
+Focused backend regression tests. Boots its own sidecar subprocess on random ports.
+
+| Group | Count | What It Covers |
+|-------|-------|----------------|
+| Native Claude backend | 1 | Real Claude Agent SDK round-trip with a native Claude model |
+| Ollama-backed Claude backend | 1 | Real `/api/tags` discovery plus live round-trip using `model: ollama:<downloaded-tag>` |
+
+---
+
 ## Quick Counts
 
 | Test File | Tests | Offline | Live | Status |
@@ -220,7 +235,8 @@ Comprehensive E2E scenarios with a real sidecar subprocess. The main sanity suit
 | `test/api/ws-protocol.test.ts` | 13 | 13 | 0 | All pass |
 | `test/e2e/full-flow.test.ts` | 8 | 7 | 1 | All pass |
 | `test/e2e/scenarios.test.ts` | 27 | 20 | 7 | All pass |
-| **Total** | **142** | **134** | **8** | |
+| `test/e2e/backend-live.test.ts` | 2 | 0 | 2 | New |
+| **Total** | **144** | **134** | **10** | |
 
 ---
 

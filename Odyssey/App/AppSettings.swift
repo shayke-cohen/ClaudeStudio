@@ -11,6 +11,10 @@ enum AppSettings {
     static let defaultCodexModelKey = "odyssey.defaultCodexModel"
     static let defaultFoundationModelKey = "odyssey.defaultFoundationModel"
     static let defaultMLXModelKey = "odyssey.defaultMLXModel"
+    static let ollamaModelsEnabledKey = "odyssey.ollamaModelsEnabled"
+    static let ollamaBaseURLKey = "odyssey.ollamaBaseURL"
+    static let ollamaCachedModelsKey = "odyssey.ollamaCachedModels"
+    static let ollamaCachedStatusKey = "odyssey.ollamaCachedStatus"
     static let defaultMaxTurnsKey = "odyssey.defaultMaxTurns"
     static let defaultMaxBudgetKey = "odyssey.defaultMaxBudget"
     static let autoConnectSidecarKey = "odyssey.autoConnectSidecar"
@@ -54,6 +58,7 @@ enum AppSettings {
     // MARK: - Advanced
     static let dataDirectoryKey = "odyssey.dataDirectory"
     static let logLevelKey = "odyssey.logLevel"
+    static let builtInConfigOverridePolicyKey = "odyssey.configSync.builtInOverridePolicy"
     static let sharedRoomUserIdKey = "odyssey.sharedRoom.userId"
     static let sharedRoomDisplayNameKey = "odyssey.sharedRoom.displayName"
 
@@ -67,9 +72,12 @@ enum AppSettings {
     static let defaultCodexModel = CodexModel.gpt5Codex.rawValue
     static let defaultFoundationModel = FoundationModel.system.rawValue
     static let defaultMLXModel = MLXModel.defaultModel.rawValue
+    static let defaultOllamaModelsEnabled = true
+    static let defaultOllamaBaseURL = "http://127.0.0.1:11434"
     static let defaultTextSize = AppTextSize.standard.rawValue
     static let defaultDataDirectory = "~/.odyssey"
     static let defaultLogLevel = "info"
+    static let defaultBuiltInConfigOverridePolicy = BuiltInConfigOverridePolicy.yes.rawValue
 
     /// Per-instance UserDefaults store for use with `@AppStorage(_:store:)`.
     nonisolated(unsafe) static let store: UserDefaults = InstanceConfig.userDefaults
@@ -77,7 +85,9 @@ enum AppSettings {
     static var allKeys: [String] {
         [
             appearanceKey, textSizeKey, defaultProviderKey, defaultClaudeModelKey,
-            defaultCodexModelKey, defaultFoundationModelKey, defaultMLXModelKey, defaultMaxTurnsKey,
+            defaultCodexModelKey, defaultFoundationModelKey, defaultMLXModelKey,
+            ollamaModelsEnabledKey, ollamaBaseURLKey, ollamaCachedModelsKey, ollamaCachedStatusKey,
+            defaultMaxTurnsKey,
             defaultMaxBudgetKey, autoConnectSidecarKey,
             instanceWorkingDirectoryKey,
             wsPortKey, httpPortKey, bunPathOverrideKey, sidecarPathKey,
@@ -88,7 +98,7 @@ enum AppSettings {
             renderAdmonitionsKey, renderPDFKey, showSessionSummaryKey, showSuggestionChipsKey,
             useLegacyChatChromeKey,
             quickActionUsageOrderKey, quickActionUsageCountsKey,
-            dataDirectoryKey, logLevelKey,
+            dataDirectoryKey, logLevelKey, builtInConfigOverridePolicyKey,
             sharedRoomUserIdKey, sharedRoomDisplayNameKey,
         ]
     }
@@ -97,6 +107,30 @@ enum AppSettings {
         let defaults = InstanceConfig.userDefaults
         for key in allKeys {
             defaults.removeObject(forKey: key)
+        }
+    }
+}
+
+enum BuiltInConfigOverridePolicy: String, CaseIterable, Identifiable {
+    case yes
+    case no
+    case ask
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .yes: "Yes"
+        case .no: "No"
+        case .ask: "Ask"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .yes: "Always refresh bundled built-in prompts, skills, MCPs, and related defaults."
+        case .no: "Keep local built-in copies unless they are missing entirely."
+        case .ask: "Prompt before replacing local built-in copies that differ from the app bundle."
         }
     }
 }

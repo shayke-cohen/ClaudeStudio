@@ -96,6 +96,13 @@ final class LocalProviderSupportTests: XCTestCase {
     }
 
     func testEnvironmentValuesIncludeDetectedAssets() throws {
+        AppSettings.store.set(false, forKey: AppSettings.ollamaModelsEnabledKey)
+        AppSettings.store.set("http://127.0.0.1:22434", forKey: AppSettings.ollamaBaseURLKey)
+        defer {
+            AppSettings.store.removeObject(forKey: AppSettings.ollamaModelsEnabledKey)
+            AppSettings.store.removeObject(forKey: AppSettings.ollamaBaseURLKey)
+        }
+
         let resourceDirectory = tempDirectory.appendingPathComponent("Resources")
         let hostDirectory = resourceDirectory.appendingPathComponent("local-agent/bin", isDirectory: true)
         try FileManager.default.createDirectory(at: hostDirectory, withIntermediateDirectories: true)
@@ -122,6 +129,8 @@ final class LocalProviderSupportTests: XCTestCase {
             environment["ODYSSEY_MLX_DOWNLOAD_DIR"],
             LocalProviderInstaller.managedMLXDownloadDirectory(dataDirectoryPath: tempDirectory.path)
         )
+        XCTAssertEqual(environment["ODYSSEY_OLLAMA_BASE_URL"], "http://127.0.0.1:22434")
+        XCTAssertEqual(environment["ODYSSEY_OLLAMA_MODELS_ENABLED"], "0")
     }
 
     func testResolveMLXRunnerPathPrefersManagedInstallLocation() throws {

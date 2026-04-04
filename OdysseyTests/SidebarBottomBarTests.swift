@@ -18,7 +18,7 @@ final class SidebarBottomBarTests: XCTestCase {
     }
 
     func testRawValues() {
-        XCTAssertEqual(SidebarBottomBarItem.catalog.rawValue, "Catalog")
+        XCTAssertEqual(SidebarBottomBarItem.catalog.rawValue, "Discover")
         XCTAssertEqual(SidebarBottomBarItem.workshop.rawValue, "Workshop")
         XCTAssertEqual(SidebarBottomBarItem.schedules.rawValue, "Schedules")
         XCTAssertEqual(SidebarBottomBarItem.agents.rawValue, "Agents")
@@ -36,7 +36,7 @@ final class SidebarBottomBarTests: XCTestCase {
     }
 
     func testHelpText() {
-        XCTAssertEqual(SidebarBottomBarItem.catalog.helpText, "Browse catalog")
+        XCTAssertEqual(SidebarBottomBarItem.catalog.helpText, "Open discover")
         XCTAssertEqual(SidebarBottomBarItem.workshop.helpText, "Entity workshop (⌘⇧W)")
         XCTAssertEqual(SidebarBottomBarItem.schedules.helpText, "Scheduled missions (⌘⇧S)")
         XCTAssertEqual(SidebarBottomBarItem.agents.helpText, "Agent library")

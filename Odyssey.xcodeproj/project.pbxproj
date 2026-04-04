@@ -97,6 +97,7 @@
 		773FA86FDD477DAF9C1B465A /* GroupPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EF0EC38E5234264CD1516F /* GroupPromptBuilder.swift */; };
 		7B3195669831085550F16A04 /* PeerWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A7E87F81289AFA2925E531 /* PeerWireModels.swift */; };
 		7B8270D66464ADA2E1D16CA8 /* GroupRoleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A03C3B8C9090C7B89651FA /* GroupRoleTests.swift */; };
+		7C7B93621F68BB54BB2AC6FD /* OllamaCatalogServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E578B5DF4181B43F9663DD /* OllamaCatalogServiceTests.swift */; };
 		7F5D25D08E8C889F7C040B3D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E549966ABFA0FB4CE2593247 /* ChatView.swift */; };
 		80C74715980389A86D3110AA /* PeerNetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D86828EF91EA2BA1CA9EFF0 /* PeerNetworkView.swift */; };
 		81916B0235EECCF5432D86C6 /* DefaultMCPs.json in Resources */ = {isa = PBXBuildFile; fileRef = B0AF535FFB97A018FDF5CE70 /* DefaultMCPs.json */; };
@@ -154,6 +155,7 @@
 		C44E8543523504A3EC967F1A /* AgentPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8085DB553C61A9910886A2 /* AgentPreviewCard.swift */; };
 		C501E7B4FF6DA5EF93B98EB5 /* SharedRoomInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7D02959EBB59C190BD138E /* SharedRoomInviteSheet.swift */; };
 		C5263057246CFD534E574D67 /* ScheduleRunCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50772C4077BF40542C2672AF /* ScheduleRunCoordinatorTests.swift */; };
+		C7E04ED21BAE8762652B422A /* OllamaCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */; };
 		C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A35177758E37FD646639BFB /* AgentActivityBar.swift */; };
 		CE00B318FECF52AAFDFB18AA /* ChatTranscriptExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D3408DC8586DFF18B6EAE0 /* ChatTranscriptExportTests.swift */; };
 		CE02965FC93F7E9B6EDF6833 /* LegacyInstanceMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205EC472186F69C7D555BAF0 /* LegacyInstanceMigrationTests.swift */; };
@@ -287,6 +289,7 @@
 		6181E164D6F6C72DAE58A922 /* PeerCatalogServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerCatalogServer.swift; sourceTree = "<group>"; };
 		62070BA1FCD86DA889ECD32D /* ConversationTreeNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTreeNode.swift; sourceTree = "<group>"; };
 		6266C8BE8CB4B1DC0050AA28 /* GroupPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupPopoverView.swift; sourceTree = "<group>"; };
+		64E578B5DF4181B43F9663DD /* OllamaCatalogServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaCatalogServiceTests.swift; sourceTree = "<group>"; };
 		680B00C4A69862BF85359F94 /* SidecarProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarProtocolTests.swift; sourceTree = "<group>"; };
 		6A6A58F5009F43029D2A1318 /* OdysseyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OdysseyApp.swift; sourceTree = "<group>"; };
 		6C288F9BEDF59A8B12457C2C /* ChatExportPresenters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatExportPresenters.swift; sourceTree = "<group>"; };
@@ -317,6 +320,7 @@
 		8F1DFAE13EB9916F8F9D7F19 /* AttachmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentStore.swift; sourceTree = "<group>"; };
 		91555964223EA3358655AA59 /* DefaultsSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultsSeeder.swift; sourceTree = "<group>"; };
 		957017106E8E7620AE12E63E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaCatalogService.swift; sourceTree = "<group>"; };
 		9AF738A4F1E23CAE25A34EA2 /* ScheduledMission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMission.swift; sourceTree = "<group>"; };
 		9B401E198A5564D7C7A02D22 /* SharedRoomInviteInboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRoomInviteInboxView.swift; sourceTree = "<group>"; };
 		9B825E07A50DA62311401233 /* ChatSessionWatchdogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionWatchdogTests.swift; sourceTree = "<group>"; };
@@ -716,6 +720,7 @@
 				FBB166827A987635C8D535CB /* LocalProviderInstaller.swift */,
 				7D163AC9F9E014E2707DCEF3 /* LocalProviderSupport.swift */,
 				F0E048E67B172A802E9D19FF /* LogAggregator.swift */,
+				97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */,
 				B28E92529E4209BE458AE21E /* P2PNetworkManager.swift */,
 				DDAE26CE88D20910117AC22D /* PeerAgentImporter.swift */,
 				6181E164D6F6C72DAE58A922 /* PeerCatalogServer.swift */,
@@ -765,6 +770,7 @@
 				205EC472186F69C7D555BAF0 /* LegacyInstanceMigrationTests.swift */,
 				2B4A8439FA6BF28913E45057 /* LocalFileReferenceSupportTests.swift */,
 				D666CF47FEE49605F45E2E30 /* LocalProviderSupportTests.swift */,
+				64E578B5DF4181B43F9663DD /* OllamaCatalogServiceTests.swift */,
 				DE39C3CFD123135B0B9BCCE3 /* PeerChannelMessageTests.swift */,
 				4657FC0736A6190F8CCDD9AD /* ProjectRecordMigrationTests.swift */,
 				088C72857AA4400D375FE883 /* RichChatComponentTests.swift */,
@@ -964,6 +970,7 @@
 				CE02965FC93F7E9B6EDF6833 /* LegacyInstanceMigrationTests.swift in Sources */,
 				4F55036F031ECD883CA60432 /* LocalFileReferenceSupportTests.swift in Sources */,
 				0FA2E25ECB30D6044CDAA9FC /* LocalProviderSupportTests.swift in Sources */,
+				7C7B93621F68BB54BB2AC6FD /* OllamaCatalogServiceTests.swift in Sources */,
 				3395077A3A96CF4451AF6DF4 /* PeerChannelMessageTests.swift in Sources */,
 				CFDE3032A714FCE874B3DB67 /* ProjectRecordMigrationTests.swift in Sources */,
 				14063390403284F30E292921 /* RichChatComponentTests.swift in Sources */,
@@ -1078,6 +1085,7 @@
 				2E20FAA5CAD426395D5BE5B1 /* NewGroupThreadSheet.swift in Sources */,
 				1DE9CE05CAF686E47698C3AB /* NewSessionSheet.swift in Sources */,
 				438A8185A2A921F2F912027A /* OdysseyApp.swift in Sources */,
+				C7E04ED21BAE8762652B422A /* OllamaCatalogService.swift in Sources */,
 				05DC85A4A120D1D2706D08AC /* P2PNetworkManager.swift in Sources */,
 				BD045AD0591CB0421BDB3530 /* Participant.swift in Sources */,
 				C29D1EB99325012A6F225E6B /* PasteableTextField.swift in Sources */,

@@ -86,8 +86,24 @@ function normalizeClaudeEnv(): Record<string, string> {
   return env;
 }
 
+function ollamaModelsEnabled(): boolean {
+  const raw = process.env.ODYSSEY_OLLAMA_MODELS_ENABLED
+    ?? process.env.CLAUDESTUDIO_OLLAMA_MODELS_ENABLED;
+  if (!raw) {
+    return true;
+  }
+  return !["0", "false", "no", "off"].includes(raw.trim().toLowerCase());
+}
+
+function ollamaBaseURL(): string {
+  return process.env.ODYSSEY_OLLAMA_BASE_URL?.trim()
+    || process.env.CLAUDESTUDIO_OLLAMA_BASE_URL?.trim()
+    || "http://127.0.0.1:11434";
+}
+
 export class ClaudeRuntime implements ProviderRuntime {
   readonly provider = "claude" as const;
+  private static readonly OLLAMA_MODEL_PREFIX = "ollama:";
 
   constructor(private readonly deps: RuntimeDependencies) {}
 
@@ -198,6 +214,16 @@ export class ClaudeRuntime implements ProviderRuntime {
     return ClaudeRuntime.MODEL_ALIASES[model] ?? model;
   }
 
+  private static isOllamaBackedModel(model: string | undefined): boolean {
+    return typeof model === "string"
+      && model.toLowerCase().startsWith(ClaudeRuntime.OLLAMA_MODEL_PREFIX)
+      && model.length > ClaudeRuntime.OLLAMA_MODEL_PREFIX.length;
+  }
+
+  private static stripOllamaPrefix(model: string): string {
+    return model.slice(ClaudeRuntime.OLLAMA_MODEL_PREFIX.length);
+  }
+
   private buildQueryOptions(
     sessionId: string,
     config: AgentConfig,
@@ -211,15 +237,27 @@ export class ClaudeRuntime implements ProviderRuntime {
       maxTurns = 3;
     }
 
-    let resolvedModel = ClaudeRuntime.resolveModel(config.model);
+    const useOllamaBackend = ClaudeRuntime.isOllamaBackedModel(config.model);
+    if (useOllamaBackend && !ollamaModelsEnabled()) {
+      throw new Error("Ollama-backed Claude models are disabled in Odyssey Settings > Models.");
+    }
+
+    let resolvedModel = useOllamaBackend
+      ? ClaudeRuntime.stripOllamaPrefix(config.model)
+      : ClaudeRuntime.resolveModel(config.model);
     const usePlanMode = planMode === true;
-    if (usePlanMode) {
+    if (usePlanMode && !useOllamaBackend) {
       resolvedModel = "claude-opus-4-6";
       if (maxTurns < 30) maxTurns = 30;
     }
 
     logger.debug("session", `[${sessionId}] buildQueryOptions: planMode=${usePlanMode}, maxTurns=${maxTurns}`);
     const env = normalizeClaudeEnv();
+    if (useOllamaBackend) {
+      env.ANTHROPIC_BASE_URL = ollamaBaseURL();
+      env.ANTHROPIC_AUTH_TOKEN = "ollama";
+      env.ANTHROPIC_API_KEY = "";
+    }
     const options: Record<string, any> = {
       model: resolvedModel,
       maxTurns,
