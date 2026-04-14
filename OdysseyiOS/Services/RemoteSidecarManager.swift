@@ -32,19 +32,18 @@ final class RemoteSidecarManager: ObservableObject {
     private var urlSession: URLSession?
     private var activeSessions: Set<String> = []
     private var eventContinuation: AsyncStream<SidecarEvent>.Continuation?
-    private var _events: AsyncStream<SidecarEvent>?
+    private var _events: AsyncStream<SidecarEvent>!
     private var pingTask: Task<Void, Never>?
 
     // MARK: - Event stream
 
-    var events: AsyncStream<SidecarEvent> {
-        if let existing = _events { return existing }
-        let stream = AsyncStream<SidecarEvent> { [weak self] continuation in
-            self?.eventContinuation = continuation
-        }
+    init() {
+        let (stream, continuation) = AsyncStream<SidecarEvent>.makeStream()
         _events = stream
-        return stream
+        eventContinuation = continuation
     }
+
+    var events: AsyncStream<SidecarEvent> { _events }
 
     // MARK: - Public API
 
@@ -200,6 +199,12 @@ final class RemoteSidecarManager: ObservableObject {
 final class CertPinningDelegate: NSObject, URLSessionDelegate {
     let pinnedDER: Data
     init(pinnedDER: Data) { self.pinnedDER = pinnedDER }
+
+    /// Returns true if `certDERData` equals the pinned certificate bytes.
+    /// Used in tests to verify comparison logic without requiring a live TLS connection.
+    func matches(certDERData: Data) -> Bool {
+        return certDERData == pinnedDER
+    }
 
     func urlSession(
         _ session: URLSession,

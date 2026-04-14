@@ -83,18 +83,19 @@ final class RemoteSidecarManagerTests: XCTestCase {
 
     // MARK: - Cert pinning
 
-    func testCertPinningStoresPinnedDER() {
+    func testCertPinningMatchesCorrectDER() {
         let pinnedDER = Data(repeating: 0xAB, count: 100)
         let delegate = CertPinningDelegate(pinnedDER: pinnedDER)
-        XCTAssertEqual(delegate.pinnedDER, pinnedDER, "CertPinningDelegate must store the pinned DER bytes")
+        XCTAssertTrue(delegate.matches(certDERData: pinnedDER),
+            "CertPinningDelegate must accept a cert whose DER bytes match the pinned cert")
     }
 
     func testCertPinningRejectsMismatchedCert() {
         let pinnedDER = Data(repeating: 0xAB, count: 100)
-        let wrongDER = Data(repeating: 0xCD, count: 100)
-        let delegate = CertPinningDelegate(pinnedDER: pinnedDER)
-        XCTAssertNotEqual(wrongDER, delegate.pinnedDER,
-            "A cert with different DER bytes should not match the pinned cert")
+        let wrongDER  = Data(repeating: 0xCD, count: 100)
+        let delegate  = CertPinningDelegate(pinnedDER: pinnedDER)
+        XCTAssertFalse(delegate.matches(certDERData: wrongDER),
+            "CertPinningDelegate must reject a cert whose DER bytes differ from the pinned cert")
     }
 
     // MARK: - Helpers

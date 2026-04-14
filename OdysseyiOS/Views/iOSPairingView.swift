@@ -120,7 +120,9 @@ struct iOSPairingView: View {
                 .replacingOccurrences(of: "_", with: "/")
             let pubRemainder = pubBase64.count % 4
             if pubRemainder != 0 { pubBase64 += String(repeating: "=", count: 4 - pubRemainder) }
-            let pubKeyData = Data(base64Encoded: pubBase64) ?? Data()
+            guard let pubKeyData = Data(base64Encoded: pubBase64) else {
+                throw InviteDecodeError.invalidBase64
+            }
 
             let credentials = PeerCredentials(
                 id: UUID(),

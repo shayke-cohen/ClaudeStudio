@@ -8,16 +8,21 @@ final class iOSAppStateTests: XCTestCase {
 
     // MARK: - Streaming buffer
 
-    func testStreamingBufferAccumulates() {
+    func testStreamingBufferAccumulatesTokens() {
         let state = iOSAppState()
-        // Simulate handleEvent through the internal event path
-        // Since handleEvent is private we test the observable property directly
-        // by triggering the event loop with mock events.
-        // For a unit test we validate the initial state.
-        XCTAssertTrue(state.streamingBuffers.isEmpty)
-        XCTAssertTrue(state.conversations.isEmpty)
-        XCTAssertTrue(state.projects.isEmpty)
-        XCTAssertNil(state.activeConversationId)
+        state.handleEvent(.streamToken(sessionId: "conv-1", text: "Hello"))
+        state.handleEvent(.streamToken(sessionId: "conv-1", text: " world"))
+        XCTAssertEqual(state.streamingBuffers["conv-1"], "Hello world",
+            "Stream tokens should be concatenated in streamingBuffers")
+    }
+
+    func testStreamingBufferClearedOnSessionResult() {
+        let state = iOSAppState()
+        state.handleEvent(.streamToken(sessionId: "conv-1", text: "Hello"))
+        state.handleEvent(.sessionResult(sessionId: "conv-1", result: "done",
+                                         cost: 0.01, tokenCount: 10, toolCallCount: 0))
+        XCTAssertNil(state.streamingBuffers["conv-1"],
+            "Streaming buffer must be cleared when session.result is received")
     }
 
     func testInitialConnectionStatus() {

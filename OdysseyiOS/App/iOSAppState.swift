@@ -28,6 +28,7 @@ final class iOSAppState {
         guard let creds = (try? credentialStore.load())?.first else { return }
         await sidecarManager.connect(using: creds)
         connectionStatus = sidecarManager.status
+        guard case .connected = sidecarManager.status else { return }
         startEventLoop()
         await loadConversations()
         await loadProjects()
@@ -117,12 +118,12 @@ final class iOSAppState {
         eventTask = Task { [weak self] in
             guard let self else { return }
             for await event in self.sidecarManager.events {
-                await MainActor.run { self.handleEvent(event) }
+                self.handleEvent(event)
             }
         }
     }
 
-    private func handleEvent(_ event: SidecarEvent) {
+    func handleEvent(_ event: SidecarEvent) {
         switch event {
         case .connected:
             // Determine method from current peer
