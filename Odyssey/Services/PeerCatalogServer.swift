@@ -18,9 +18,12 @@ final class PeerCatalogServer: @unchecked Sendable {
     var onRoomSyncHint: (@Sendable (RoomSyncHint) -> Void)?
 
     /// When set, the Bonjour TXT record will include `wan=<ip>:<port>`.
-    var publicWANEndpoint: String? = nil {
-        didSet { rebuildTXTRecord() }
+    /// Must only be set from the main actor (P2PNetworkManager is @MainActor).
+    nonisolated(unsafe) var publicWANEndpoint: String? = nil {
+        didSet { restartForTXTUpdate() }
     }
+
+    private var isRunning: Bool { listener != nil }
 
     init(initialJSON: Data) {
         self.cachedBody = initialJSON
@@ -41,6 +44,15 @@ final class PeerCatalogServer: @unchecked Sendable {
 
     func start() throws {
         guard listener == nil else { return }
+        try startListener()
+    }
+
+    func stop() {
+        stopListener()
+    }
+
+    /// Creates a new NWListener with the current TXT record (including wan= if set) and starts it.
+    private func startListener() throws {
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true
         let l = try NWListener(using: params, on: NWEndpoint.Port.any)
@@ -50,6 +62,9 @@ final class PeerCatalogServer: @unchecked Sendable {
         ]
         if let wsPort = sidecarWsPort {
             txtEntries["ws"] = "\(wsPort)"
+        }
+        if let wan = publicWANEndpoint {
+            txtEntries["wan"] = wan
         }
         let txt = NWTXTRecord(txtEntries)
         l.service = NWListener.Service(
@@ -72,31 +87,19 @@ final class PeerCatalogServer: @unchecked Sendable {
         listener = l
     }
 
-    func stop() {
+    /// Cancels and nils out the current NWListener.
+    private func stopListener() {
         listener?.cancel()
         listener = nil
     }
 
-    /// Rebuilds and pushes a fresh TXT record to the live NWListener service.
-    private func rebuildTXTRecord() {
-        guard let l = listener else { return }
-        var txtEntries: [String: String] = [
-            "ver": "1",
-            "instance": InstanceConfig.name,
-        ]
-        if let wsPort = sidecarWsPort {
-            txtEntries["ws"] = "\(wsPort)"
-        }
-        if let wan = publicWANEndpoint {
-            txtEntries["wan"] = wan
-        }
-        let txt = NWTXTRecord(txtEntries)
-        l.service = NWListener.Service(
-            name: PeerCatalogServer.bonjourName(),
-            type: PeerCatalogServer.serviceType,
-            domain: nil,
-            txtRecord: txt
-        )
+    /// Called when publicWANEndpoint changes. Stops and restarts the listener
+    /// so the new TXT record (with wan= entry) takes effect.
+    /// NWListener.service is write-once, so reassignment on a running listener is silently ignored.
+    private func restartForTXTUpdate() {
+        guard isRunning else { return }
+        stopListener()
+        try? startListener()
     }
 
     private static let serviceType = "_odyssey._tcp"

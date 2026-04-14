@@ -25,6 +25,7 @@ final class P2PNetworkManager: ObservableObject {
     private var previousPeerNames: Set<String> = []
     private let natManager = NATTraversalManager()
     private var natCancellable: AnyCancellable?
+    private var stunDiscoveryTask: Task<Void, Never>? = nil
 
     init() {
         let empty = try! JSONEncoder().encode(WireAgentExportList(agents: []))
@@ -34,8 +35,10 @@ final class P2PNetworkManager: ObservableObject {
                 await self?.handleRoomSyncHint(hint)
             }
         }
+        // NATTraversalManager is @MainActor, so $publicEndpoint already publishes on the main actor.
+        // No .receive(on:) needed — removing it avoids a redundant hop and keeps the assignment
+        // on the main actor, which is required by nonisolated(unsafe) on publicWANEndpoint.
         natCancellable = natManager.$publicEndpoint
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] endpoint in
                 self?.server.publicWANEndpoint = endpoint
             }
@@ -66,12 +69,14 @@ final class P2PNetworkManager: ObservableObject {
         isRunning = true
         refreshExportCache()
         let localPort = server.sidecarWsPort ?? 9849
-        Task {
+        stunDiscoveryTask = Task {
             await natManager.discoverPublicEndpoint(localPort: localPort)
         }
     }
 
     func stop() {
+        stunDiscoveryTask?.cancel()
+        stunDiscoveryTask = nil
         browser?.cancel()
         browser = nil
         server.stop()
