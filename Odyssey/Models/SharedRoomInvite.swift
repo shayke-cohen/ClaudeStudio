@@ -44,6 +44,7 @@ enum SharedRoomMessageDeliveryMode: String, Codable, Sendable {
     case local
     case direct
     case cloudSync
+    case matrix
 }
 
 @Model

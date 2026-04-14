@@ -23,11 +23,29 @@ public final class CloudKitTransport: Transport {
     }
 
     // Transport protocol stubs — SharedRoomService owns the real implementation.
-    public func connect(credentials: TransportCredentials) async throws {}
-    public func disconnect() async { continuation.finish() }
-    public func send(_ message: OutboundTransportMessage, to room: TransportRoomID) async throws {}
-    public func createRoom(participants: [RemoteIdentity], name: String?) async throws -> TransportRoomID { "" }
-    public func invite(_ identity: RemoteIdentity, to room: TransportRoomID) async throws {}
-    public func setPresence(_ presence: PresenceStatus) async throws {}
-    public func searchUsers(query: String) async throws -> [RemoteIdentity] { [] }
+    // TransportManager calls SharedRoomService directly for CloudKit rooms.
+    public func connect(credentials: TransportCredentials) async throws {
+        // no-op: CloudKit connection is managed by SharedRoomService
+    }
+    public func disconnect() async {
+        // no-op: CloudKit connection is managed by SharedRoomService
+        continuation.finish()
+    }
+    public func send(_ message: OutboundTransportMessage, to room: TransportRoomID) async throws {
+        // no-op: messages are published by SharedRoomService directly
+    }
+    public func createRoom(participants: [RemoteIdentity], name: String?) async throws -> TransportRoomID {
+        // CloudKit rooms are created through SharedRoomService, not via this transport.
+        throw TransportError.delegatedToService("createRoom is handled by SharedRoomService")
+    }
+    public func invite(_ identity: RemoteIdentity, to room: TransportRoomID) async throws {
+        // no-op: invites are sent via SharedRoomInvite through SharedRoomService
+    }
+    public func setPresence(_ presence: PresenceStatus) async throws {
+        // no-op: CloudKit does not have a presence protocol
+    }
+    public func searchUsers(query: String) async throws -> [RemoteIdentity] {
+        // no-op: CloudKit user search not supported in Phase 6
+        return []
+    }
 }

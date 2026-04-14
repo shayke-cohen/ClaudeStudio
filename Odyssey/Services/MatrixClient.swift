@@ -349,7 +349,7 @@ final class MatrixClient: @unchecked Sendable {
                           let sender = ev["sender"] as? String,
                           let type = ev["type"] as? String,
                           let content = ev["content"] as? [String: Any],
-                          let ts = ev["origin_server_ts"] as? Int64 else { return nil }
+                          let ts = (ev["origin_server_ts"] as? NSNumber)?.int64Value else { return nil }
                     return MatrixRoomEvent(
                         eventId: eventId,
                         sender: sender,

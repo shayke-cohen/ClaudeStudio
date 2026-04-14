@@ -78,7 +78,7 @@ struct AgentActivityBar: View {
         .clipShape(Capsule())
         .overlay(alignment: .bottomTrailing) {
             if let matrixId = item.matrixId {
-                PresenceDot(status: presenceStore[matrixId] ?? .offline)
+                PresenceDot(status: presenceStore[matrixId] ?? .offline, id: matrixId)
                     .offset(x: 2, y: 2)
             }
         }
@@ -108,6 +108,7 @@ private struct AgentActivityItem: Identifiable {
 
 struct PresenceDot: View {
     let status: PresenceStatus
+    let id: String  // agent/session ID for unique accessibility identifier
 
     var color: Color {
         switch status {
@@ -122,7 +123,7 @@ struct PresenceDot: View {
             .fill(color)
             .frame(width: 8, height: 8)
             .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 1.5))
-            .accessibilityIdentifier("agentActivityBar.presenceDot")
+            .accessibilityIdentifier("agentActivityBar.presenceDot.\(id)")
             .accessibilityLabel("Presence: \(status.rawValue)")
     }
 }

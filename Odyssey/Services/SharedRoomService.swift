@@ -972,7 +972,7 @@ final class SharedRoomService: ObservableObject {
             conversation: conversation
         )
         newMessage.roomMessageId = msg.messageId
-        newMessage.roomDeliveryMode = .cloudSync
+        newMessage.roomDeliveryMode = .matrix
         conversation.messages.append(newMessage)
         try? context.save()
     }

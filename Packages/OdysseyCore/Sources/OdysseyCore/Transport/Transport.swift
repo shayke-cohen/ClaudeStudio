@@ -157,6 +157,20 @@ public enum RoomOrigin: Codable, Sendable, Equatable {
     }
 }
 
+// MARK: - TransportError
+
+public enum TransportError: Error, LocalizedError {
+    case delegatedToService(String)
+    case notConnected
+
+    public var errorDescription: String? {
+        switch self {
+        case .delegatedToService(let msg): return "Transport operation delegated: \(msg)"
+        case .notConnected: return "Transport not connected"
+        }
+    }
+}
+
 // MARK: - TransportDelegate
 
 public protocol TransportDelegate: AnyObject, Sendable {

@@ -147,9 +147,19 @@ final class MatrixClientTests: XCTestCase {
     }
 
     func testSyncBackoffOnError() async throws {
-        // Smoke test: MatrixTransport initializes without crash
-        let transport = MatrixTransport(instanceName: "test-\(UUID().uuidString)")
-        XCTAssertNotNil(transport)
+        MatrixStubProtocol.register(when: { $0.url?.path.contains("/sync") == true }) { _ in
+            return (#"{"errcode":"M_INTERNAL","error":"server error"}"#.data(using: .utf8)!, 500)
+        }
+        client.credentials = MatrixCredentials(
+            accessToken: "tok", refreshToken: nil,
+            deviceId: "dev1", userId: "@alice:example.com", homeserver: homeserver
+        )
+        do {
+            _ = try await client.sync(since: nil)
+            XCTFail("Expected sync to throw on 5xx")
+        } catch MatrixError.httpError(let code, _, _) {
+            XCTAssertEqual(code, 500, "Should receive HTTP 500 error")
+        }
     }
 
     func testSyncResumeFromToken() async throws {

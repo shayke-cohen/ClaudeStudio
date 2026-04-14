@@ -16,7 +16,7 @@ final class TransportManager: ObservableObject {
     /// Called when a remote message arrives from any transport.
     var onInboundMessage: ((InboundTransportMessage) async -> Void)?
     /// Called when a presence update arrives.
-    var onPresenceChanged: ((String, PresenceStatus) -> Void)?
+    var onPresenceChanged: (@MainActor (String, PresenceStatus) async -> Void)?
 
     init(instanceName: String) {
         self.cloudKitTransport = CloudKitTransport()
@@ -71,22 +71,3 @@ final class TransportManager: ObservableObject {
     }
 }
 
-// MARK: - TransportDelegate
-
-extension TransportManager: TransportDelegate {
-    nonisolated func transport(_ transport: any Transport, didReceive message: InboundTransportMessage) async {
-        await MainActor.run {
-            Task { await onInboundMessage?(message) }
-        }
-    }
-
-    nonisolated func transport(_ transport: any Transport, didChangePresence userId: String, status: PresenceStatus) async {
-        await MainActor.run {
-            onPresenceChanged?(userId, status)
-        }
-    }
-
-    nonisolated func transport(_ transport: any Transport, didFailWithError error: Error) async {
-        logger.error("TransportManager delegate: transport error: \(error)")
-    }
-}

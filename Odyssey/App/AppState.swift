@@ -194,7 +194,7 @@ final class AppState: ObservableObject {
     var modelContext: ModelContext?
     private(set) lazy var transportManager: TransportManager = {
         let tm = TransportManager(instanceName: InstanceConfig.name)
-        tm.onPresenceChanged = { [weak self] userId, status in
+        tm.onPresenceChanged = { @MainActor [weak self] userId, status in
             self?.presenceStore[userId] = status
         }
         return tm
@@ -1167,10 +1167,10 @@ final class AppState: ObservableObject {
                 Task { await sidecarManager?.pushConversationSync(modelContext: ctx) }
             }
             Task {
-                await transportManager.start()
                 transportManager.onInboundMessage = { [weak self] msg in
                     await self?.handleInboundTransportMessage(msg)
                 }
+                await transportManager.start()
             }
 
         case .disconnected:

@@ -174,7 +174,6 @@ final class MatrixTransport: Transport {
                     transportId: id
                 )
                 inboundContinuation.yield(msg)
-                await delegate?.transport(self, didReceive: msg)
             }
         }
     }
