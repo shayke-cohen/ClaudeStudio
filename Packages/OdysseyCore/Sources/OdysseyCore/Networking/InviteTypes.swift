@@ -98,7 +98,9 @@ public extension InvitePayload {
         } catch {
             throw InviteDecodeError.invalidPublicKey
         }
-        // Build canonical payload (all fields except signature) for verification
+        // Build canonical payload (all fields except signature) for verification.
+        // Canonical form omits nil/null fields at every level (matches TypeScript generator
+        // which filters null/undefined with encodeIfPresent semantics).
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         guard var dict = try? JSONSerialization.jsonObject(
@@ -107,7 +109,30 @@ public extension InvitePayload {
             throw InviteDecodeError.invalidSignature
         }
         dict.removeValue(forKey: "signature")
-        let canonical = try JSONSerialization.data(withJSONObject: dict, options: .sortedKeys)
+        // Strip NSNull values recursively so nil optionals are excluded from the canonical bytes.
+        func stripNulls(_ value: Any) -> Any? {
+            if value is NSNull { return nil }
+            if var d = value as? [String: Any] {
+                for (k, v) in d {
+                    if let stripped = stripNulls(v) { d[k] = stripped } else { d.removeValue(forKey: k) }
+                }
+                return d
+            }
+            if let arr = value as? [Any] { return arr.compactMap { stripNulls($0) } }
+            return value
+        }
+        guard let stripped = stripNulls(dict) as? [String: Any] else {
+            throw InviteDecodeError.invalidSignature
+        }
+        let rawCanonical = try JSONSerialization.data(withJSONObject: stripped, options: .sortedKeys)
+        // NSJSONSerialization escapes '/' as '\/' but TypeScript's JSON.stringify does not.
+        // Unescape '\/' → '/' so canonical bytes match the TypeScript-signed payload.
+        guard let canonicalStr = String(data: rawCanonical, encoding: .utf8) else {
+            throw InviteDecodeError.invalidSignature
+        }
+        let canonical = canonicalStr
+            .replacingOccurrences(of: "\\/", with: "/")
+            .data(using: .utf8)!
         // Decode signature
         var sigBase64 = signature
             .replacingOccurrences(of: "-", with: "+")
