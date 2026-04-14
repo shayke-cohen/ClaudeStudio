@@ -1,5 +1,6 @@
 // Sources/OdysseyCore/Networking/InviteTypes.swift
 import Foundation
+import CryptoKit
 
 /// Network location hints embedded in an invite payload.
 public struct InviteHints: Codable, Sendable {
@@ -56,5 +57,87 @@ public struct InvitePayload: Codable, Sendable {
         self.turn = turn
         self.expiresAt = expiresAt
         self.signature = signature
+    }
+}
+
+// MARK: - Decode / Verify helpers
+
+public extension InvitePayload {
+    /// Decode a base64url-encoded JSON invite payload.
+    static func decode(_ base64url: String) throws -> InvitePayload {
+        var base64 = base64url
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = base64.count % 4
+        if remainder != 0 { base64 += String(repeating: "=", count: 4 - remainder) }
+        guard let data = Data(base64Encoded: base64) else {
+            throw InviteDecodeError.invalidBase64
+        }
+        return try JSONDecoder().decode(InvitePayload.self, from: data)
+    }
+
+    /// Verify that the payload has not expired and the Ed25519 signature is valid.
+    func verify() throws {
+        // Check expiry
+        let formatter = ISO8601DateFormatter()
+        if let expiry = formatter.date(from: expiresAt), expiry < Date() {
+            throw InviteDecodeError.expired
+        }
+        // Decode public key
+        var pubBase64 = hostPublicKeyBase64url
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let pubRemainder = pubBase64.count % 4
+        if pubRemainder != 0 { pubBase64 += String(repeating: "=", count: 4 - pubRemainder) }
+        guard let pubKeyData = Data(base64Encoded: pubBase64) else {
+            throw InviteDecodeError.invalidPublicKey
+        }
+        let pubKey: Curve25519.Signing.PublicKey
+        do {
+            pubKey = try Curve25519.Signing.PublicKey(rawRepresentation: pubKeyData)
+        } catch {
+            throw InviteDecodeError.invalidPublicKey
+        }
+        // Build canonical payload (all fields except signature) for verification
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard var dict = try? JSONSerialization.jsonObject(
+            with: encoder.encode(self), options: []
+        ) as? [String: Any] else {
+            throw InviteDecodeError.invalidSignature
+        }
+        dict.removeValue(forKey: "signature")
+        let canonical = try JSONSerialization.data(withJSONObject: dict, options: .sortedKeys)
+        // Decode signature
+        var sigBase64 = signature
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let sigRemainder = sigBase64.count % 4
+        if sigRemainder != 0 { sigBase64 += String(repeating: "=", count: 4 - sigRemainder) }
+        guard let sigData = Data(base64Encoded: sigBase64) else {
+            throw InviteDecodeError.invalidSignature
+        }
+        guard pubKey.isValidSignature(sigData, for: canonical) else {
+            throw InviteDecodeError.signatureVerificationFailed
+        }
+    }
+}
+
+/// Errors thrown by `InvitePayload.decode(_:)` and `InvitePayload.verify()`.
+public enum InviteDecodeError: LocalizedError {
+    case invalidBase64
+    case expired
+    case invalidPublicKey
+    case invalidSignature
+    case signatureVerificationFailed
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidBase64:             return "Invalid invite link encoding"
+        case .expired:                   return "Invite link has expired"
+        case .invalidPublicKey:          return "Invalid public key in invite"
+        case .invalidSignature:          return "Invalid signature in invite"
+        case .signatureVerificationFailed: return "Signature verification failed"
+        }
     }
 }
