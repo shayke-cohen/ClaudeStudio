@@ -6,8 +6,11 @@
  *
  * Usage: ODYSSEY_DATA_DIR=/tmp/odyssey-test-$(date +%s) bun test test/unit/ws-auth.test.ts
  */
-import { describe, test, expect, afterEach } from "bun:test";
-import { WsServer } from "../../src/ws-server.js";
+import { describe, test, expect, afterEach, beforeAll, afterAll } from "bun:test";
+import { WsServer, type WsServerOptions } from "../../src/ws-server.js";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as fs from "node:fs";
 import { SessionManager } from "../../src/session-manager.js";
 import { SessionRegistry } from "../../src/stores/session-registry.js";
 import { BlackboardStore } from "../../src/stores/blackboard-store.js";
@@ -21,7 +24,8 @@ import type { SidecarEvent } from "../../src/types.js";
 import type { ToolContext } from "../../src/tools/tool-context.js";
 
 // Pick a high port range to avoid conflicts with the running app
-let portCounter = 19900;
+// (ws-protocol.test.ts uses 19849–20849, so start above that)
+let portCounter = 21000;
 function nextPort(): number {
   return portCounter++;
 }
@@ -58,6 +62,18 @@ async function httpGet(port: number, authHeader?: string): Promise<number> {
 }
 
 const servers: WsServer[] = [];
+
+let tmpDataDir: string;
+
+beforeAll(() => {
+  tmpDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "odyssey-ws-auth-"));
+  process.env.ODYSSEY_DATA_DIR = tmpDataDir;
+});
+
+afterAll(() => {
+  delete process.env.ODYSSEY_DATA_DIR;
+  fs.rmSync(tmpDataDir, { recursive: true, force: true });
+});
 
 afterEach(() => {
   for (const s of servers) {

@@ -6,15 +6,23 @@ import { resolveQuestion } from "./tools/ask-user-tool.js";
 import { logger } from "./logger.js";
 import { probeConnector } from "./connectors/provider-runtime.js";
 
+export interface WsServerOptions {
+  token?: string;
+  tlsCert?: string;
+  tlsKey?: string;
+}
+
 export class WsServer {
   private clients = new Set<ServerWebSocket<unknown>>();
   private sessionManager: SessionManager;
   private ctx: ToolContext;
   private server: ReturnType<typeof Bun.serve> | null = null;
+  private options: WsServerOptions = {};
 
-  constructor(port: number, sessionManager: SessionManager, ctx: ToolContext) {
+  constructor(port: number, sessionManager: SessionManager, ctx: ToolContext, options: WsServerOptions = {}) {
     this.sessionManager = sessionManager;
     this.ctx = ctx;
+    this.options = options;
 
     this.server = Bun.serve({
       port,
@@ -546,6 +554,7 @@ ${mcpsCatalog}`;
   }
 
   close(): void {
-    this.server?.stop();
+    this.server?.stop(true);
+    this.server = null;
   }
 }
