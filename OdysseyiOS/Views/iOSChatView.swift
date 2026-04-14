@@ -103,7 +103,7 @@ struct iOSChatView: View {
         errorMessage = nil
         defer { isSending = false }
         do {
-            try await appState.sendMessage(text, to: conversation.id)
+            try await appState.send(text, to: conversation.id)
         } catch {
             errorMessage = error.localizedDescription
         }

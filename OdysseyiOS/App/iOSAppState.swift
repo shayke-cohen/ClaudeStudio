@@ -104,7 +104,7 @@ final class iOSAppState {
     }
 
     /// Send a chat message to the active session.
-    func sendMessage(_ text: String, to conversationId: String) async throws {
+    func send(_ text: String, to conversationId: String) async throws {
         try await sidecarManager.send(
             .sessionMessage(sessionId: conversationId, text: text, attachments: [], planMode: false)
         )
@@ -128,9 +128,9 @@ final class iOSAppState {
             // Determine method from current peer
             if let peer = sidecarManager.connectedPeer {
                 let method: RemoteSidecarManager.ConnectionMethod = peer.lanHint != nil ? .lan : .wanDirect
-                connectionStatus = .connected(method: method)
+                connectionStatus = .connected(method: method.rawValue)
             } else {
-                connectionStatus = .connected(method: .lan)
+                connectionStatus = .connected(method: "lan")
             }
         case .disconnected:
             connectionStatus = .disconnected

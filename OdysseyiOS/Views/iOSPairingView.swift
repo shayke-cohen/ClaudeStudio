@@ -81,6 +81,14 @@ struct iOSPairingView: View {
                         .accessibilityIdentifier("pairing.cancelButton")
                 }
             }
+            .onOpenURL { url in
+                guard url.scheme == "odyssey",
+                      let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                      let inviteParam = components.queryItems?.first(where: { $0.name == "invite" })?.value
+                else { return }
+                inviteCode = inviteParam
+                Task { await pair() }
+            }
         }
     }
 

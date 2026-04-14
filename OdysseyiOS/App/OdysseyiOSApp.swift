@@ -5,36 +5,40 @@ import OdysseyCore
 @main
 struct OdysseyiOSApp: App {
     @State private var appState = iOSAppState()
-    @State private var hasPairedMac: Bool = PeerCredentialStore().hasPairedMacs
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if hasPairedMac {
-                    MainTabView()
-                        .environment(appState)
-                        .task {
-                            await appState.connectToFirstPairedMac()
+            ContentRootView()
+                .environment(appState)
+                .onChange(of: scenePhase) { _, newPhase in
+                    Task {
+                        if newPhase == .background {
+                            await appState.sidecarManager.suspendForBackground()
+                        } else if newPhase == .active {
+                            await appState.sidecarManager.reconnectIfNeeded()
                         }
-                } else {
-                    iOSPairingView {
-                        hasPairedMac = true
                     }
                 }
-            }
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: UIApplication.willEnterForegroundNotification
-                )
-            ) { _ in
-                Task { await appState.sidecarManager.reconnectIfNeeded() }
-            }
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: UIApplication.didEnterBackgroundNotification
-                )
-            ) { _ in
-                Task { await appState.sidecarManager.suspendForBackground() }
+        }
+    }
+}
+
+// MARK: - Content root
+
+struct ContentRootView: View {
+    @Environment(iOSAppState.self) private var appState
+    @State private var hasPairedMac: Bool = PeerCredentialStore().hasPairedMacs
+
+    var body: some View {
+        if hasPairedMac {
+            MainTabView()
+                .task {
+                    await appState.connectToFirstPairedMac()
+                }
+        } else {
+            iOSPairingView {
+                hasPairedMac = true
             }
         }
     }

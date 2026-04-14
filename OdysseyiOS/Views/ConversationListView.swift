@@ -6,6 +6,7 @@ import OdysseyCore
 struct ConversationListView: View {
     @Environment(iOSAppState.self) private var appState
     @State private var searchText = ""
+    @State private var showNewConversation = false
 
     var filteredConversations: [ConversationSummaryWire] {
         if searchText.isEmpty { return appState.conversations }
@@ -37,6 +38,7 @@ struct ConversationListView: View {
                     .accessibilityIdentifier("conversationList.list")
                     .searchable(text: $searchText, prompt: "Search conversations")
                     .accessibilityIdentifier("conversationList.search")
+                    .refreshable { await appState.loadConversations() }
                 }
             }
             .navigationTitle("Conversations")
@@ -50,10 +52,23 @@ struct ConversationListView: View {
                     .accessibilityIdentifier("conversationList.refreshButton")
                     .accessibilityLabel("Refresh conversations")
                 }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showNewConversation = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityIdentifier("conversationList.newButton")
+                    .accessibilityLabel("New conversation")
+                }
             }
         }
         .task {
             await appState.loadConversations()
+        }
+        .sheet(isPresented: $showNewConversation) {
+            iOSAgentListView()
+                .environment(appState)
         }
     }
 }

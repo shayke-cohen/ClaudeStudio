@@ -81,6 +81,22 @@ final class RemoteSidecarManagerTests: XCTestCase {
         XCTAssertEqual(manager.status, .disconnected)
     }
 
+    // MARK: - Cert pinning
+
+    func testCertPinningStoresPinnedDER() {
+        let pinnedDER = Data(repeating: 0xAB, count: 100)
+        let delegate = CertPinningDelegate(pinnedDER: pinnedDER)
+        XCTAssertEqual(delegate.pinnedDER, pinnedDER, "CertPinningDelegate must store the pinned DER bytes")
+    }
+
+    func testCertPinningRejectsMismatchedCert() {
+        let pinnedDER = Data(repeating: 0xAB, count: 100)
+        let wrongDER = Data(repeating: 0xCD, count: 100)
+        let delegate = CertPinningDelegate(pinnedDER: pinnedDER)
+        XCTAssertNotEqual(wrongDER, delegate.pinnedDER,
+            "A cert with different DER bytes should not match the pinned cert")
+    }
+
     // MARK: - Helpers
 
     private func makeCreds(lanHint: String?, wanHint: String?) -> PeerCredentials {

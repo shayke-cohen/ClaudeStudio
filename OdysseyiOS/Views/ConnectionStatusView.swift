@@ -59,7 +59,7 @@ struct ConnectionStatusView: View {
         switch status {
         case .disconnected: return "Not Connected"
         case .connecting: return "Connecting…"
-        case .connected(let method): return "Connected via \(method.rawValue.capitalized)"
+        case .connected(let method): return "Connected via \(method.capitalized)"
         }
     }
 

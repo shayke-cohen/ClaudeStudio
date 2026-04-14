@@ -54,7 +54,7 @@ final class PeerCredentialStoreTests: XCTestCase {
         XCTAssertTrue(loaded.isEmpty)
     }
 
-    func testSaveMultiple() throws {
+    func testMultiplePeers() throws {
         let a = makeCreds(displayName: "Mac A")
         let b = makeCreds(displayName: "Mac B")
         try store.save(a)
@@ -63,7 +63,7 @@ final class PeerCredentialStoreTests: XCTestCase {
         XCTAssertEqual(loaded.count, 2)
     }
 
-    func testUpdateExisting() throws {
+    func testSessionIdPersistence() throws {
         var creds = makeCreds(displayName: "Original")
         try store.save(creds)
         creds = PeerCredentials(
@@ -87,7 +87,7 @@ final class PeerCredentialStoreTests: XCTestCase {
         XCTAssertEqual(loaded[0].claudeSessionIds["conv-1"], "claude-abc")
     }
 
-    func testDeleteById() throws {
+    func testDeleteRemovesPeer() throws {
         let a = makeCreds(displayName: "A")
         let b = makeCreds(displayName: "B")
         try store.save(a)

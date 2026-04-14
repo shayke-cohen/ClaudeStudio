@@ -12,7 +12,7 @@ final class RemoteSidecarManager: ObservableObject {
     enum ConnectionStatus: Equatable {
         case disconnected
         case connecting
-        case connected(method: ConnectionMethod)
+        case connected(method: String)
     }
 
     enum ConnectionMethod: String, Equatable {
@@ -141,7 +141,7 @@ final class RemoteSidecarManager: ObservableObject {
             ? .lan
             : .wanDirect
 
-        status = .connected(method: method)
+        status = .connected(method: method.rawValue)
         eventContinuation?.yield(.connected)
         receiveMessages()
         startPing()
@@ -197,7 +197,7 @@ final class RemoteSidecarManager: ObservableObject {
 
 // MARK: - TLS Certificate Pinning
 
-private final class CertPinningDelegate: NSObject, URLSessionDelegate {
+final class CertPinningDelegate: NSObject, URLSessionDelegate {
     let pinnedDER: Data
     init(pinnedDER: Data) { self.pinnedDER = pinnedDER }
 

@@ -114,7 +114,7 @@ struct NewConversationSheet: View {
                 workingDirectory: nil
             )
             if !initialMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                try await appState.sendMessage(initialMessage, to: conversationId)
+                try await appState.send(initialMessage, to: conversationId)
             }
             await appState.loadConversations()
             dismiss()
@@ -144,7 +144,7 @@ struct ConnectionStatusRow: View {
         switch status {
         case .disconnected: return "Disconnected"
         case .connecting: return "Connecting…"
-        case .connected(let method): return "Connected (\(method.rawValue))"
+        case .connected(let method): return "Connected (\(method))"
         }
     }
 
