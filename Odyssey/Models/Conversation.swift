@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import OdysseyCore
 
 enum ThreadKind: String, Codable, CaseIterable, Sendable {
     case direct
@@ -115,6 +116,10 @@ final class Conversation {
     private var roomStatusRaw: String?
     private var roomHistorySyncStateRaw: String?
     private var roomTransportModeRaw: String?
+    // Phase 6 — transport origin
+    var roomOriginKind: String = "local"
+    var roomOriginHomeserver: String? = nil
+    var roomOriginMatrixId: String? = nil
     var startedAt: Date
     var closedAt: Date?
 
@@ -207,6 +212,21 @@ final class Conversation {
     var roomTransportMode: SharedRoomTransportMode {
         get { roomTransportModeRaw.flatMap(SharedRoomTransportMode.init(rawValue:)) ?? .cloudSync }
         set { roomTransportModeRaw = newValue.rawValue }
+    }
+
+    var roomOrigin: RoomOrigin {
+        get {
+            RoomOrigin.from(
+                kind: roomOriginKind,
+                homeserver: roomOriginHomeserver,
+                matrixRoomId: roomOriginMatrixId
+            )
+        }
+        set {
+            roomOriginKind = newValue.kindString
+            roomOriginHomeserver = newValue.homeserver
+            roomOriginMatrixId = newValue.matrixRoomId
+        }
     }
 
     var isSharedRoom: Bool {
