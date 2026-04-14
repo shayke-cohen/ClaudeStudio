@@ -62,7 +62,15 @@ const sessionManager = new SessionManager(
   toolContext,
 );
 
-const wsServer = new WsServer(WS_PORT, sessionManager, toolContext);
+const WS_TOKEN = process.env.ODYSSEY_WS_TOKEN ?? process.env.CLAUDESTUDIO_WS_TOKEN;
+const TLS_CERT = process.env.ODYSSEY_TLS_CERT ?? process.env.CLAUDESTUDIO_TLS_CERT;
+const TLS_KEY = process.env.ODYSSEY_TLS_KEY ?? process.env.CLAUDESTUDIO_TLS_KEY;
+
+const wsServer = new WsServer(WS_PORT, sessionManager, toolContext, {
+  ...(WS_TOKEN ? { token: WS_TOKEN } : {}),
+  ...(TLS_CERT ? { tlsCert: TLS_CERT } : {}),
+  ...(TLS_KEY ? { tlsKey: TLS_KEY } : {}),
+});
 
 // Multi-target broadcast: WS clients + SSE subscribers + Webhooks
 broadcastFn = (event) => {
