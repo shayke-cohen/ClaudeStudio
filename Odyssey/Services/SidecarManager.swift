@@ -36,6 +36,9 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
     private var pingTask: Task<Void, Never>?
     private let config: Config
     private let hooks: Hooks
+
+    /// The instance name used for Keychain key namespacing and TLS cert paths.
+    var instanceName: String { config.instanceName }
     /// DER bytes of the self-signed TLS cert generated for this instance.
     /// Written in `launchSidecar()` (always before the first connection attempt).
     /// Read in the `URLSessionDelegate` cert-pinning callback. Ordering is safe.
@@ -86,6 +89,12 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
         process = nil
         eventContinuation?.yield(.disconnected)
         eventContinuation?.finish()
+    }
+
+    /// Reconfigures the sidecar bind address and schedules a restart.
+    func setBindAddress(_ address: String) {
+        UserDefaults.standard.set(address, forKey: "sidecarBindAddress")
+        Task { await restart() }
     }
 
     /// Stop the current sidecar, then restart it.

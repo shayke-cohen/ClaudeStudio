@@ -8,6 +8,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case connectors
     case chatDisplay
     case developer
+    case iosPairing
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connectors: "Connectors"
         case .chatDisplay: "Chat Display"
         case .developer: "Developer"
+        case .iosPairing: "iOS Pairing"
         }
     }
 
@@ -30,6 +32,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connectors: "OAuth setup, broker config, and tokens"
         case .chatDisplay: "Rendering and conversation chrome"
         case .developer: "Paths, diagnostics, and experimental controls"
+        case .iosPairing: "QR code and device pairing for iOS access"
         }
     }
 
@@ -41,6 +44,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connectors: "link.badge.plus"
         case .chatDisplay: "bubble.left.and.text.bubble.right"
         case .developer: "wrench.and.screwdriver"
+        case .iosPairing: "iphone.and.arrow.forward"
         }
     }
 
@@ -52,6 +56,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connectors: "settings.tab.connectors"
         case .chatDisplay: "settings.tab.chatDisplay"
         case .developer: "settings.tab.developer"
+        case .iosPairing: "settings.tab.iosPairing"
         }
     }
 }
@@ -176,6 +181,8 @@ struct SettingsView: View {
                 ChatDisplaySettingsTab()
             case .developer:
                 DeveloperSettingsTab()
+            case .iosPairing:
+                iOSPairingSettingsView()
             }
         }
     }
