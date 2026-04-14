@@ -96,16 +96,17 @@ enum GroupRoutingPlanner {
     ) -> PeerWavePlan? {
         let sortedOthers = otherSessions.sorted { $0.startedAt < $1.startedAt }
 
+        // Build O(1) session → role lookup to avoid O(N×P) nested scan.
+        let sessionRoles: [UUID: ParticipantRole] = Dictionary(uniqueKeysWithValues:
+            participants.compactMap { p -> (UUID, ParticipantRole)? in
+                if case .agentSession(let sid) = p.type { return (sid, p.role) }
+                return nil
+            }
+        )
         // Split silent observers from active candidates.
         let silentObserverSessionIds: Set<UUID> = Set(
             sortedOthers.compactMap { session -> UUID? in
-                let isObserver = participants.contains { p in
-                    if case .agentSession(let sid) = p.type {
-                        return sid == session.id && p.role == .silentObserver
-                    }
-                    return false
-                }
-                return isObserver ? session.id : nil
+                sessionRoles[session.id] == .silentObserver ? session.id : nil
             }
         )
         let activeSortedOthers = sortedOthers.filter { !silentObserverSessionIds.contains($0.id) }
