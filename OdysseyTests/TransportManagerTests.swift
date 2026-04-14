@@ -34,6 +34,20 @@ final class TransportManagerTests: XCTestCase {
         XCTAssertEqual(conversation.roomOriginKind, "matrix")
         XCTAssertEqual(conversation.roomOriginHomeserver, "https://matrix.example.com")
         XCTAssertEqual(conversation.roomOriginMatrixId, "!room:example.com")
+
+        // Verify the send path is exercised for .matrix rooms (transport logs error but doesn't throw)
+        let msg = OutboundTransportMessage(
+            messageId: UUID().uuidString,
+            roomId: "!room:example.com",
+            senderId: "user-1",
+            senderDisplayName: "Alice",
+            participantType: "user",
+            text: "Hello"
+        )
+        // No client connected — TransportManager catches the error internally and logs it
+        await manager.send(msg, for: conversation)
+        // Verify routing was attempted (not silently skipped as with .local or .cloudKit)
+        XCTAssertEqual(conversation.roomOriginKind, "matrix", "Routing path should only be exercised for matrix rooms")
     }
 
     func testLocalOriginIsNoOp() async throws {

@@ -109,17 +109,25 @@ final class MatrixTransport: Transport {
     private func syncLoop() async {
         var backoffSeconds: Double = 2
         let maxBackoff: Double = 30
+        var refreshAttempted = false
 
         while !Task.isCancelled {
             guard let client else { break }
             do {
                 let response = try await client.sync(since: syncToken, timeout: 30_000)
                 backoffSeconds = 2  // reset on success
+                refreshAttempted = false
                 syncToken = response.nextBatch
                 keychainStore.saveSyncToken(response.nextBatch)
                 await deliverEvents(from: response)
             } catch MatrixError.unknownToken {
                 logger.warning("MatrixTransport: access token expired, attempting refresh")
+                guard !refreshAttempted else {
+                    logger.error("MatrixTransport: token still invalid after refresh, giving up")
+                    await delegate?.transport(self, didFailWithError: MatrixError.unknownToken)
+                    break
+                }
+                refreshAttempted = true
                 do {
                     guard let refreshToken = client.credentials?.refreshToken else {
                         logger.error("MatrixTransport: no refresh token available, giving up")
