@@ -56,6 +56,7 @@ final class Agent {
     var configSlug: String?
     var createdAt: Date
     var updatedAt: Date
+    var identityBundleJSON: String? = nil
 
     @Relationship(deleteRule: .cascade, inverse: \Session.agent)
     var sessions: [Session] = []
