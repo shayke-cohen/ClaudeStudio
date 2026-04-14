@@ -7,6 +7,7 @@ enum LaunchMode: Sendable, Equatable {
     case group(name: String)
     case schedule(id: UUID)
     case roomJoin(payload: SharedRoomService.JoinPayload)
+    case connectInvite(payload: String)
 }
 
 /// A parsed launch intent from CLI args or an app URL.
@@ -31,6 +32,7 @@ struct LaunchIntent: Sendable {
     /// - `--prompt <text>` — initial message to auto-send
     /// - `--workdir <path>` — override working directory
     /// - `--autonomous` — start in autonomous mode
+    /// - `--connect-invite <base64url>` — handle a device invite from `odyssey://connect?invite=...`
     ///
     /// Returns `nil` when no launch-mode flag is present.
     static func fromCommandLine() -> LaunchIntent? {
@@ -91,6 +93,11 @@ struct LaunchIntent: Sendable {
                     inviteToken: parts.count > 2 ? parts[2] : nil
                 ))
 
+            case "--connect-invite":
+                i += 1
+                guard i < args.count else { break }
+                mode = .connectInvite(payload: args[i])
+
             case "--occurrence":
                 i += 1
                 guard i < args.count else { break }
@@ -128,6 +135,7 @@ struct LaunchIntent: Sendable {
     /// - `odyssey://agent/Coder?prompt=...&workdir=/path&autonomous=true`
     /// - `odyssey://group/Dev%20Team?autonomous=true`
     /// - `odyssey://schedule/2F0D95B8-1D90-49B4-9C7B-6DAB4F9386A8?occurrence=2026-03-27T06:00:00Z`
+    /// - `odyssey://connect?invite=<base64url>` — device invite from QR code or link
     ///
     /// Also accepts legacy `claudestudio://` and `claudpeer://` links.
     ///
@@ -168,6 +176,9 @@ struct LaunchIntent: Sendable {
                 inviteId: inviteId,
                 inviteToken: queryValue("token")
             ))
+        case "connect":
+            guard let invite = queryValue("invite"), !invite.isEmpty else { return nil }
+            mode = .connectInvite(payload: invite)
         default:
             return nil
         }

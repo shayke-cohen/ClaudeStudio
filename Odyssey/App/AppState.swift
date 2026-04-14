@@ -356,6 +356,11 @@ final class AppState: ObservableObject {
                 occurrence: intent.occurrence,
                 windowState: windowState
             )
+
+        case .connectInvite(let encoded):
+            Task { @MainActor in
+                await handleConnectInvite(encoded: encoded, windowState: windowState)
+            }
         }
     }
 
@@ -386,6 +391,24 @@ final class AppState: ObservableObject {
         self.scheduleRunCoordinator = coordinator
     }
     #endif
+
+    // MARK: - Connect Invite Handler
+
+    /// Handles an `odyssey://connect?invite=<base64url>` deep link.
+    /// Decodes and verifies the invite, then logs for debugging.
+    /// TODO (Phase 2b follow-up): present pairing confirmation sheet.
+    private func handleConnectInvite(encoded: String, windowState: WindowState) async {
+        do {
+            let payload = try InviteCodeGenerator.decode(encoded)
+            try InviteCodeGenerator.verify(payload)
+            let logger = Logger(subsystem: "com.odyssey.app", category: "LaunchIntent")
+            logger.info("Received valid connect invite from '\(payload.displayName, privacy: .public)'")
+        } catch {
+            let logger = Logger(subsystem: "com.odyssey.app", category: "LaunchIntent")
+            logger.error("connectInvite handling failed: \(error.localizedDescription)")
+            windowState.launchError = "Invite handling failed: \(error.localizedDescription)"
+        }
+    }
 
     // MARK: - Group Chat
 
