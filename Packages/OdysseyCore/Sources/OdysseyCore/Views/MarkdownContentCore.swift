@@ -302,9 +302,6 @@ public enum AdmonitionParser {
 
         for match in matches {
             let matchStart = match.range.location
-            let leadingNewline = matchStart > 0 && nsText.character(at: matchStart) != Character("\n").asciiValue.map(UInt16.init) ?? 0
-            _ = leadingNewline
-
             if matchStart > lastEnd {
                 let prefix = nsText.substring(with: NSRange(location: lastEnd, length: matchStart - lastEnd))
                     .trimmingCharacters(in: .whitespacesAndNewlines)

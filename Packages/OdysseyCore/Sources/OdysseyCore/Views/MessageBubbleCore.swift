@@ -172,7 +172,8 @@ public struct MessageBubbleCore: View {
         UIPasteboard.general.string = message.text
 #endif
         withAnimation { isCopied = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
             withAnimation { isCopied = false }
         }
     }
