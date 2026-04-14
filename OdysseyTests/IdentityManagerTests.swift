@@ -107,8 +107,9 @@ final class IdentityManagerTests: XCTestCase {
         let bundle = try IdentityManager.shared.tlsCertificate(for: testInstance)
 
         defer {
-            try? FileManager.default.removeItem(atPath: bundle.certPEMPath)
-            try? FileManager.default.removeItem(atPath: bundle.keyPEMPath)
+            // Remove the entire instance directory (cert, key, and directory itself)
+            let instanceDir = "\(NSHomeDirectory())/.odyssey/instances/\(testInstance)"
+            try? FileManager.default.removeItem(atPath: instanceDir)
         }
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: bundle.certPEMPath),
