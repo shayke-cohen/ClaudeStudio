@@ -83,6 +83,7 @@ struct InviteCodeGenerator {
     @MainActor
     static func generateDevice(
         instanceName: String,
+        wsPort: Int = 9849,
         expiresIn: TimeInterval = 300,
         singleUse: Bool = true,
         lanHint: String?,
@@ -118,9 +119,6 @@ struct InviteCodeGenerator {
             throw InviteCodeError.certificateExportFailed
         }
 
-        // Default WebSocket port (matches SidecarManager.Config default of 9849).
-        let wsPort = 9849
-
         let hints = InviteHints(lan: lanHint, wan: wanHint, turn: turnConfig)
 
         var payload = InvitePayload(
@@ -138,8 +136,13 @@ struct InviteCodeGenerator {
         )
 
         // Sign the canonical JSON (without the sig field).
-        let sigData = try signPayload(payload, instanceName: instanceName)
-        payload.sig = sigData.base64EncodedString()
+        do {
+            let sigData = try signPayload(payload, instanceName: instanceName)
+            payload.sig = sigData.base64EncodedString()
+        } catch {
+            logger.error("InviteCodeGenerator: signing failed: \(error.localizedDescription)")
+            throw InviteCodeError.identityUnavailable
+        }
 
         logger.info("InviteCodeGenerator: generated device invite for '\(instanceName, privacy: .public)'")
         return payload
