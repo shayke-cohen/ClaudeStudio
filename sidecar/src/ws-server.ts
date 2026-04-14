@@ -24,9 +24,26 @@ export class WsServer {
     this.ctx = ctx;
     this.options = options;
 
+    const tlsConfig =
+      options.tlsCert && options.tlsKey
+        ? { cert: Bun.file(options.tlsCert), key: Bun.file(options.tlsKey) }
+        : undefined;
+
     this.server = Bun.serve({
       port,
+      ...(tlsConfig ? { tls: tlsConfig } : {}),
       fetch(req, server) {
+        // Enforce bearer token if configured
+        if (options.token) {
+          const authHeader = req.headers.get("authorization") ?? "";
+          if (authHeader !== `Bearer ${options.token}`) {
+            logger.warn("ws", "Rejected connection: invalid bearer token", {
+              remoteAddr: (server as any).requestIP?.(req)?.address ?? "unknown",
+            });
+            return new Response("Unauthorized", { status: 401 });
+          }
+        }
+
         if (server.upgrade(req)) return undefined;
         return new Response("WebSocket endpoint", { status: 426 });
       },
@@ -60,7 +77,8 @@ export class WsServer {
       },
     });
 
-    logger.info("ws", `WebSocket server listening on ws://localhost:${port}`);
+    const protocol = tlsConfig ? "wss" : "ws";
+    logger.info("ws", `WebSocket server listening on ${protocol}://localhost:${port}`);
   }
 
   private async handleCommand(command: SidecarCommand): Promise<void> {
