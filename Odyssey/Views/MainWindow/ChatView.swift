@@ -1863,7 +1863,8 @@ struct ChatView: View {
                             if let convo = conversation, convo.sessions.count > 1 {
                                 AgentActivityBar(
                                     sessions: convo.sessions,
-                                    sessionActivity: appState.sessionActivity
+                                    sessionActivity: appState.sessionActivity,
+                                    participants: convo.participants
                                 )
                                 .id("agentActivityBar")
                             }
@@ -3839,11 +3840,27 @@ struct ChatView: View {
         guard let peerPlan = GroupRoutingPlanner.planPeerWave(
             routingMode: convo.routingMode,
             triggerText: triggerMessage.text,
-            otherSessions: sortedOthers
+            otherSessions: sortedOthers,
+            participants: participants
         ) else {
             return []
         }
         let candidateSessions = sortedOthers.filter { peerPlan.candidateSessionIds.contains($0.id) }
+
+        // Dispatch silent observer transcript context (no budget impact).
+        let silentIds = await context.reserveSilentObserverTranscript(
+            triggerMessageId: triggerMessage.id,
+            silentObserverSessionIds: peerPlan.silentObserverSessionIds
+        )
+        let silentObserverSessions = sortedOthers.filter { silentIds.contains($0.id) }
+        for observer in silentObserverSessions {
+            let observerPrompt = GroupPromptBuilder.buildSilentObserverContextPrompt(
+                senderLabel: senderLabel,
+                triggerText: triggerMessage.text
+            )
+            // TODO: Phase 5 silent observer dispatch — fire-and-forget sendPrompt for observer
+            _ = observerPrompt
+        }
 
         guard let wave = await context.reservePeerWave(
             triggerMessageId: triggerMessage.id,

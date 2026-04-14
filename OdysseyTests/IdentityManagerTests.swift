@@ -101,6 +101,55 @@ final class IdentityManagerTests: XCTestCase {
             "Different instance names must produce different keypairs")
     }
 
+    // MARK: - IM8: verifyAgentBundle round-trip
+
+    func testIM8_verifyAgentBundleSucceeds() throws {
+        let agentId = UUID()
+        let bundle = try IdentityManager.shared.agentBundle(
+            for: agentId,
+            agentName: "VerifyAgent",
+            instanceName: testInstance
+        )
+        XCTAssertTrue(
+            IdentityManager.shared.verifyAgentBundle(bundle),
+            "verifyAgentBundle must return true for a bundle produced by agentBundle()"
+        )
+    }
+
+    func testIM9_verifyAgentBundleFailsWithTamperedAgentName() throws {
+        let agentId = UUID()
+        let bundle = try IdentityManager.shared.agentBundle(
+            for: agentId,
+            agentName: "Original",
+            instanceName: testInstance
+        )
+        let tampered = AgentIdentityBundle(
+            agentPublicKeyData: bundle.agentPublicKeyData,
+            agentId: bundle.agentId,
+            agentName: "Tampered",
+            ownerPublicKeyData: bundle.ownerPublicKeyData,
+            ownerSignature: bundle.ownerSignature,
+            createdAt: bundle.createdAt
+        )
+        XCTAssertFalse(
+            IdentityManager.shared.verifyAgentBundle(tampered),
+            "verifyAgentBundle must return false when agentName is tampered"
+        )
+    }
+
+    func testIM10_ownerDisplayNameReturnsNilForUnknownBundle() throws {
+        let agentId = UUID()
+        let bundle = try IdentityManager.shared.agentBundle(
+            for: agentId,
+            agentName: "NameAgent",
+            instanceName: testInstance
+        )
+        XCTAssertNil(
+            IdentityManager.shared.ownerDisplayName(for: bundle),
+            "ownerDisplayName should return nil until Phase 1 look-up is implemented"
+        )
+    }
+
     // MARK: - IM7: TLS bundle generation
 
     func testIM7_tlsBundleGeneration() throws {

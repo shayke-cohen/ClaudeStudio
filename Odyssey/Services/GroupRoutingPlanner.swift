@@ -28,6 +28,7 @@ enum GroupRoutingPlanner {
         let candidateSessionIds: [UUID]
         let prioritySessionIds: Set<UUID>
         let deliveryReasons: [UUID: PeerDeliveryReason]
+        let silentObserverSessionIds: [UUID]
     }
 
     static func planUserWave(
@@ -90,9 +91,25 @@ enum GroupRoutingPlanner {
     static func planPeerWave(
         routingMode: GroupRoutingMode,
         triggerText: String,
-        otherSessions: [Session]
+        otherSessions: [Session],
+        participants: [Participant] = []
     ) -> PeerWavePlan? {
         let sortedOthers = otherSessions.sorted { $0.startedAt < $1.startedAt }
+
+        // Split silent observers from active candidates.
+        let silentObserverSessionIds: Set<UUID> = Set(
+            sortedOthers.compactMap { session -> UUID? in
+                let isObserver = participants.contains { p in
+                    if case .agentSession(let sid) = p.type {
+                        return sid == session.id && p.role == .silentObserver
+                    }
+                    return false
+                }
+                return isObserver ? session.id : nil
+            }
+        )
+        let activeSortedOthers = sortedOthers.filter { !silentObserverSessionIds.contains($0.id) }
+
         let isAllMention = ChatSendRouting.containsMentionAll(in: triggerText)
         let mentionNames = ChatSendRouting.mentionedAgentNames(
             in: triggerText,
@@ -110,15 +127,30 @@ enum GroupRoutingPlanner {
             }.map(\.id))
         }
 
+        // Elevate mentioned silent observers to active candidates.
+        let mentionedSilentObservers = silentObserverSessionIds.intersection(mentionedSessionIds)
+        let passiveSilentObserverIds = silentObserverSessionIds.subtracting(mentionedSilentObservers)
+
+        // Build candidate pool: active sessions + any mentioned silent observers.
+        let elevatedSessions = sortedOthers.filter { mentionedSilentObservers.contains($0.id) }
         let candidateSessions: [Session]
         if routingMode == .mentionAware {
-            guard isAllMention || !mentionedSessionIds.isEmpty else { return nil }
-            candidateSessions = sortedOthers.filter { mentionedSessionIds.contains($0.id) }
+            guard isAllMention || !mentionedSessionIds.isEmpty else {
+                // No active mentions, but passive observers still exist — return nil for active wave.
+                if passiveSilentObserverIds.isEmpty { return nil }
+                return PeerWavePlan(
+                    candidateSessionIds: [],
+                    prioritySessionIds: [],
+                    deliveryReasons: [:],
+                    silentObserverSessionIds: Array(passiveSilentObserverIds)
+                )
+            }
+            candidateSessions = activeSortedOthers.filter { mentionedSessionIds.contains($0.id) } + elevatedSessions
         } else {
-            candidateSessions = sortedOthers
+            candidateSessions = activeSortedOthers + elevatedSessions
         }
 
-        guard !candidateSessions.isEmpty else { return nil }
+        guard !candidateSessions.isEmpty || !passiveSilentObserverIds.isEmpty else { return nil }
 
         var deliveryReasons: [UUID: PeerDeliveryReason] = [:]
         for session in candidateSessions {
@@ -132,7 +164,8 @@ enum GroupRoutingPlanner {
         return PeerWavePlan(
             candidateSessionIds: candidateSessions.map(\.id),
             prioritySessionIds: mentionedSessionIds,
-            deliveryReasons: deliveryReasons
+            deliveryReasons: deliveryReasons,
+            silentObserverSessionIds: Array(passiveSilentObserverIds)
         )
     }
 

@@ -1066,4 +1066,63 @@ final class GroupPromptBuilderTests: XCTestCase {
         XCTAssertTrue(guidelines.contains("**Deferring**"))
         XCTAssertTrue(guidelines.contains("**GitHub (when available)**"))
     }
+
+    // MARK: - Silent Observer Tests
+
+    func testSilentObserverReceivesTranscriptNotResponse() async throws {
+        let rootId = UUID()
+        let triggerId = UUID()
+        let activeId = UUID()
+        let silentId = UUID()
+        let context = GroupPeerFanOutContext(rootMessageId: rootId, maxAdditionalSidecarTurns: 10)
+        let wave = await context.reservePeerWave(
+            triggerMessageId: triggerId,
+            transcriptBoundaryMessageId: nil,
+            candidateSessionIds: [activeId],
+            prioritySessionIds: []
+        )
+        XCTAssertNotNil(wave)
+        XCTAssertTrue(wave!.recipientSessionIds.contains(activeId))
+        XCTAssertFalse(wave!.recipientSessionIds.contains(silentId))
+        let silentRecipients = await context.reserveSilentObserverTranscript(
+            triggerMessageId: triggerId,
+            silentObserverSessionIds: [silentId]
+        )
+        XCTAssertEqual(silentRecipients, [silentId])
+    }
+
+    func testSilentObserverNotCountedInBudget() async throws {
+        let rootId = UUID()
+        let triggerId = UUID()
+        let activeId = UUID()
+        let silentId = UUID()
+        let context = GroupPeerFanOutContext(rootMessageId: rootId, maxAdditionalSidecarTurns: 1)
+        let silentRecipients = await context.reserveSilentObserverTranscript(
+            triggerMessageId: triggerId,
+            silentObserverSessionIds: [silentId]
+        )
+        XCTAssertEqual(silentRecipients, [silentId])
+        let wave = await context.reservePeerWave(
+            triggerMessageId: triggerId,
+            transcriptBoundaryMessageId: nil,
+            candidateSessionIds: [activeId],
+            prioritySessionIds: []
+        )
+        XCTAssertNotNil(wave, "Active peer should receive wave despite silent observer having been notified")
+    }
+
+    func testSilentObserverRespondsToAtMention() async throws {
+        let rootId = UUID()
+        let triggerId = UUID()
+        let silentId = UUID()
+        let context = GroupPeerFanOutContext(rootMessageId: rootId, maxAdditionalSidecarTurns: 10)
+        let wave = await context.reservePeerWave(
+            triggerMessageId: triggerId,
+            transcriptBoundaryMessageId: nil,
+            candidateSessionIds: [silentId],
+            prioritySessionIds: [silentId]
+        )
+        XCTAssertNotNil(wave)
+        XCTAssertTrue(wave!.recipientSessionIds.contains(silentId))
+    }
 }

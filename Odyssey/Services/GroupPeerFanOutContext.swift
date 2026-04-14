@@ -76,4 +76,20 @@ actor GroupPeerFanOutContext {
         nextWaveId += 1
         return wave
     }
+
+    /// Returns IDs of silent-observer sessions that should receive transcript context.
+    /// Budget impact: none. Deduplication: each (observer, trigger) pair delivered at most once.
+    func reserveSilentObserverTranscript(
+        triggerMessageId: UUID,
+        silentObserverSessionIds: [UUID]
+    ) -> [UUID] {
+        var result: [UUID] = []
+        for sessionId in silentObserverSessionIds {
+            let key = "\(sessionId.uuidString)|\(triggerMessageId.uuidString)"
+            guard !deliveredNotifyKeys.contains(key) else { continue }
+            deliveredNotifyKeys.insert(key)
+            result.append(sessionId)
+        }
+        return result
+    }
 }

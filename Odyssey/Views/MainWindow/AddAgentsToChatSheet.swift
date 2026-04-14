@@ -162,6 +162,15 @@ struct AddAgentsToChatSheet: View {
             agentParticipant.conversation = convo
             convo.participants.append(agentParticipant)
 
+            if let bundleJSON = agent.identityBundleJSON,
+               let bundleData = bundleJSON.data(using: .utf8),
+               let bundle = try? JSONDecoder().decode(AgentIdentityBundle.self, from: bundleData) {
+                agentParticipant.isVerified = IdentityManager.shared.verifyAgentBundle(bundle)
+                agentParticipant.ownerPublicKeyData = bundle.ownerPublicKeyData
+                agentParticipant.agentIdentityBundleJSON = bundleJSON
+                agentParticipant.ownerDisplayName = IdentityManager.shared.ownerDisplayName(for: bundle)
+            }
+
             modelContext.insert(session)
         }
 

@@ -11,6 +11,7 @@ enum ParticipantType: Sendable, Hashable {
 enum ParticipantRole: String, Codable, Sendable {
     case active
     case observer
+    case silentObserver
 }
 
 @Model
@@ -31,6 +32,10 @@ final class Participant {
     var roomUserId: String?
     var roomHomeNodeId: String?
     var isLocalParticipant: Bool = true
+    var ownerDisplayName: String? = nil
+    var isVerified: Bool = false
+    var ownerPublicKeyData: Data? = nil
+    var agentIdentityBundleJSON: String? = nil
     private var membershipStatusRaw: String = SharedRoomMembershipStatus.active.rawValue
 
     @Transient

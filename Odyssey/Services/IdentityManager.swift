@@ -116,6 +116,26 @@ final class IdentityManager {
         )
     }
 
+    // MARK: - Agent Bundle Verification
+
+    /// Verify a peer-supplied `AgentIdentityBundle` using the embedded owner public key.
+    /// Returns `true` if the owner signature over (agentPublicKeyData ++ agentId.uuidBytes ++ agentName.utf8) is valid.
+    func verifyAgentBundle(_ bundle: AgentIdentityBundle) -> Bool {
+        guard let ownerKey = try? Curve25519.Signing.PublicKey(
+            rawRepresentation: bundle.ownerPublicKeyData
+        ) else { return false }
+        var toVerify = Data()
+        toVerify.append(bundle.agentPublicKeyData)
+        toVerify.append(contentsOf: bundle.agentId.uuidBytes)
+        toVerify.append(contentsOf: bundle.agentName.utf8)
+        return (try? ownerKey.isValidSignature(bundle.ownerSignature, for: toVerify)) ?? false
+    }
+
+    /// Returns a human-readable display name for the owner of `bundle`, or nil if unknown.
+    func ownerDisplayName(for bundle: AgentIdentityBundle) -> String? {
+        return nil  // Phase 1 TODO: look up by bundle.ownerPublicKeyData fingerprint
+    }
+
     // MARK: - WS Bearer Token
 
     /// Load or create a 32-byte random base64-encoded WS bearer token for `instanceName`.

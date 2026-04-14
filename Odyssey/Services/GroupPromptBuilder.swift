@@ -311,6 +311,16 @@ enum GroupPromptBuilder {
         return parts.joined(separator: "\n")
     }
 
+    static func buildSilentObserverContextPrompt(
+        senderLabel: String,
+        triggerText: String
+    ) -> String {
+        """
+        [Silent observer context — do not reply]
+        \(senderLabel): \(triggerText)
+        """
+    }
+
     static func senderDisplayLabel(for message: ConversationMessage, participants: [Participant]) -> String {
         senderLabel(for: message, participants: participants)
     }
