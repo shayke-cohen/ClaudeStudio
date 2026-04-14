@@ -77,5 +77,30 @@
     "denyRules": ["Bash(rm *)", "Bash(mv *)"],
     "additionalDirectories": [],
     "permissionMode": "default"
+  },
+  {
+    "name": "Personal Assistant",
+    "allowRules": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Write(*.md)",
+      "Write(*.txt)",
+      "WebSearch",
+      "WebFetch",
+      "Bash(osascript *)",
+      "Bash(open *)",
+      "Bash(pbcopy *)",
+      "Bash(pbpaste)",
+      "Bash(shortcuts *)",
+      "Bash(defaults read *)"
+    ],
+    "denyRules": [
+      "Bash(rm *)",
+      "Bash(sudo *)",
+      "Bash(chmod *)"
+    ],
+    "additionalDirectories": [],
+    "permissionMode": "default"
   }
 ]

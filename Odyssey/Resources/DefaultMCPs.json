@@ -33,5 +33,32 @@
     "transportHeaders": {
       "Authorization": "Bearer ${SENTRY_AUTH_TOKEN}"
     }
+  },
+  {
+    "name": "Gmail",
+    "serverDescription": "Gmail integration — read inbox, draft and send email, search mail history.",
+    "transportKind": "stdio",
+    "transportCommand": "npx",
+    "transportArgs": ["-y", "@gongrzhe/server-gmail-autoauth-mcp"],
+    "transportEnv": {}
+  },
+  {
+    "name": "Google Calendar",
+    "serverDescription": "Google Calendar integration — check schedule, create and update events, find availability.",
+    "transportKind": "stdio",
+    "transportCommand": "npx",
+    "transportArgs": ["-y", "@gongrzhe/server-google-calendar-mcp"],
+    "transportEnv": {}
+  },
+  {
+    "name": "Slack",
+    "serverDescription": "Slack integration — read channels and DMs, send messages, surface important threads.",
+    "transportKind": "stdio",
+    "transportCommand": "npx",
+    "transportArgs": ["-y", "@modelcontextprotocol/server-slack"],
+    "transportEnv": {
+      "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+      "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+    }
   }
 ]

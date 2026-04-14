@@ -511,7 +511,9 @@ enum DefaultsSeeder {
             "artifact-handoff-gate",
             "product-artifact-gate",
             "config-editing",
-            "github-workflow"
+            "github-workflow",
+            "task-board-patterns",
+            "personal-context"
         ]
 
         var map: [String: Skill] = [:]
@@ -567,7 +569,7 @@ enum DefaultsSeeder {
         skills: [String: Skill],
         templates: [String: String]
     ) {
-        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent"]
+        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent", "friday"]
 
         for fileName in agentFiles {
             guard let data = loadAgentResource(name: fileName) else {
@@ -592,6 +594,11 @@ enum DefaultsSeeder {
 
             agent.maxTurns = dto.maxTurns
             agent.maxBudget = dto.maxBudget
+            if let policyRaw = dto.instancePolicy,
+               let policy = AgentInstancePolicy(rawValue: policyRaw) {
+                agent.instancePolicy = policy
+            }
+            agent.defaultWorkingDirectory = dto.defaultWorkingDirectory
             agent.origin = .builtin
 
             agent.skillIds = dto.skillNames.compactMap { skills[$0]?.id }
@@ -637,6 +644,8 @@ enum DefaultsSeeder {
         let systemPromptVariables: [String: String]?
         let maxTurns: Int?
         let maxBudget: Double?
+        let instancePolicy: String?
+        let defaultWorkingDirectory: String?
     }
 
     private struct SkillFrontmatter {
