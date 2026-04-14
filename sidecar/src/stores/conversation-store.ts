@@ -70,8 +70,10 @@ export class ConversationStore {
     if (before) {
       msgs = msgs.filter(m => m.timestamp < before);
     }
-    if (limit !== undefined) {
+    if (limit !== undefined && limit > 0) {
       msgs = msgs.slice(-limit);
+    } else if (limit === 0) {
+      msgs = [];
     }
     return msgs;
   }
