@@ -3853,13 +3853,36 @@ struct ChatView: View {
             silentObserverSessionIds: peerPlan.silentObserverSessionIds
         )
         let silentObserverSessions = sortedOthers.filter { silentIds.contains($0.id) }
-        for observer in silentObserverSessions {
-            let observerPrompt = GroupPromptBuilder.buildSilentObserverContextPrompt(
-                senderLabel: senderLabel,
-                triggerText: triggerMessage.text
+        if !silentObserverSessions.isEmpty {
+            // Sentinel wave with empty recipientSessionIds: the response is stored in the
+            // session's history but NOT broadcast to the conversation UI.
+            let silentWave = GroupWaveMetadata(
+                rootMessageId: context.rootMessageId,
+                waveId: 0,
+                triggerMessageId: triggerMessage.id,
+                transcriptBoundaryMessageId: nil,
+                recipientSessionIds: []
             )
-            // TODO: Phase 5 silent observer dispatch — fire-and-forget sendPrompt for observer
-            _ = observerPrompt
+            for observer in silentObserverSessions {
+                let observerPrompt = GroupPromptBuilder.buildSilentObserverContextPrompt(
+                    senderLabel: senderLabel,
+                    triggerText: triggerMessage.text
+                )
+                // Fire-and-forget: do NOT add to `pending` so the response is never broadcast.
+                Task {
+                    _ = await sendPrompt(
+                        to: observer,
+                        prompt: observerPrompt,
+                        attachments: [],
+                        manager: manager,
+                        provisioner: provisioner,
+                        planMode: false,
+                        errorPrefix: "Silent observer notify failed",
+                        seenThroughMessageId: triggerMessage.id,
+                        wave: silentWave
+                    )
+                }
+            }
         }
 
         guard let wave = await context.reservePeerWave(
