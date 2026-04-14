@@ -251,6 +251,34 @@ struct InviteCodeGenerator {
         return Data(base64Encoded: base64)
     }
 
+    // MARK: - User Federation Invite (Phase 6)
+
+    /// Generates a signed invite payload for user-level federation via Matrix.
+    @MainActor
+    static func generateUser(
+        instanceName: String,
+        matrixUserId: String,
+        expiresIn: TimeInterval = 7 * 24 * 60 * 60  // 7 days
+    ) throws -> String {
+        let now = Date()
+        let payload: [String: Any] = [
+            "type": "user",
+            "instanceName": instanceName,
+            "matrixUserId": matrixUserId,
+            "issuedAt": Int(now.timeIntervalSince1970),
+            "expiresAt": Int(now.addingTimeInterval(expiresIn).timeIntervalSince1970),
+            "nonce": UUID().uuidString
+        ]
+        let canonicalJSON = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        let signature = try IdentityManager.shared.sign(canonicalJSON, instanceName: instanceName)
+        let envelope: [String: Any] = [
+            "payload": String(data: canonicalJSON, encoding: .utf8)!,
+            "signature": signature.base64EncodedString()
+        ]
+        let envelopeData = try JSONSerialization.data(withJSONObject: envelope)
+        return base64urlEncode(envelopeData)
+    }
+
     // MARK: - Private
 
     @MainActor

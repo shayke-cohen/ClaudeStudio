@@ -2,6 +2,7 @@ import Foundation
 import CloudKit
 import Security
 import SwiftData
+import OdysseyCore
 
 @MainActor
 final class SharedRoomService: ObservableObject {
@@ -952,6 +953,28 @@ final class SharedRoomService: ObservableObject {
             }
             cloudDatabase.add(operation)
         }
+    }
+
+    // MARK: - Phase 6 Transport Integration
+
+    func applyRemoteTransportMessage(
+        _ msg: InboundTransportMessage,
+        to conversation: Conversation,
+        context: ModelContext
+    ) async {
+        // Deduplicate by roomMessageId
+        let existing = conversation.messages.first(where: { $0.roomMessageId == msg.messageId })
+        guard existing == nil else { return }
+
+        let newMessage = ConversationMessage(
+            text: msg.text,
+            type: .chat,
+            conversation: conversation
+        )
+        newMessage.roomMessageId = msg.messageId
+        newMessage.roomDeliveryMode = .cloudSync
+        conversation.messages.append(newMessage)
+        try? context.save()
     }
 }
 

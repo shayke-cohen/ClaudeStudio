@@ -66,6 +66,10 @@ final class SharedRoomInvite {
     /// Discriminates between invite kinds: "room" (default), "device", or "user".
     var pairingType: String = "room"
     var acceptedAt: Date?
+    // Phase 6 — Matrix federation
+    var matrixRoomId: String? = nil
+    var matrixHomeserver: String? = nil
+    var peerMatrixUserId: String? = nil
     var createdAt: Date
     var updatedAt: Date
     private var statusRaw: String

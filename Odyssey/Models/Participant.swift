@@ -36,6 +36,7 @@ final class Participant {
     var isVerified: Bool = false
     var ownerPublicKeyData: Data? = nil
     var agentIdentityBundleJSON: String? = nil
+    var matrixId: String? = nil
     private var membershipStatusRaw: String = SharedRoomMembershipStatus.active.rawValue
 
     @Transient
