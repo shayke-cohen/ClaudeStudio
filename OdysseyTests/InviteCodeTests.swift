@@ -127,6 +127,27 @@ final class InviteCodeTests: XCTestCase {
         let b = try InviteCodeGenerator.canonicalJSONWithoutSig(payload)
         XCTAssertEqual(a, b)
     }
+
+    // MARK: - Deep Link Parsing
+
+    func testDeepLinkParsingConnectInvite() throws {
+        let url = URL(string: "odyssey://connect?invite=abc123def456")!
+        let intent = LaunchIntent.fromURL(url)
+        XCTAssertNotNil(intent, "odyssey://connect?invite=... should produce a LaunchIntent")
+        guard let intent else { return }
+        switch intent.mode {
+        case .connectInvite(let payload):
+            XCTAssertEqual(payload, "abc123def456")
+        default:
+            XCTFail("Expected .connectInvite mode, got \(intent.mode)")
+        }
+    }
+
+    func testDeepLinkMissingInviteParamReturnsNil() {
+        let url = URL(string: "odyssey://connect")!
+        let intent = LaunchIntent.fromURL(url)
+        XCTAssertNil(intent, "odyssey://connect without invite= should return nil")
+    }
 }
 
 // MARK: - InviteCodeError: Equatable
