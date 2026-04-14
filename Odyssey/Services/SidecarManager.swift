@@ -80,6 +80,8 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
         pingTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+        urlSession?.invalidateAndCancel()
+        urlSession = nil
         process?.terminate()
         process = nil
         eventContinuation?.yield(.disconnected)
