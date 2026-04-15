@@ -3355,9 +3355,15 @@ struct ChatView: View {
             modelContext.insert(session)
             modelContext.insert(p)
         }
-        // Ensure all sessions use the project directory
+        // Ensure all sessions have a working directory.
+        // Resident agents (defaultWorkingDirectory set) run in their own home folder;
+        // everyone else falls back to the project root.
         for session in convo.sessions where session.workingDirectory.isEmpty {
-            session.workingDirectory = windowState.projectDirectory
+            if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {
+                session.workingDirectory = dir
+            } else {
+                session.workingDirectory = windowState.projectDirectory
+            }
         }
         try? modelContext.save()
 

@@ -178,9 +178,14 @@ struct AddAgentsToChatSheet: View {
             convo.threadKind = .group
         }
 
-        // Ensure all new sessions use the window's project directory
+        // Ensure all new sessions have a working directory.
+        // Resident agents run in their own home folder; everyone else in the project root.
         for session in convo.sessions where session.workingDirectory.isEmpty {
-            session.workingDirectory = windowState.projectDirectory
+            if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {
+                session.workingDirectory = dir
+            } else {
+                session.workingDirectory = windowState.projectDirectory
+            }
         }
         try? modelContext.save()
         if convo.isSharedRoom {
