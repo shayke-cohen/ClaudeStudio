@@ -59,7 +59,7 @@ struct ConnectionStatusView: View {
         switch status {
         case .disconnected: return "Not Connected"
         case .connecting: return "Connecting…"
-        case .connected(let method): return "Connected via \(method.capitalized)"
+        case .connected: return "Connected"
         }
     }
 
@@ -67,7 +67,13 @@ struct ConnectionStatusView: View {
         switch status {
         case .disconnected: return "Unable to reach your Mac. Ensure it's on the same network and Odyssey is running."
         case .connecting: return "Establishing a secure connection to your Mac…"
-        case .connected: return "Securely connected to your Mac's Odyssey sidecar."
+        case .connected(let method):
+            switch method {
+            case "lan": return "Connected via local network"
+            case "wanDirect": return "Connected via internet"
+            case "turn": return "Connected via TURN relay"
+            default: return "Securely connected to your Mac's Odyssey sidecar."
+            }
         }
     }
 }

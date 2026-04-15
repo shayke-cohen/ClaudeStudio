@@ -151,13 +151,13 @@ struct ConnectionStatusRow: View {
     let status: RemoteSidecarManager.ConnectionStatus
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusLabel)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(statusColor)
         }
         .accessibilityIdentifier("connectionStatus.badge")
         .accessibilityLabel("Connection: \(statusLabel)")
@@ -167,7 +167,13 @@ struct ConnectionStatusRow: View {
         switch status {
         case .disconnected: return "Disconnected"
         case .connecting: return "Connecting…"
-        case .connected(let method): return "Connected (\(method))"
+        case .connected(let method):
+            switch method {
+            case "lan": return "Connected · LAN"
+            case "wanDirect": return "Connected · WAN"
+            case "turn": return "Connected · Relay"
+            default: return "Connected"
+            }
         }
     }
 
@@ -175,7 +181,13 @@ struct ConnectionStatusRow: View {
         switch status {
         case .disconnected: return .red
         case .connecting: return .orange
-        case .connected: return .green
+        case .connected(let method):
+            switch method {
+            case "lan": return .green
+            case "wanDirect": return .yellow
+            case "turn": return .orange
+            default: return .green
+            }
         }
     }
 }
