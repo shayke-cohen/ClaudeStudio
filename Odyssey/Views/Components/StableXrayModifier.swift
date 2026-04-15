@@ -1,5 +1,17 @@
 import SwiftUI
 
+// MARK: - xrayId (Release stub)
+
+#if !DEBUG
+extension View {
+    /// No-op stub for Release builds — delegates to `.accessibilityIdentifier()`.
+    /// In DEBUG builds the real implementation is provided by the AppXray SDK.
+    func xrayId(_ id: String) -> some View {
+        self.accessibilityIdentifier(id)
+    }
+}
+#endif
+
 // MARK: - stableXrayId
 
 extension View {

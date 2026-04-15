@@ -15,7 +15,7 @@
     "personal-context",
     "task-board-patterns"
   ],
-  "mcpServerNames": ["Argus", "Gmail", "Google Calendar", "Slack"],
+  "mcpServerNames": ["Argus"],
   "permissionSetName": "Personal Assistant",
   "systemPromptTemplate": "specialist",
   "systemPromptVariables": {

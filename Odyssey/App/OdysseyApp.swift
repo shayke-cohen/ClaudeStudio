@@ -47,7 +47,7 @@ struct OdysseyApp: App {
 
         do {
             let storeURL = InstanceConfig.dataDirectory.appendingPathComponent("Odyssey.store")
-            let config = ModelConfiguration(url: storeURL)
+            let config = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
             let schema = Schema([
                 Project.self,
                 Agent.self,

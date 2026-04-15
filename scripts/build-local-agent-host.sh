@@ -29,6 +29,12 @@ fi
 cp "$HOST_BINARY" "$OUTPUT_DIR/OdysseyLocalAgentHost"
 chmod +x "$OUTPUT_DIR/OdysseyLocalAgentHost"
 
+# Sign with Hardened Runtime so the binary passes notarization.
+# Use the Xcode-provided identity when available, otherwise ad-hoc — Xcode's
+# distribution step will re-sign with Developer ID but preserves the runtime flag.
+SIGN_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+codesign --force --sign "$SIGN_IDENTITY" --options runtime "$OUTPUT_DIR/OdysseyLocalAgentHost"
+
 if [[ -x "$MANAGED_RUNNER" ]]; then
   cp "$MANAGED_RUNNER" "$OUTPUT_DIR/llm-tool"
   chmod +x "$OUTPUT_DIR/llm-tool"

@@ -27,6 +27,8 @@ enum LocalProviderSupport {
     static let bundledMLXRunnerRelativePath = "local-agent/bin/llm-tool"
     static let packageRelativePath = "Packages/OdysseyLocalAgent"
     static let sidecarRelativePath = "sidecar/src/index.ts"
+    static let bundledBunName = "odyssey-bun"
+    static let sidecarJSBundleName = "odyssey-sidecar.js"
     static let sourceRootInfoKey = "ODYSSEY_SOURCE_ROOT"
 
     static func resolveHostBinaryPath(
@@ -104,6 +106,21 @@ enum LocalProviderSupport {
         }
 
         return candidatePaths.first
+    }
+
+    /// Returns `(bunPath, jsPath)` when a bundled bun runtime + JS bundle are present
+    /// in the app resources — used for distribution builds where the sidecar TypeScript
+    /// source is not available on the target machine.
+    static func resolveBundledSidecar(
+        bundleResourcePath: String? = Bundle.main.resourcePath
+    ) -> (bunPath: String, jsPath: String)? {
+        guard let resourcePath = bundleResourcePath else { return nil }
+        let base = URL(fileURLWithPath: resourcePath)
+        let bunPath = base.appendingPathComponent(bundledBunName).path
+        let jsPath = base.appendingPathComponent(sidecarJSBundleName).path
+        guard FileManager.default.isExecutableFile(atPath: bunPath),
+              FileManager.default.fileExists(atPath: jsPath) else { return nil }
+        return (bunPath, jsPath)
     }
 
     static func resolveMLXRunnerPath(

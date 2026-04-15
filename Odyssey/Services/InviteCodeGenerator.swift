@@ -4,24 +4,16 @@ import CoreGraphics
 import CoreImage
 import Foundation
 import OSLog
+import OdysseyCore
 
 private let logger = Logger(subsystem: "com.odyssey.app", category: "InviteCode")
-
-// MARK: - TURN Config
-
-struct TURNConfig: Codable, Sendable, Equatable {
-    let uri: String
-    let username: String
-    let credential: String
-    var ttl: Date?
-}
 
 // MARK: - Invite Payload Types
 
 struct InviteHints: Codable, Sendable, Equatable {
     let lan: String?
     let wan: String?
-    let turn: TURNConfig?
+    let turn: OdysseyCore.TURNConfig?
 }
 
 struct InvitePayload: Codable, Sendable, Equatable {
@@ -88,7 +80,7 @@ struct InviteCodeGenerator {
         singleUse: Bool = true,
         lanHint: String?,
         wanHint: String?,
-        turnConfig: TURNConfig? = nil
+        turnConfig: OdysseyCore.TURNConfig? = nil
     ) async throws -> InvitePayload {
         let identityManager = IdentityManager.shared
 

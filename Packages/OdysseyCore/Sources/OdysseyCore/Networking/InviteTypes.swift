@@ -18,7 +18,7 @@ public struct InviteHints: Codable, Sendable {
 }
 
 /// TURN relay configuration for NAT traversal fallback.
-public struct TURNConfig: Codable, Sendable {
+public struct TURNConfig: Codable, Sendable, Equatable {
     public let url: String
     public let username: String
     public let credential: String

@@ -137,16 +137,21 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
             return
         }
 
-        let bunPath = findBunPath()
-        let sidecarPath = findSidecarPath()
-        Log.sidecar.info("Bun: \(bunPath, privacy: .public)")
-        Log.sidecar.info("Sidecar: \(sidecarPath, privacy: .public)")
-        Log.sidecar.info("Sidecar exists: \(FileManager.default.fileExists(atPath: sidecarPath))")
-        Log.sidecar.info("Bun exists: \(FileManager.default.fileExists(atPath: bunPath))")
-
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: bunPath)
-        process.arguments = ["run", sidecarPath]
+        if let bundled = findBundledSidecar() {
+            Log.sidecar.info("Sidecar (bundled): bun=\(bundled.bunPath, privacy: .public) js=\(bundled.jsPath, privacy: .public)")
+            process.executableURL = URL(fileURLWithPath: bundled.bunPath)
+            process.arguments = [bundled.jsPath]
+        } else {
+            let bunPath = findBunPath()
+            let sidecarPath = findSidecarPath()
+            Log.sidecar.info("Bun: \(bunPath, privacy: .public)")
+            Log.sidecar.info("Sidecar: \(sidecarPath, privacy: .public)")
+            Log.sidecar.info("Sidecar exists: \(FileManager.default.fileExists(atPath: sidecarPath))")
+            Log.sidecar.info("Bun exists: \(FileManager.default.fileExists(atPath: bunPath))")
+            process.executableURL = URL(fileURLWithPath: bunPath)
+            process.arguments = ["run", sidecarPath]
+        }
         process.environment = normalizedEnvironment()
         process.environment?["ODYSSEY_WS_PORT"] = "\(config.wsPort)"
         process.environment?["ODYSSEY_HTTP_PORT"] = "\(config.httpPort)"
@@ -488,7 +493,8 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
     }
 
     private static func looksLikeManagedSidecar(_ command: String) -> Bool {
-        command.contains("sidecar/src/index.ts") && command.contains("bun")
+        (command.contains("sidecar/src/index.ts") || command.contains("odyssey-sidecar.js"))
+            && command.contains("bun")
     }
 
     private func findBunPath() -> String {
@@ -505,6 +511,10 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
             if FileManager.default.fileExists(atPath: path) { return path }
         }
         return "bun"
+    }
+
+    private func findBundledSidecar() -> (bunPath: String, jsPath: String)? {
+        LocalProviderSupport.resolveBundledSidecar()
     }
 
     private func findSidecarPath() -> String {

@@ -61,6 +61,7 @@
 		344EB5016AD2460EB479251A /* TaskEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD74FEFA32B754148A1A1BDE /* TaskEditSheet.swift */; };
 		34715526FCCF55256574533E /* SharedRoomModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BC3E6DC20B8963BCDD635 /* SharedRoomModelTests.swift */; };
 		368823DB07364B3B89DFF6E6 /* PeerCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2C170AA2F56532C715364E /* PeerCredentialStore.swift */; };
+		3BC013B7B29FFA2E33F97B72 /* QRScannerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F2CFDDCA2CB893AB1C115A /* QRScannerSheet.swift */; };
 		3CF6997B5C173AEFD687350A /* ConnectorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ACBDA18387A1FE2CBB6C55 /* ConnectorCatalog.swift */; };
 		3E2D846CC011B6213728F6C9 /* AgentEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA60957465F3216223543AE6 /* AgentEditorView.swift */; };
 		40A4A7B48EEBD25B89037CE8 /* WorkshopViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD859B7B5CDE79F6F2E65E9 /* WorkshopViewTests.swift */; };
@@ -344,6 +345,7 @@
 		591274642A5865F01227951C /* SidebarSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSectionTests.swift; sourceTree = "<group>"; };
 		5934F4DE08F615C09AB5CEF7 /* AgentDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDefaults.swift; sourceTree = "<group>"; };
 		594366D0488F694D25328EE1 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		59F2CFDDCA2CB893AB1C115A /* QRScannerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerSheet.swift; sourceTree = "<group>"; };
 		5B103251D0BB77FF5DBD8813 /* ScheduleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEngine.swift; sourceTree = "<group>"; };
 		5E2C170AA2F56532C715364E /* PeerCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerCredentialStore.swift; sourceTree = "<group>"; };
 		5E93CEB5CBA69F7F880A4E8E /* AgentDefaultsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDefaultsTests.swift; sourceTree = "<group>"; };
@@ -624,6 +626,7 @@
 				D5F33E33B4DE65C8BA01A0DF /* iOSChatView.swift */,
 				1C46A6A03F2AD5922BFAADE2 /* iOSPairingView.swift */,
 				2770BA2281FFCAB6B442C451 /* iOSSettingsView.swift */,
+				59F2CFDDCA2CB893AB1C115A /* QRScannerSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1088,6 +1091,7 @@
 			buildConfigurationList = 7176C1D7F59FE21D7477DA26 /* Build configuration list for PBXNativeTarget "Odyssey" */;
 			buildPhases = (
 				490A8961B8DC05437CD2D9F0 /* Bundle Local Agent Host */,
+				6290FD80F81945A2A104FBFB /* Bundle Sidecar Binary */,
 				9A4A324F4B910BD4CB57F337 /* Sources */,
 				E5FA8D2EBBC1FD61D1E52C0B /* Resources */,
 				24901CB17E407EC5E155F2A4 /* Frameworks */,
@@ -1116,7 +1120,12 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					A4632D10A8A7F52AB86D5A1C = {
+						DevelopmentTeam = U6BSY4N9E3;
+						ProvisioningStyle = Automatic;
+					};
 					FF88E42E86B37D102EB4907D = {
+						DevelopmentTeam = U6BSY4N9E3;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1191,7 +1200,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/zsh\nset -euo pipefail\n\nif [[ -z \"${SRCROOT:-}\" || -z \"${TARGET_BUILD_DIR:-}\" || -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]]; then\n  echo \"build-local-agent-host.sh requires Xcode build environment variables\" >&2\n  exit 1\nfi\n\nPACKAGE_PATH=\"$SRCROOT/Packages/OdysseyLocalAgent\"\nOUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/bin\"\nRUNTIME_OUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/runtime\"\nSWIFT_BIN=\"$(xcrun --find swift)\"\nMANAGED_TOOLS_ROOT=\"${HOME}/.odyssey/local-agent\"\nMANAGED_RUNNER=\"${MANAGED_TOOLS_ROOT}/bin/llm-tool\"\nMANAGED_RUNTIME=\"${MANAGED_TOOLS_ROOT}/runtime/llm-tool-release\"\n\nmkdir -p \"$OUTPUT_DIR\"\nmkdir -p \"$RUNTIME_OUTPUT_DIR\"\n\n\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost\n\nBIN_DIR=\"$(\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost --show-bin-path)\"\nHOST_BINARY=\"$BIN_DIR/OdysseyLocalAgentHost\"\nif [[ ! -x \"$HOST_BINARY\" ]]; then\n  echo \"OdysseyLocalAgentHost binary not found at $HOST_BINARY\" >&2\n  exit 1\nfi\n\ncp \"$HOST_BINARY\" \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\nchmod +x \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\nif [[ -x \"$MANAGED_RUNNER\" ]]; then\n  cp \"$MANAGED_RUNNER\" \"$OUTPUT_DIR/llm-tool\"\n  chmod +x \"$OUTPUT_DIR/llm-tool\"\nfi\n\nif [[ -d \"$MANAGED_RUNTIME\" ]]; then\n  rm -rf \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\n  cp -R \"$MANAGED_RUNTIME\" \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\nfi\n";
+			shellScript = "#!/bin/zsh\nset -euo pipefail\n\nif [[ -z \"${SRCROOT:-}\" || -z \"${TARGET_BUILD_DIR:-}\" || -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]]; then\n  echo \"build-local-agent-host.sh requires Xcode build environment variables\" >&2\n  exit 1\nfi\n\nPACKAGE_PATH=\"$SRCROOT/Packages/OdysseyLocalAgent\"\nOUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/bin\"\nRUNTIME_OUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/runtime\"\nSWIFT_BIN=\"$(xcrun --find swift)\"\nMANAGED_TOOLS_ROOT=\"${HOME}/.odyssey/local-agent\"\nMANAGED_RUNNER=\"${MANAGED_TOOLS_ROOT}/bin/llm-tool\"\nMANAGED_RUNTIME=\"${MANAGED_TOOLS_ROOT}/runtime/llm-tool-release\"\n\nmkdir -p \"$OUTPUT_DIR\"\nmkdir -p \"$RUNTIME_OUTPUT_DIR\"\n\n\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost\n\nBIN_DIR=\"$(\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost --show-bin-path)\"\nHOST_BINARY=\"$BIN_DIR/OdysseyLocalAgentHost\"\nif [[ ! -x \"$HOST_BINARY\" ]]; then\n  echo \"OdysseyLocalAgentHost binary not found at $HOST_BINARY\" >&2\n  exit 1\nfi\n\ncp \"$HOST_BINARY\" \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\nchmod +x \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\n# Sign with Hardened Runtime so the binary passes notarization.\n# Use the Xcode-provided identity when available, otherwise ad-hoc — Xcode's\n# distribution step will re-sign with Developer ID but preserves the runtime flag.\nSIGN_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\ncodesign --force --sign \"$SIGN_IDENTITY\" --options runtime \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\nif [[ -x \"$MANAGED_RUNNER\" ]]; then\n  cp \"$MANAGED_RUNNER\" \"$OUTPUT_DIR/llm-tool\"\n  chmod +x \"$OUTPUT_DIR/llm-tool\"\nfi\n\nif [[ -d \"$MANAGED_RUNTIME\" ]]; then\n  rm -rf \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\n  cp -R \"$MANAGED_RUNTIME\" \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\nfi\n";
+		};
+		6290FD80F81945A2A104FBFB /* Bundle Sidecar Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle Sidecar Binary";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/zsh\nset -euo pipefail\n\nif [[ -z \"${SRCROOT:-}\" || -z \"${TARGET_BUILD_DIR:-}\" || -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]]; then\n  echo \"build-sidecar-binary.sh requires Xcode build environment variables\" >&2\n  exit 1\nfi\n\nSIDECAR_SRC=\"$SRCROOT/sidecar\"\nOUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nOUTPUT_JS=\"$OUTPUT_DIR/odyssey-sidecar.js\"\nOUTPUT_BUN=\"$OUTPUT_DIR/odyssey-bun\"\n\n# Find bun in common install locations\nBUN_PATH=\"\"\nfor candidate in /opt/homebrew/bin/bun /usr/local/bin/bun \"$HOME/.bun/bin/bun\"; do\n  if [[ -x \"$candidate\" ]]; then\n    BUN_PATH=\"$candidate\"\n    break\n  fi\ndone\n\nif [[ -z \"$BUN_PATH\" ]]; then\n  echo \"build-sidecar-binary.sh: bun not found; skipping sidecar bundle\" >&2\n  exit 0\nfi\n\nmkdir -p \"$OUTPUT_DIR\"\n\n# Build a single bundled JS file (no compiled runtime — bun binary is bundled separately)\n\"$BUN_PATH\" build --target=bun \\\n  \"$SIDECAR_SRC/src/index.ts\" \\\n  --outfile \"$OUTPUT_JS\"\n\necho \"build-sidecar-binary.sh: built JS bundle → $OUTPUT_JS\"\n\n# Bundle the bun runtime binary (already signed with Hardened Runtime by Oven)\nBUN_REAL=$(readlink -f \"$BUN_PATH\")\ncp \"$BUN_REAL\" \"$OUTPUT_BUN\"\nchmod +x \"$OUTPUT_BUN\"\necho \"build-sidecar-binary.sh: bundled bun runtime → $OUTPUT_BUN\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1438,6 +1465,7 @@
 				DE332450801B32FB2AC8C109 /* ConversationListView.swift in Sources */,
 				294BC34BDE64BFFCABE9F4AB /* OdysseyiOSApp.swift in Sources */,
 				368823DB07364B3B89DFF6E6 /* PeerCredentialStore.swift in Sources */,
+				3BC013B7B29FFA2E33F97B72 /* QRScannerSheet.swift in Sources */,
 				5EB7922F1B6951BFF19944B4 /* RemoteSidecarManager.swift in Sources */,
 				8837504C0988F54F3AE831CA /* SidecarProtocol.swift in Sources */,
 				E50441A9D862EA7FD74826EB /* iOSAgentListView.swift in Sources */,
@@ -1470,6 +1498,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = OdysseyiOS/Resources/OdysseyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OdysseyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1490,6 +1520,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = OdysseyiOS/Resources/OdysseyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OdysseyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1667,6 +1699,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odyssey/Resources/Info.plist;
@@ -1678,7 +1711,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.odyssey.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1729,6 +1762,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odyssey/Resources/Info.plist;
@@ -1740,7 +1774,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.odyssey.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;

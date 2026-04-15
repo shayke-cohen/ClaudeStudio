@@ -48,7 +48,7 @@ targets:
       - package: OdysseyCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.odyssey.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.shaycohen.odyssey
         PRODUCT_NAME: Odyssey
         INFOPLIST_FILE: Odyssey/Resources/Info.plist
         CURRENT_PROJECT_VERSION: 1
@@ -59,10 +59,13 @@ targets:
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Odyssey uses the local network to discover and share agent definitions with peers."
         ENABLE_HARDENED_RUNTIME: true
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: U6BSY4N9E3
         SWIFT_EMIT_LOC_STRINGS: true
     preBuildScripts:
       - name: Bundle Local Agent Host
         path: scripts/build-local-agent-host.sh
+      - name: Bundle Sidecar Binary
+        path: scripts/build-sidecar-binary.sh
     entitlements:
       path: Odyssey/Resources/Odyssey.entitlements
       properties:
@@ -70,13 +73,6 @@ targets:
         com.apple.security.network.client: true
         com.apple.security.network.server: true
         com.apple.security.files.user-selected.read-write: true
-        com.apple.developer.icloud-services:
-          - CloudKit
-        com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.odyssey.app
-        com.apple.developer.ubiquity-container-identifiers:
-          - iCloud.com.odyssey.app
-        com.apple.developer.ubiquity-kvstore-identifier: "$(TeamIdentifierPrefix)com.odyssey.app"
   OdysseyiOS:
     type: application
     platform: iOS
