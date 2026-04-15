@@ -29,12 +29,17 @@ final class iOSAppState {
     func connectToFirstPairedMac() async {
         // Use most-recently paired credential so stale creds from previous test sessions don't take priority.
         guard let creds = (try? credentialStore.load())?.sorted(by: { $0.pairedAt > $1.pairedAt }).first else { return }
+        // Start the event loop before connecting so .connected/.disconnected events
+        // are always processed — including on the very first attempt and after failures.
+        startEventLoop()
         await sidecarManager.connect(using: creds)
         connectionStatus = sidecarManager.status
-        guard case .connected = sidecarManager.status else { return }
-        startEventLoop()
-        await loadConversations()
-        await loadProjects()
+        if case .connected = sidecarManager.status {
+            await loadConversations()
+            await loadProjects()
+        }
+        // If connect() failed, RemoteSidecarManager yields .disconnected which
+        // handleEvent(.disconnected) picks up and starts the reconnect retry task.
     }
 
     // MARK: - REST loaders

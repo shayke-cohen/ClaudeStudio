@@ -62,6 +62,7 @@ final class RemoteSidecarManager: ObservableObject {
             }
         }
         status = .disconnected
+        eventContinuation?.yield(.disconnected)
     }
 
     func send(_ command: SidecarCommand) async throws {
