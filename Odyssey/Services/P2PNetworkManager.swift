@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import Network
+import OdysseyCore
 import SwiftData
 
 struct DiscoveredLanPeer: Identifiable {

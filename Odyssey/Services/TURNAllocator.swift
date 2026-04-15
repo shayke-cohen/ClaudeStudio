@@ -865,7 +865,7 @@ actor TURNAllocator {
 
 // MARK: - Connection State (thread-safe continuation guard)
 
-private final class ConnectionState<T>: @unchecked Sendable {
+private final class ConnectionState<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var resumed = false
     private let continuation: CheckedContinuation<T, Error>
