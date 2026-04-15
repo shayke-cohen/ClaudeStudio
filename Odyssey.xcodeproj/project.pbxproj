@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0083173AEC8CFAC590A07E1C /* AcceptInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */; };
 		00E2394C0D8E3B3B624E0A37 /* ScheduleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E66DBCD1DC9CCFE067172E /* ScheduleDetailView.swift */; };
 		04E888332678007B119BC156 /* ScheduledMissionRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE135214E24F6248D5EA9CF /* ScheduledMissionRun.swift */; };
 		051D4B295377527541A64837 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FD67A4B246106B4021B8EA /* MainWindowView.swift */; };
@@ -371,6 +372,7 @@
 		799963FBF5DB8B39EDA381F5 /* NostrPeer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrPeer.swift; sourceTree = "<group>"; };
 		7A3E6F09CE62E2D34C3D9DFC /* ScheduledMissionSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMissionSupportTests.swift; sourceTree = "<group>"; };
 		7B22A5D272BEE59AA3D3C5D8 /* DefaultPermissionPresets.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultPermissionPresets.json; sourceTree = "<group>"; };
+		7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptInviteView.swift; sourceTree = "<group>"; };
 		7D163AC9F9E014E2707DCEF3 /* LocalProviderSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalProviderSupport.swift; sourceTree = "<group>"; };
 		7DE324FA49C7C7D10EC6C355 /* AgentFromPromptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentFromPromptSheet.swift; sourceTree = "<group>"; };
 		7E9B2E029A4498DC308C5E98 /* FileSystemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemService.swift; sourceTree = "<group>"; };
@@ -860,6 +862,7 @@
 		C3FB1C4166132BFB88903BE8 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */,
 				DEBB5F451810E6E796C0EBDD /* iOSPairingSettingsView.swift */,
 				AB6CC157699DCF76711322CD /* MatrixAccountView.swift */,
 				3425ADDEEC2EEF966F8759BA /* SettingsView.swift */,
@@ -1279,6 +1282,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0083173AEC8CFAC590A07E1C /* AcceptInviteView.swift in Sources */,
 				DA5878A806724AC08A2B64C2 /* AddAgentsToChatSheet.swift in Sources */,
 				8CB469F7740C1773FB0E165A /* Agent.swift in Sources */,
 				C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */,

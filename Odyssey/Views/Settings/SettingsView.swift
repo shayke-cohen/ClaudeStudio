@@ -10,6 +10,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case developer
     case iosPairing
     case federation
+    case acceptInvite
 
     var id: String { rawValue }
 
@@ -23,6 +24,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .developer: "Developer"
         case .iosPairing: "iOS Pairing"
         case .federation: "Federation"
+        case .acceptInvite: "Accept Invite"
         }
     }
 
@@ -36,6 +38,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .developer: "Paths, diagnostics, and experimental controls"
         case .iosPairing: "QR code and device pairing for iOS access"
         case .federation: "Matrix account and cross-user sharing"
+        case .acceptInvite: "Pair with another Mac via Nostr relay"
         }
     }
 
@@ -49,6 +52,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .developer: "wrench.and.screwdriver"
         case .iosPairing: "iphone.and.arrow.forward"
         case .federation: "person.2.wave.2"
+        case .acceptInvite: "person.badge.plus"
         }
     }
 
@@ -62,6 +66,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .developer: "settings.tab.developer"
         case .iosPairing: "settings.tab.iosPairing"
         case .federation: "settings.tab.federation"
+        case .acceptInvite: "settings.tab.acceptInvite"
         }
     }
 }
@@ -189,6 +194,8 @@ struct SettingsView: View {
                 iOSPairingSettingsView()
             case .federation:
                 MatrixAccountView()
+            case .acceptInvite:
+                AcceptInviteView()
             }
         }
     }
