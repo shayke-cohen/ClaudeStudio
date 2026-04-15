@@ -41,7 +41,8 @@ final class iOSAppState {
         guard let baseURL = currentBaseURL() else { return }
         guard let url = URL(string: "\(baseURL)/api/v1/conversations") else { return }
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-        conversations = (try? JSONDecoder().decode([ConversationSummaryWire].self, from: data)) ?? []
+        struct Wrapper: Decodable { let conversations: [ConversationSummaryWire] }
+        conversations = (try? JSONDecoder().decode(Wrapper.self, from: data))?.conversations ?? []
     }
 
     func loadMessages(for conversationId: String) async -> [MessageWire] {
@@ -50,14 +51,16 @@ final class iOSAppState {
             string: "\(baseURL)/api/v1/conversations/\(conversationId)/messages?limit=50"
         ) else { return [] }
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return [] }
-        return (try? JSONDecoder().decode([MessageWire].self, from: data)) ?? []
+        struct Wrapper: Decodable { let messages: [MessageWire] }
+        return (try? JSONDecoder().decode(Wrapper.self, from: data))?.messages ?? []
     }
 
     func loadProjects() async {
         guard let baseURL = currentBaseURL() else { return }
         guard let url = URL(string: "\(baseURL)/api/v1/projects") else { return }
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-        projects = (try? JSONDecoder().decode([ProjectSummaryWire].self, from: data)) ?? []
+        struct Wrapper: Decodable { let projects: [ProjectSummaryWire] }
+        projects = (try? JSONDecoder().decode(Wrapper.self, from: data))?.projects ?? []
     }
 
     // MARK: - Session management
