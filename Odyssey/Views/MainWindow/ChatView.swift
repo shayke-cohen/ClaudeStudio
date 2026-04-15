@@ -2075,6 +2075,7 @@ struct ChatView: View {
             )
             .frame(height: inputHeight)
             .xrayId("chat.messageInput")
+            .accessibilityIdentifier("chat.messageInput")
             .help("Return sends when there is text or attachments. Shift-Return inserts a new line. Sending during an active turn interrupts it. ⌘↩ also sends.")
             .padding(.horizontal, 14)
             .padding(.top, 10)
@@ -2175,7 +2176,9 @@ struct ChatView: View {
                 }
                 .buttonStyle(.plain)
                 .xrayId("chat.sendButton")
+                .accessibilityIdentifier("chat.sendButton")
                 .accessibilityLabel("Send message")
+                .appXrayTapProxy(id: "chat.sendButton") { sendMessage() }
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send message. If agents are still working, this interrupts the current turn and starts a new one. (Return or ⌘Return)")
@@ -2338,7 +2341,9 @@ struct ChatView: View {
                 }
                 .buttonStyle(.plain)
                 .xrayId("chat.sendButton")
+                .accessibilityIdentifier("chat.sendButton")
                 .accessibilityLabel("Send message")
+                .appXrayTapProxy(id: "chat.sendButton") { sendMessage() }
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send message. If agents are still working, this interrupts the current turn and starts a new one. (Return or ⌘Return)")

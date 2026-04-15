@@ -549,8 +549,11 @@ struct SidebarView: View {
             .modifier(SidebarChromeButtonModifier(tint: tint))
             .buttonStyle(.plain)
             .help("New chat with \(agent.name)")
-            .xrayId("sidebar.residentAgent.newChat.\(agent.id.uuidString)")
             .accessibilityLabel("New chat with \(agent.name)")
+            .accessibilityIdentifier("resident.\(agent.name.lowercased()).newChat")
+            .appXrayTapProxy(id: "resident.\(agent.name.lowercased()).newChat") {
+                startResidentSession(with: agent)
+            }
             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.tertiary)
