@@ -61,10 +61,11 @@ actor UPnPPortMapper {
     }
 
     /// Re-run mapPort with the same internal port. Called by the renew timer.
-    func renewMapping() async {
-        guard let port = lastMappedPort else { return }
+    /// Returns the final status.
+    func renewMapping() async -> MappingStatus {
+        guard let port = lastMappedPort else { return status }
         logger.info("UPnP: renewing port mapping for port \(port)")
-        _ = await mapPort(port)
+        return await mapPort(port)
     }
 
     /// Remove the port mapping on shutdown.
@@ -124,7 +125,7 @@ actor UPnPPortMapper {
     /// Send NAT-PMP external-address request (opcode 0). Returns IPv4 string or nil.
     private func natPMPGetExternalIP(gateway: String) async -> String? {
         // Request: 2 bytes (version=0, opcode=0)
-        var request = Data([0x00, 0x00])
+        let request = Data([0x00, 0x00])
 
         guard let responseData = await sendUDPWithTimeout(
             host: gateway, port: 5351,
@@ -637,7 +638,7 @@ private final class UDPFetch: @unchecked Sendable {
         let params = NWParameters.udp
         self.conn = NWConnection(
             host: NWEndpoint.Host(host),
-            port: NWEndpoint.Port(rawValue: port)!,
+            port: NWEndpoint.Port(rawValue: port) ?? .any,
             using: params
         )
         self.requestData = data

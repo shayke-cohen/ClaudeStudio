@@ -108,8 +108,7 @@ final class P2PNetworkManager: ObservableObject {
 
     /// Re-attempt UPnP/NAT-PMP port mapping. Call this after a network change.
     func refreshWANMapping() async {
-        await upnpMapper.renewMapping()
-        wanMappingStatus = await upnpMapper.status
+        wanMappingStatus = await upnpMapper.renewMapping()
         if case .mapped(let ip, let port) = wanMappingStatus {
             natManager.setPublicEndpoint("\(ip):\(port)")
         }
