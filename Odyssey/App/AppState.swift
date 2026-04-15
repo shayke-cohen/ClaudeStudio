@@ -615,6 +615,21 @@ final class AppState: ObservableObject {
                 listenForEvents(from: manager)
                 registerAgentDefinitions()
                 registerConnections()
+                // Push conversation/project snapshot so iOS can read them immediately
+                if let ctx = modelContext {
+                    await manager.pushConversationSync(modelContext: ctx)
+                }
+                // Start periodic sync timer for the initial connection
+                conversationSyncTimer?.cancel()
+                conversationSyncTimer = Task { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(30))
+                        guard let self, !Task.isCancelled else { break }
+                        if let ctx = self.modelContext {
+                            await self.sidecarManager?.pushConversationSync(modelContext: ctx)
+                        }
+                    }
+                }
             } catch {
                 sidecarStatus = .error(error.localizedDescription)
             }
