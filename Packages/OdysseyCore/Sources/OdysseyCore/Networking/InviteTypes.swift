@@ -3,15 +3,17 @@ import Foundation
 import CryptoKit
 
 /// Network location hints embedded in an invite payload.
+/// Field names match the Mac generator (InviteCodeGenerator.swift).
 public struct InviteHints: Codable, Sendable {
     public let lan: String?
     public let wan: String?
-    public let bonjour: String?
+    /// TURN relay config — nested inside hints on the Mac side.
+    public let turn: TURNConfig?
 
-    public init(lan: String?, wan: String?, bonjour: String?) {
+    public init(lan: String?, wan: String?, turn: TURNConfig? = nil) {
         self.lan = lan
         self.wan = wan
-        self.bonjour = bonjour
+        self.turn = turn
     }
 }
 
@@ -29,35 +31,26 @@ public struct TURNConfig: Codable, Sendable {
 }
 
 /// The signed payload embedded in an invite QR code or deep link.
+/// Field names match the Mac generator (InviteCodeGenerator.swift):
+///   v, type, userPublicKey, displayName, tlsCertDER, wsToken, wsPort,
+///   hints, exp (unix timestamp), singleUse, sig.
 public struct InvitePayload: Codable, Sendable {
-    public let hostPublicKeyBase64url: String
-    public let hostDisplayName: String
-    public let bearerToken: String
-    public let tlsCertDERBase64: String
+    public let v: Int
+    public let type: String
+    /// Base64-encoded Ed25519 public key bytes (32 bytes).
+    public let userPublicKey: String
+    public let displayName: String
+    /// Base64-encoded DER-encoded TLS certificate.
+    public let tlsCertDER: String
+    /// Base64-encoded bearer token bytes.
+    public let wsToken: String
+    public let wsPort: Int
     public let hints: InviteHints
-    public let turn: TURNConfig?
-    public let expiresAt: String
-    public let signature: String
-
-    public init(
-        hostPublicKeyBase64url: String,
-        hostDisplayName: String,
-        bearerToken: String,
-        tlsCertDERBase64: String,
-        hints: InviteHints,
-        turn: TURNConfig?,
-        expiresAt: String,
-        signature: String
-    ) {
-        self.hostPublicKeyBase64url = hostPublicKeyBase64url
-        self.hostDisplayName = hostDisplayName
-        self.bearerToken = bearerToken
-        self.tlsCertDERBase64 = tlsCertDERBase64
-        self.hints = hints
-        self.turn = turn
-        self.expiresAt = expiresAt
-        self.signature = signature
-    }
+    /// Unix timestamp (seconds since epoch) after which the invite is invalid.
+    public let exp: TimeInterval
+    public let singleUse: Bool
+    /// Base64-encoded Ed25519 signature over canonical JSON (without this field).
+    public let sig: String
 }
 
 // MARK: - Decode / Verify helpers
@@ -73,23 +66,22 @@ public extension InvitePayload {
         guard let data = Data(base64Encoded: base64) else {
             throw InviteDecodeError.invalidBase64
         }
-        return try JSONDecoder().decode(InvitePayload.self, from: data)
+        do {
+            return try JSONDecoder().decode(InvitePayload.self, from: data)
+        } catch {
+            throw InviteDecodeError.decodingFailed(error.localizedDescription)
+        }
     }
 
     /// Verify that the payload has not expired and the Ed25519 signature is valid.
     func verify() throws {
-        // Check expiry
-        let formatter = ISO8601DateFormatter()
-        if let expiry = formatter.date(from: expiresAt), expiry < Date() {
+        // Check expiry (exp is a unix timestamp)
+        guard exp >= Date().timeIntervalSince1970 else {
             throw InviteDecodeError.expired
         }
-        // Decode public key
-        var pubBase64 = hostPublicKeyBase64url
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        let pubRemainder = pubBase64.count % 4
-        if pubRemainder != 0 { pubBase64 += String(repeating: "=", count: 4 - pubRemainder) }
-        guard let pubKeyData = Data(base64Encoded: pubBase64) else {
+
+        // Decode public key (standard base64, not base64url)
+        guard let pubKeyData = Data(base64Encoded: userPublicKey) else {
             throw InviteDecodeError.invalidPublicKey
         }
         let pubKey: Curve25519.Signing.PublicKey
@@ -98,9 +90,8 @@ public extension InvitePayload {
         } catch {
             throw InviteDecodeError.invalidPublicKey
         }
-        // Build canonical payload (all fields except signature) for verification.
-        // Canonical form omits nil/null fields at every level (matches TypeScript generator
-        // which filters null/undefined with encodeIfPresent semantics).
+
+        // Build canonical JSON without the sig field (matches Mac's canonicalJSONWithoutSig)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         guard var dict = try? JSONSerialization.jsonObject(
@@ -108,38 +99,11 @@ public extension InvitePayload {
         ) as? [String: Any] else {
             throw InviteDecodeError.invalidSignature
         }
-        dict.removeValue(forKey: "signature")
-        // Strip NSNull values recursively so nil optionals are excluded from the canonical bytes.
-        func stripNulls(_ value: Any) -> Any? {
-            if value is NSNull { return nil }
-            if var d = value as? [String: Any] {
-                for (k, v) in d {
-                    if let stripped = stripNulls(v) { d[k] = stripped } else { d.removeValue(forKey: k) }
-                }
-                return d
-            }
-            if let arr = value as? [Any] { return arr.compactMap { stripNulls($0) } }
-            return value
-        }
-        guard let stripped = stripNulls(dict) as? [String: Any] else {
-            throw InviteDecodeError.invalidSignature
-        }
-        let rawCanonical = try JSONSerialization.data(withJSONObject: stripped, options: .sortedKeys)
-        // NSJSONSerialization escapes '/' as '\/' but TypeScript's JSON.stringify does not.
-        // Unescape '\/' → '/' so canonical bytes match the TypeScript-signed payload.
-        guard let canonicalStr = String(data: rawCanonical, encoding: .utf8) else {
-            throw InviteDecodeError.invalidSignature
-        }
-        let canonical = canonicalStr
-            .replacingOccurrences(of: "\\/", with: "/")
-            .data(using: .utf8)!
-        // Decode signature
-        var sigBase64 = signature
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        let sigRemainder = sigBase64.count % 4
-        if sigRemainder != 0 { sigBase64 += String(repeating: "=", count: 4 - sigRemainder) }
-        guard let sigData = Data(base64Encoded: sigBase64) else {
+        dict.removeValue(forKey: "sig")
+        let canonical = try JSONSerialization.data(withJSONObject: dict, options: .sortedKeys)
+
+        // Decode signature (standard base64)
+        guard let sigData = Data(base64Encoded: sig) else {
             throw InviteDecodeError.invalidSignature
         }
         guard pubKey.isValidSignature(sigData, for: canonical) else {
@@ -151,6 +115,7 @@ public extension InvitePayload {
 /// Errors thrown by `InvitePayload.decode(_:)` and `InvitePayload.verify()`.
 public enum InviteDecodeError: LocalizedError {
     case invalidBase64
+    case decodingFailed(String)
     case expired
     case invalidPublicKey
     case invalidSignature
@@ -158,10 +123,11 @@ public enum InviteDecodeError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidBase64:             return "Invalid invite link encoding"
-        case .expired:                   return "Invite link has expired"
-        case .invalidPublicKey:          return "Invalid public key in invite"
-        case .invalidSignature:          return "Invalid signature in invite"
+        case .invalidBase64:               return "Invalid invite link encoding"
+        case .decodingFailed(let reason):  return "Failed to decode invite: \(reason)"
+        case .expired:                     return "Invite link has expired"
+        case .invalidPublicKey:            return "Invalid public key in invite"
+        case .invalidSignature:            return "Invalid signature in invite"
         case .signatureVerificationFailed: return "Signature verification failed"
         }
     }
