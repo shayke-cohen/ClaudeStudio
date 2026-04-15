@@ -32,3 +32,4 @@ Dependencies/
 # AppXray / Argus test artifacts
 tests/screenshots/
 tests/videos/
+.worktrees/
