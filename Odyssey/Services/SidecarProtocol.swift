@@ -13,6 +13,8 @@ enum SidecarCommand: Sendable {
     case delegateTask(sessionId: String, toAgent: String, task: String, context: String?, waitForResult: Bool)
     case peerRegister(name: String, endpoint: String, agents: [AgentDefinitionWire])
     case peerRemove(name: String)
+    case nostrAddPeer(name: String, pubkeyHex: String, relays: [String])
+    case nostrRemovePeer(name: String)
     case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
     case questionAnswer(sessionId: String, questionId: String, answer: String, selectedOptions: [String]?)
     case confirmationAnswer(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String?)
@@ -91,6 +93,14 @@ enum SidecarCommand: Sendable {
         case .peerRemove(let name):
             return try encoder.encode(
                 PeerRemoveWire(type: "peer.remove", name: name)
+            )
+        case .nostrAddPeer(let name, let pubkeyHex, let relays):
+            return try encoder.encode(
+                NostrAddPeerWire(type: "nostr.addPeer", name: name, pubkeyHex: pubkeyHex, relays: relays)
+            )
+        case .nostrRemovePeer(let name):
+            return try encoder.encode(
+                NostrRemovePeerWire(type: "nostr.removePeer", name: name)
             )
         case .generateAgent(let requestId, let prompt, let skills, let mcps):
             return try encoder.encode(
@@ -291,6 +301,18 @@ private struct PeerRegisterWire: Encodable {
 }
 
 private struct PeerRemoveWire: Encodable {
+    let type: String
+    let name: String
+}
+
+private struct NostrAddPeerWire: Encodable {
+    let type: String
+    let name: String
+    let pubkeyHex: String
+    let relays: [String]
+}
+
+private struct NostrRemovePeerWire: Encodable {
     let type: String
     let name: String
 }
@@ -511,6 +533,7 @@ enum SidecarEvent: Sendable {
     case workspaceJoined(sessionId: String, workspaceName: String, agentName: String)
     case agentInvited(sessionId: String, invitedAgent: String, invitedBy: String)
     case iosPushRegistered(apnsToken: String, success: Bool, error: String?)
+    case nostrStatus(connectedRelays: Int, totalRelays: Int)
     case connected
     case disconnected
 }
@@ -627,6 +650,8 @@ struct IncomingWireMessage: Codable, Sendable {
     let invitedBy: String?
     let apnsToken: String?
     let success: Bool?
+    let connectedRelays: Int?
+    let totalRelays: Int?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, text, tool, input, output, result, cost
@@ -645,6 +670,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case agentName, workspaceName, workspaceId
         case invitedAgent, invitedBy
         case apnsToken, success
+        case connectedRelays, totalRelays
     }
 
     func toEvent() -> SidecarEvent? {
@@ -753,6 +779,10 @@ struct IncomingWireMessage: Codable, Sendable {
             let token = apnsToken ?? ""
             let successVal = success ?? false
             return .iosPushRegistered(apnsToken: token, success: successVal, error: error)
+        case "nostr.status":
+            let connected = connectedRelays ?? 0
+            let total = totalRelays ?? 0
+            return .nostrStatus(connectedRelays: connected, totalRelays: total)
         default:
             return nil
         }

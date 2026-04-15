@@ -50,6 +50,10 @@ final class AppState: ObservableObject {
     @Published var presenceStore: [String: PresenceStatus] = [:]
     /// Nostr public key hex (x-only, BIP-340) for this instance — used in invite generation.
     @Published var nostrPublicKeyHex: String? = nil
+    /// Number of currently connected Nostr relays (updated via nostr.status events).
+    @Published var nostrRelayCount: Int = 0
+    /// Total number of configured Nostr relays.
+    @Published var nostrRelayTotal: Int = 0
     // launchError and autoSendText moved to WindowState (per-window)
 
     /// File-based config sync service (set by OdysseyApp on appear)
@@ -1196,6 +1200,10 @@ final class AppState: ObservableObject {
             } else {
                 logger.warning("AppState: iOS push registration failed: \(error ?? "unknown")")
             }
+
+        case .nostrStatus(let connected, let total):
+            nostrRelayCount = connected
+            nostrRelayTotal = total
 
         case .connected:
             sidecarStatus = .connected
