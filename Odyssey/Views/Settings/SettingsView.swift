@@ -7,6 +7,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case connection
     case connectors
     case chatDisplay
+    case labs
     case developer
     case iosPairing
     case federation
@@ -21,6 +22,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "Connection"
         case .connectors: "Connectors"
         case .chatDisplay: "Chat Display"
+        case .labs: "Labs"
         case .developer: "Developer"
         case .iosPairing: "iOS Pairing"
         case .federation: "Federation"
@@ -35,6 +37,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "Sidecar lifecycle and local ports"
         case .connectors: "OAuth setup, broker config, and tokens"
         case .chatDisplay: "Rendering and conversation chrome"
+        case .labs: "Experimental and power-user feature flags"
         case .developer: "Paths, diagnostics, and experimental controls"
         case .iosPairing: "QR code and device pairing for iOS access"
         case .federation: "Matrix account and cross-user sharing"
@@ -49,6 +52,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "network"
         case .connectors: "link.badge.plus"
         case .chatDisplay: "bubble.left.and.text.bubble.right"
+        case .labs: "flask"
         case .developer: "wrench.and.screwdriver"
         case .iosPairing: "iphone.and.arrow.forward"
         case .federation: "person.2.wave.2"
@@ -63,6 +67,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "settings.tab.connection"
         case .connectors: "settings.tab.connectors"
         case .chatDisplay: "settings.tab.chatDisplay"
+        case .labs: "settings.tab.labs"
         case .developer: "settings.tab.developer"
         case .iosPairing: "settings.tab.iosPairing"
         case .federation: "settings.tab.federation"
@@ -188,6 +193,8 @@ struct SettingsView: View {
                 ConnectorsSettingsTab()
             case .chatDisplay:
                 ChatDisplaySettingsTab()
+            case .labs:
+                LabsSettingsView()
             case .developer:
                 DeveloperSettingsTab()
             case .iosPairing:

@@ -228,6 +228,7 @@
 		EAF78F4C67040AE9043A941D /* MatrixClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9DCC77E362953C9BA85724 /* MatrixClientTests.swift */; };
 		EC7DF5261937DE6DD9291993 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025A005B776366EC801B1187 /* CodeBlockView.swift */; };
 		ED575B00DFF5ED8809389F25 /* WorkshopEntityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC0ED635AA00B4C404C8C2B /* WorkshopEntityRow.swift */; };
+		EE907D6938D3AD4C68E8C8DA /* LabsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3F980D946675CC72761A82 /* LabsSettingsView.swift */; };
 		EEF2BE3DA7BDC1F9A1E30F96 /* FileTreeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469C8EB1BC85EAD15272406A /* FileTreeView.swift */; };
 		EFC471EA50980B52969EBE32 /* ScheduledMission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF738A4F1E23CAE25A34EA2 /* ScheduledMission.swift */; };
 		F01AB6001B7A44A030B8C820 /* SharedRoomLocalRecordStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4ADB815A66C098FB80B7E6 /* SharedRoomLocalRecordStore.swift */; };
@@ -407,6 +408,7 @@
 		9C5D299B83616907AB3C2C2E /* IdentityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityManagerTests.swift; sourceTree = "<group>"; };
 		9CD81DB5E21BC1946BE680EB /* Skill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skill.swift; sourceTree = "<group>"; };
 		9D29297C259FD8E3F615A2B7 /* AppStateScheduleLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateScheduleLaunchTests.swift; sourceTree = "<group>"; };
+		9E3F980D946675CC72761A82 /* LabsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabsSettingsView.swift; sourceTree = "<group>"; };
 		9E8D12553E2B55D63FE8835A /* AutoAssembleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoAssembleSheet.swift; sourceTree = "<group>"; };
 		9EE04ECE5D3AB8722B65AA99 /* Odyssey.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Odyssey.entitlements; sourceTree = "<group>"; };
 		9F0CB5B543443F65B40074D0 /* SharedWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedWorkspace.swift; sourceTree = "<group>"; };
@@ -878,6 +880,7 @@
 			children = (
 				7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */,
 				DEBB5F451810E6E796C0EBDD /* iOSPairingSettingsView.swift */,
+				9E3F980D946675CC72761A82 /* LabsSettingsView.swift */,
 				AB6CC157699DCF76711322CD /* MatrixAccountView.swift */,
 				3425ADDEEC2EEF966F8759BA /* SettingsView.swift */,
 			);
@@ -1411,6 +1414,7 @@
 				C3013C6A6A591C7F37DFCDA6 /* InstanceConfig.swift in Sources */,
 				E6A7A06897437405DCFF5484 /* IntentLibraryHubView.swift in Sources */,
 				E7A4B8B80E4B98B4C13F5C79 /* InviteCodeGenerator.swift in Sources */,
+				EE907D6938D3AD4C68E8C8DA /* LabsSettingsView.swift in Sources */,
 				9BD78B6E2A75C023FFFAEFF4 /* LaunchIntent.swift in Sources */,
 				64641E9A3B96E23ED26C09E8 /* LegacyInstanceMigration.swift in Sources */,
 				62C3C1A65B88F0974FD97BEC /* LocalFileReferenceSupport.swift in Sources */,
