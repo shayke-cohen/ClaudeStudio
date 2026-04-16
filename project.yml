@@ -35,6 +35,7 @@ targets:
           - "Resources/DefaultSkills/**"
           - "Resources/DefaultAgents/**"
           - "Resources/SystemPromptTemplates/**"
+          - "Resources/DefaultPromptTemplates/**"
           - "Resources/Catalog/**"
       - path: Odyssey/Resources/Catalog
         type: folder
@@ -43,6 +44,8 @@ targets:
       - path: Odyssey/Resources/DefaultSkills
         type: folder
       - path: Odyssey/Resources/SystemPromptTemplates
+        type: folder
+      - path: Odyssey/Resources/DefaultPromptTemplates
         type: folder
     dependencies:
       - package: AppXray

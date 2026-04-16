@@ -62,6 +62,9 @@ final class Agent {
     @Relationship(deleteRule: .cascade, inverse: \Session.agent)
     var sessions: [Session] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \PromptTemplate.agent)
+    var promptTemplates: [PromptTemplate] = []
+
     static func defaultHomePath(for name: String) -> String {
         let slug = name
             .lowercased()

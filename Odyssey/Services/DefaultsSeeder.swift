@@ -143,7 +143,7 @@ enum DefaultsSeeder {
                 description: "Vulnerability analysis and hardening.",
                 icon: "🔒", color: "red",
                 instruction: "This group performs a security-focused review. Look for vulnerabilities, edge cases, and trust boundary violations. Coder identifies issues, Reviewer assesses risk, Tester writes exploit tests.",
-                defaultMission: "Perform a security audit of the codebase.",
+                defaultMission: nil,
                 agentNames: ["Coder", "Reviewer", "Tester"],
                 sortOrder: 4,
                 workflowAgentNames: [

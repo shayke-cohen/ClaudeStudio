@@ -63,6 +63,7 @@ struct OdysseyApp: App {
                 BlackboardEntry.self,
                 Peer.self,
                 AgentGroup.self,
+                PromptTemplate.self,
                 TaskItem.self,
                 ScheduledMission.self,
                 ScheduledMissionRun.self,

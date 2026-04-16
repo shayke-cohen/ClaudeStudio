@@ -152,6 +152,7 @@ final class ConfigSyncService {
         }
 
         ConfigFileManager.syncBundledBuiltIns(overwriteExisting: overwriteExisting)
+        ConfigFileManager.syncBundledPromptTemplates(overwriteExisting: overwriteExisting)
 
         if overwriteExisting {
             ConfigFileManager.removeRetiredBundleMCPs(slugs: Self.retiredBuiltInMCPSlugs)
@@ -195,6 +196,7 @@ final class ConfigSyncService {
         syncSkills(context: context)
         syncAgents(context: context, templates: templates)
         syncGroups(context: context)
+        syncPromptTemplates(context: context)
 
         // Sync feature flags from features.json (restart-free flag flipping)
         syncFeaturesFromDisk()
@@ -635,6 +637,125 @@ final class ConfigSyncService {
         }
     }
 
+    // MARK: - Prompt Templates Sync
+
+    private func syncPromptTemplates(context: ModelContext) {
+        let fileEntries = ConfigFileManager.readAllPromptTemplates()
+        let existing = (try? context.fetch(FetchDescriptor<PromptTemplate>())) ?? []
+        let slugMap = Dictionary(uniqueKeysWithValues: existing.compactMap { template in
+            template.configSlug.map { ($0, template) }
+        })
+        var seenSlugs: Set<String> = []
+
+        // Build owner lookup maps by slug (preferred) then display-name fallback.
+        let allAgents = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentBySlug: [String: Agent] = Dictionary(uniqueKeysWithValues: allAgents.compactMap { agent in
+            agent.configSlug.map { ($0, agent) }
+        })
+        let agentByDerivedSlug: [String: Agent] = Dictionary(uniqueKeysWithValues: allAgents.map {
+            (ConfigFileManager.slugify($0.name), $0)
+        })
+        let allGroups = (try? context.fetch(FetchDescriptor<AgentGroup>())) ?? []
+        let groupBySlug: [String: AgentGroup] = Dictionary(uniqueKeysWithValues: allGroups.compactMap { group in
+            group.configSlug.map { ($0, group) }
+        })
+        let groupByDerivedSlug: [String: AgentGroup] = Dictionary(uniqueKeysWithValues: allGroups.map {
+            (ConfigFileManager.slugify($0.name), $0)
+        })
+
+        for entry in fileEntries {
+            seenSlugs.insert(entry.configSlug)
+
+            let ownerAgent: Agent? = entry.ownerKind == .agents
+                ? (agentBySlug[entry.ownerSlug] ?? agentByDerivedSlug[entry.ownerSlug])
+                : nil
+            let ownerGroup: AgentGroup? = entry.ownerKind == .groups
+                ? (groupBySlug[entry.ownerSlug] ?? groupByDerivedSlug[entry.ownerSlug])
+                : nil
+
+            // Skip files whose owner can't be resolved (e.g. agent renamed to a new slug).
+            // They stay on disk; the owner can be re-linked once its slug matches.
+            guard ownerAgent != nil || ownerGroup != nil else {
+                Log.configSync.warning("Prompt template owner not found: \(entry.configSlug, privacy: .public)")
+                continue
+            }
+
+            if let entity = slugMap[entry.configSlug] {
+                entity.name = entry.dto.name
+                entity.prompt = entry.dto.prompt
+                entity.sortOrder = entry.dto.sortOrder
+                entity.agent = ownerAgent
+                entity.group = ownerGroup
+                entity.updatedAt = Date()
+            } else {
+                let entity = PromptTemplate(
+                    name: entry.dto.name,
+                    prompt: entry.dto.prompt,
+                    sortOrder: entry.dto.sortOrder,
+                    isBuiltin: true,
+                    agent: ownerAgent,
+                    group: ownerGroup,
+                    configSlug: entry.configSlug
+                )
+                context.insert(entity)
+            }
+        }
+
+        // Any DB row whose file disappeared is removed entirely — unlike other
+        // entities (which soft-disable), prompt templates have no isEnabled flag
+        // and the disk is the source of truth.
+        for entity in existing {
+            guard let slug = entity.configSlug else { continue }
+            if !seenSlugs.contains(slug) {
+                context.delete(entity)
+            }
+        }
+    }
+
+    /// Persist a single PromptTemplate to disk. Assumes `configSlug` is already
+    /// set; if not, call `beginWritingBack` at the caller.
+    func writeBack(promptTemplate template: PromptTemplate) {
+        guard let slug = template.configSlug,
+              let (ownerKindStr, ownerSlug, templateSlug) = splitPromptTemplateSlug(slug),
+              let ownerKind = PromptTemplateOwnerKindOnDisk(rawValue: ownerKindStr) else {
+            Log.configSync.warning("writeBack(promptTemplate:) missing/invalid configSlug")
+            return
+        }
+
+        let dto = PromptTemplateFileDTO(
+            name: template.name,
+            sortOrder: template.sortOrder,
+            prompt: template.prompt
+        )
+
+        isWritingBack = true
+        try? ConfigFileManager.writePromptTemplate(
+            ownerKind: ownerKind, ownerSlug: ownerSlug, templateSlug: templateSlug, dto: dto
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.isWritingBack = false
+        }
+    }
+
+    func deleteFile(forPromptTemplate template: PromptTemplate) {
+        guard let slug = template.configSlug,
+              let (ownerKindStr, ownerSlug, templateSlug) = splitPromptTemplateSlug(slug),
+              let ownerKind = PromptTemplateOwnerKindOnDisk(rawValue: ownerKindStr) else { return }
+        isWritingBack = true
+        try? ConfigFileManager.deletePromptTemplate(
+            ownerKind: ownerKind, ownerSlug: ownerSlug, templateSlug: templateSlug
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.isWritingBack = false
+        }
+    }
+
+    private func splitPromptTemplateSlug(_ slug: String) -> (String, String, String)? {
+        let parts = slug.split(separator: "/")
+        guard parts.count == 3 else { return nil }
+        return (String(parts[0]), String(parts[1]), String(parts[2]))
+    }
+
     // MARK: - Feature Flags Sync (features.json → UserDefaults)
 
     /// URL for the feature-flags file: `~/.odyssey/config/features.json`.
@@ -941,6 +1062,9 @@ final class ConfigSyncService {
         for sub in subdirs {
             allDirs.append(ConfigFileManager.configDirectory.appendingPathComponent(sub))
         }
+        // Prompt templates live two levels deep (prompt-templates/{agents,groups}/<slug>/).
+        // Watch every resolvable directory so in-file edits trigger a resync.
+        allDirs.append(contentsOf: ConfigFileManager.promptTemplateWatchDirectories())
 
         for dir in allDirs {
             let fd = open(dir.path, O_EVTONLY)

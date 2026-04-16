@@ -39,6 +39,9 @@ final class AgentGroup {
     /// The original UUID of the group on the remote peer (used for duplicate import detection)
     var originRemoteId: UUID?
 
+    @Relationship(deleteRule: .cascade, inverse: \PromptTemplate.group)
+    var promptTemplates: [PromptTemplate] = []
+
     @Transient
     var origin: AgentGroupOrigin {
         get {

@@ -246,6 +246,18 @@ struct SkillFrontmatterDTO {
     var content: String // full file content including frontmatter
 }
 
+/// A prompt template on disk: frontmatter metadata + body prompt.
+struct PromptTemplateFileDTO {
+    var name: String
+    var sortOrder: Int
+    var prompt: String
+}
+
+enum PromptTemplateOwnerKindOnDisk: String {
+    case agents
+    case groups
+}
+
 enum BuiltInConfigKind: String, CaseIterable {
     case agents
     case groups
@@ -351,7 +363,7 @@ enum ConfigFileManager {
 
     static func createDirectoryStructure() throws {
         let fm = FileManager.default
-        let dirs = ["agents", "groups", "skills", "mcps", "permissions", "templates"]
+        let dirs = ["agents", "groups", "skills", "mcps", "permissions", "templates", "prompt-templates", "prompt-templates/agents", "prompt-templates/groups"]
         for dir in dirs {
             try fm.createDirectory(at: configDirectory.appendingPathComponent(dir), withIntermediateDirectories: true)
         }
@@ -444,6 +456,7 @@ enum ConfigFileManager {
         try createDirectoryStructure()
         try syncBundledBuiltIns(into: configDirectory, overwriteExisting: true)
         try syncBundledBuiltIns(into: factoryDirectory, overwriteExisting: true)
+        syncBundledPromptTemplates(overwriteExisting: true)
     }
 
     /// Restore a single entity's factory default
@@ -518,6 +531,221 @@ enum ConfigFileManager {
             path = factoryDirectory.appendingPathComponent("\(entityType)/\(slug).json").path
         }
         return FileManager.default.fileExists(atPath: path)
+    }
+
+    // MARK: - Prompt Templates (per-owner markdown files)
+
+    /// Root for user-editable chat-start prompt templates.
+    /// Layout: `prompt-templates/{agents,groups}/<owner-slug>/<template-slug>.md`.
+    /// Kept distinct from `templates/` (which holds SystemPromptTemplates).
+    static var promptTemplatesDirectory: URL {
+        configDirectory.appendingPathComponent("prompt-templates")
+    }
+
+    static var promptTemplatesFactoryDirectory: URL {
+        factoryDirectory.appendingPathComponent("prompt-templates")
+    }
+
+    /// Read every `.md` prompt template under `~/.odyssey/config/prompt-templates/`.
+    /// Returns tuples of `(configSlug, ownerKind, ownerSlug, templateSlug, dto)` where
+    /// `configSlug` matches the on-disk identity `agents/coder/review-pr`.
+    static func readAllPromptTemplates() -> [(configSlug: String, ownerKind: PromptTemplateOwnerKindOnDisk, ownerSlug: String, templateSlug: String, dto: PromptTemplateFileDTO)] {
+        var results: [(configSlug: String, ownerKind: PromptTemplateOwnerKindOnDisk, ownerSlug: String, templateSlug: String, dto: PromptTemplateFileDTO)] = []
+        let fm = FileManager.default
+        for ownerKind in [PromptTemplateOwnerKindOnDisk.agents, .groups] {
+            let kindDir = promptTemplatesDirectory.appendingPathComponent(ownerKind.rawValue)
+            guard let ownerDirs = try? fm.contentsOfDirectory(
+                at: kindDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+            ) else { continue }
+            for ownerDir in ownerDirs where ownerDir.hasDirectoryPath {
+                let ownerSlug = ownerDir.lastPathComponent
+                guard let files = try? fm.contentsOfDirectory(
+                    at: ownerDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+                ) else { continue }
+                for file in files where file.pathExtension == "md" {
+                    let templateSlug = file.deletingPathExtension().lastPathComponent
+                    guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                    let dto = parsePromptTemplateContent(content, fallbackName: templateSlug)
+                    let configSlug = "\(ownerKind.rawValue)/\(ownerSlug)/\(templateSlug)"
+                    results.append((configSlug: configSlug, ownerKind: ownerKind, ownerSlug: ownerSlug, templateSlug: templateSlug, dto: dto))
+                }
+            }
+        }
+        return results
+    }
+
+    /// List owner-slug folders that currently have prompt-template subdirectories.
+    /// Used by the file watcher so per-owner folders are observed for edits.
+    static func promptTemplateWatchDirectories() -> [URL] {
+        let fm = FileManager.default
+        var dirs: [URL] = [promptTemplatesDirectory]
+        for ownerKind in ["agents", "groups"] {
+            let kindDir = promptTemplatesDirectory.appendingPathComponent(ownerKind)
+            dirs.append(kindDir)
+            if let contents = try? fm.contentsOfDirectory(
+                at: kindDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+            ) {
+                for entry in contents where entry.hasDirectoryPath {
+                    dirs.append(entry)
+                }
+            }
+        }
+        return dirs
+    }
+
+    static func writePromptTemplate(
+        ownerKind: PromptTemplateOwnerKindOnDisk,
+        ownerSlug: String,
+        templateSlug: String,
+        dto: PromptTemplateFileDTO
+    ) throws {
+        let ownerDir = promptTemplatesDirectory
+            .appendingPathComponent(ownerKind.rawValue)
+            .appendingPathComponent(ownerSlug)
+        try FileManager.default.createDirectory(at: ownerDir, withIntermediateDirectories: true)
+        let file = ownerDir.appendingPathComponent("\(templateSlug).md")
+        let serialized = serializePromptTemplate(dto)
+        try serialized.write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    static func deletePromptTemplate(
+        ownerKind: PromptTemplateOwnerKindOnDisk,
+        ownerSlug: String,
+        templateSlug: String
+    ) throws {
+        let file = promptTemplatesDirectory
+            .appendingPathComponent(ownerKind.rawValue)
+            .appendingPathComponent(ownerSlug)
+            .appendingPathComponent("\(templateSlug).md")
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: file.path) else { return }
+        try fm.removeItem(at: file)
+    }
+
+    /// Generate a fresh template slug under the given owner, suffixing `-2`, `-3`, …
+    /// when the chosen slug already has a file on disk.
+    static func uniquePromptTemplateSlug(
+        baseName: String,
+        ownerKind: PromptTemplateOwnerKindOnDisk,
+        ownerSlug: String
+    ) -> String {
+        let base = slugify(baseName)
+        let safeBase = base.isEmpty ? "template" : base
+        let ownerDir = promptTemplatesDirectory
+            .appendingPathComponent(ownerKind.rawValue)
+            .appendingPathComponent(ownerSlug)
+        let fm = FileManager.default
+
+        var candidate = safeBase
+        var suffix = 2
+        while fm.fileExists(atPath: ownerDir.appendingPathComponent("\(candidate).md").path) {
+            candidate = "\(safeBase)-\(suffix)"
+            suffix += 1
+        }
+        return candidate
+    }
+
+    /// Copy bundled factory prompt-templates to `~/.odyssey/config/prompt-templates/` and
+    /// the `.factory/` mirror. Only installs files missing at the destination unless
+    /// `overwriteExisting` is true (for the "force refresh bundled defaults" path).
+    static func syncBundledPromptTemplates(overwriteExisting: Bool) {
+        let fm = FileManager.default
+        let entries = bundledPromptTemplateEntries()
+
+        for entry in entries {
+            guard let data = loadBundlePromptTemplateContent(
+                ownerKind: entry.ownerKind, ownerSlug: entry.ownerSlug, templateSlug: entry.templateSlug
+            ) else {
+                Log.configFile.warning("Missing bundled prompt template \(entry.configSlug, privacy: .public)")
+                continue
+            }
+            let bytes = Data(data.utf8)
+
+            // Always maintain a read-only mirror under .factory/
+            let factoryTarget = promptTemplatesFactoryDirectory
+                .appendingPathComponent(entry.ownerKind.rawValue)
+                .appendingPathComponent(entry.ownerSlug)
+                .appendingPathComponent("\(entry.templateSlug).md")
+            try? writeBundledDataExposed(bytes, to: factoryTarget, overwriteExisting: true)
+
+            // Install into the user-editable location only if missing (or forced).
+            let liveTarget = promptTemplatesDirectory
+                .appendingPathComponent(entry.ownerKind.rawValue)
+                .appendingPathComponent(entry.ownerSlug)
+                .appendingPathComponent("\(entry.templateSlug).md")
+            if fm.fileExists(atPath: liveTarget.path) && !overwriteExisting {
+                continue
+            }
+            try? writeBundledDataExposed(bytes, to: liveTarget, overwriteExisting: overwriteExisting)
+        }
+    }
+
+    /// Snapshot of which bundled prompt-template files differ from the live copies.
+    /// Mirrors `bundledBuiltInDriftSummary` but is returned as plain names.
+    static func driftedPromptTemplates() -> [String] {
+        var drift: [String] = []
+        for entry in bundledPromptTemplateEntries() {
+            let liveTarget = promptTemplatesDirectory
+                .appendingPathComponent(entry.ownerKind.rawValue)
+                .appendingPathComponent(entry.ownerSlug)
+                .appendingPathComponent("\(entry.templateSlug).md")
+            guard FileManager.default.fileExists(atPath: liveTarget.path) else { continue }
+            guard let bundled = loadBundlePromptTemplateContent(
+                ownerKind: entry.ownerKind, ownerSlug: entry.ownerSlug, templateSlug: entry.templateSlug
+            ) else { continue }
+            let current = (try? String(contentsOf: liveTarget, encoding: .utf8)) ?? ""
+            if bundled != current {
+                drift.append(entry.configSlug)
+            }
+        }
+        return drift
+    }
+
+    // MARK: - Prompt Template Serialization
+
+    static func parsePromptTemplateContent(_ content: String, fallbackName: String) -> PromptTemplateFileDTO {
+        var dto = PromptTemplateFileDTO(name: fallbackName, sortOrder: 0, prompt: content)
+        guard content.hasPrefix("---") else { return dto }
+        let parts = content.components(separatedBy: "---")
+        guard parts.count >= 3 else { return dto }
+        let yaml = parts[1]
+        let body = parts[2...].joined(separator: "---")
+
+        for line in yaml.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("name:") {
+                let value = trimmed.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                dto.name = value.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            } else if trimmed.hasPrefix("sortOrder:") {
+                let value = trimmed.dropFirst(10).trimmingCharacters(in: .whitespaces)
+                dto.sortOrder = Int(value) ?? 0
+            }
+        }
+
+        // Strip blank lines (whitespace-only) between `---` and the body, and any
+        // trailing newline we always append when writing. Parsing → serializing
+        // → parsing should be a fixed point.
+        var prompt = body
+        while let first = prompt.first, first.isNewline {
+            prompt.removeFirst()
+        }
+        while let last = prompt.last, last.isNewline {
+            prompt.removeLast()
+        }
+        dto.prompt = prompt
+        return dto
+    }
+
+    static func serializePromptTemplate(_ dto: PromptTemplateFileDTO) -> String {
+        let escapedName = dto.name.replacingOccurrences(of: "\"", with: "\\\"")
+        let frontmatter = """
+        ---
+        name: "\(escapedName)"
+        sortOrder: \(dto.sortOrder)
+        ---
+
+        """
+        return frontmatter + dto.prompt + "\n"
     }
 
     // MARK: - Slug Helpers
@@ -904,7 +1132,7 @@ enum ConfigFileManager {
                 name: "Security Audit", description: "Vulnerability analysis and hardening.",
                 icon: "🔒", color: "red",
                 instruction: "This group performs a security-focused review. Look for vulnerabilities, edge cases, and trust boundary violations. Coder identifies issues, Reviewer assesses risk, Tester writes exploit tests.",
-                defaultMission: "Perform a security audit of the codebase.",
+                defaultMission: nil,
                 agentNames: ["Coder", "Reviewer", "Tester"], sortOrder: 4,
                 autoReplyEnabled: true, autonomousCapable: false, coordinatorAgentName: nil, roles: nil,
                 workflow: [
@@ -1049,6 +1277,81 @@ enum ConfigFileManager {
             if let content = try? String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8) {
                 return content
             }
+        }
+        return nil
+    }
+
+    // MARK: - Bundled Prompt Templates
+
+    /// Identity of a single bundled prompt template; used by factory sync + drift.
+    struct BundledPromptTemplateEntry {
+        var ownerKind: PromptTemplateOwnerKindOnDisk
+        var ownerSlug: String
+        var templateSlug: String
+        var configSlug: String { "\(ownerKind.rawValue)/\(ownerSlug)/\(templateSlug)" }
+    }
+
+    /// Enumerate every bundled factory prompt-template `.md` under
+    /// `Resources/DefaultPromptTemplates/{agents,groups}/<slug>/*.md`.
+    static func bundledPromptTemplateEntries() -> [BundledPromptTemplateEntry] {
+        guard let root = bundledPromptTemplatesRoot() else { return [] }
+        var entries: [BundledPromptTemplateEntry] = []
+        let fm = FileManager.default
+        for ownerKind in [PromptTemplateOwnerKindOnDisk.agents, .groups] {
+            let kindDir = root.appendingPathComponent(ownerKind.rawValue)
+            guard let ownerDirs = try? fm.contentsOfDirectory(
+                at: kindDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+            ) else { continue }
+            for ownerDir in ownerDirs where ownerDir.hasDirectoryPath {
+                guard let files = try? fm.contentsOfDirectory(
+                    at: ownerDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+                ) else { continue }
+                for file in files where file.pathExtension == "md" {
+                    entries.append(BundledPromptTemplateEntry(
+                        ownerKind: ownerKind,
+                        ownerSlug: ownerDir.lastPathComponent,
+                        templateSlug: file.deletingPathExtension().lastPathComponent
+                    ))
+                }
+            }
+        }
+        return entries.sorted { lhs, rhs in
+            if lhs.ownerKind != rhs.ownerKind { return lhs.ownerKind.rawValue < rhs.ownerKind.rawValue }
+            if lhs.ownerSlug != rhs.ownerSlug { return lhs.ownerSlug < rhs.ownerSlug }
+            return lhs.templateSlug < rhs.templateSlug
+        }
+    }
+
+    static func loadBundlePromptTemplateContent(
+        ownerKind: PromptTemplateOwnerKindOnDisk,
+        ownerSlug: String,
+        templateSlug: String
+    ) -> String? {
+        guard let root = bundledPromptTemplatesRoot() else { return nil }
+        let url = root
+            .appendingPathComponent(ownerKind.rawValue)
+            .appendingPathComponent(ownerSlug)
+            .appendingPathComponent("\(templateSlug).md")
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
+
+    /// Public wrapper so new call sites can reuse the existing bundled-data writer.
+    static func writeBundledDataExposed(_ data: Data, to targetFile: URL, overwriteExisting: Bool) throws {
+        try writeBundledData(data, to: targetFile, overwriteExisting: overwriteExisting)
+    }
+
+    private static func bundledPromptTemplatesRoot() -> URL? {
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("DefaultPromptTemplates"),
+           FileManager.default.fileExists(atPath: url.path) {
+            return url
+        }
+        // Dev-mode fallbacks so the feature works when running xcodebuild from source.
+        let candidates = [
+            "\(NSHomeDirectory())/Odyssey/Odyssey/Resources/DefaultPromptTemplates",
+            "\(FileManager.default.currentDirectoryPath)/Odyssey/Resources/DefaultPromptTemplates",
+        ]
+        for path in candidates where FileManager.default.fileExists(atPath: path) {
+            return URL(fileURLWithPath: path)
         }
         return nil
     }

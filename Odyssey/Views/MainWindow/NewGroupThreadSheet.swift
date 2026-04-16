@@ -9,10 +9,16 @@ struct NewGroupThreadSheet: View {
 
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \Conversation.startedAt, order: .reverse) private var recentConversations: [Conversation]
+    @Query(sort: [SortDescriptor(\PromptTemplate.sortOrder), SortDescriptor(\PromptTemplate.name)]) private var allPromptTemplates: [PromptTemplate]
 
     @State private var selectedGroupId: UUID?
     @State private var mission = ""
     @State private var executionMode: ConversationExecutionMode = .interactive
+
+    private var availableTemplates: [PromptTemplate] {
+        guard let groupId = selectedGroupId else { return [] }
+        return allPromptTemplates.filter { $0.group?.id == groupId }
+    }
 
     private var enabledGroups: [AgentGroup] {
         groups.filter(\.isEnabled)
@@ -65,16 +71,6 @@ struct NewGroupThreadSheet: View {
         .onAppear {
             if selectedGroupId == nil {
                 selectedGroupId = recentGroups.first?.id ?? enabledGroups.first?.id
-                if let defaultMission = selectedGroup?.defaultMission {
-                    mission = defaultMission
-                }
-            }
-        }
-        .onChange(of: selectedGroupId) { _, _ in
-            if let defaultMission = selectedGroup?.defaultMission {
-                mission = defaultMission
-            } else {
-                mission = ""
             }
         }
     }
@@ -266,6 +262,13 @@ struct NewGroupThreadSheet: View {
                         .foregroundStyle(.secondary)
                         .xrayId("newGroupThread.goalCaption")
                 }
+
+                TemplatePickerRow(
+                    templates: availableTemplates,
+                    mission: $mission,
+                    ownerLabel: selectedGroup?.name ?? "",
+                    onManage: { windowState.openSettings() }
+                )
 
                 TextField(goalPlaceholder, text: $mission, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
