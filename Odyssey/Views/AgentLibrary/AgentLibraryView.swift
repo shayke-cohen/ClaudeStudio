@@ -174,6 +174,7 @@ struct AgentLibraryView: View {
                 Label("New Agent", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+            .keyboardShortcut("a", modifiers: [.command, .shift])
             .help("Create a new agent")
             .xrayId("agentLibrary.newAgentButton")
 

@@ -217,7 +217,7 @@ struct TaskEditSheet: View {
                     .keyboardShortcut(.defaultAction)
                     .stableXrayId("taskEdit.saveButton")
                 } else {
-                    Button("Close") { dismiss() }
+                    Button("Cancel") { dismiss() }
                         .keyboardShortcut(.defaultAction)
                 }
             }

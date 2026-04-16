@@ -214,7 +214,7 @@ struct MainWindowView: View {
             appState.connectSidecar()
         }
         .alert("Launch Error", isPresented: launchErrorBinding) {
-            Button("OK") { windowState.launchError = nil }
+            Button("Dismiss") { windowState.launchError = nil }
         } message: {
             Text(windowState.launchError ?? "")
         }

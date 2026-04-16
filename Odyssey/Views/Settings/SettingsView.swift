@@ -2143,18 +2143,21 @@ private struct ConnectorRowView: View {
                     onConnect()
                 }
                 .disabled(!missingConfiguration.isEmpty)
+                .help(missingConfiguration.isEmpty ? "Authorize this provider via OAuth." : "Fill in the required configuration fields before connecting.")
                 .xrayId("settings.connectors.connectButton.\(provider.rawValue)")
 
                 Button("Test") {
                     onTest()
                 }
                 .disabled(connection == nil)
+                .help(connection == nil ? "Connect first to test the integration." : "Send a test request to verify the connection.")
                 .xrayId("settings.connectors.testButton.\(provider.rawValue)")
 
                 Button("Revoke") {
                     onRevoke()
                 }
                 .disabled(connection == nil)
+                .help(connection == nil ? "No active connection to revoke." : "Revoke the stored token and disconnect this provider.")
                 .foregroundStyle(.red)
                 .xrayId("settings.connectors.revokeButton.\(provider.rawValue)")
 

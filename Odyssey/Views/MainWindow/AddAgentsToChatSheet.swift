@@ -119,6 +119,7 @@ struct AddAgentsToChatSheet: View {
                 Button("Add") { addSelected() }
                     .buttonStyle(.borderedProminent)
                     .disabled(selectedIds.isEmpty && selectedGroupIds.isEmpty)
+                    .help(selectedIds.isEmpty && selectedGroupIds.isEmpty ? "Select at least one agent to add." : "Add selected agents to the conversation.")
                     .keyboardShortcut(.defaultAction)
                     .xrayId("addAgents.confirmButton")
             }

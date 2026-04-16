@@ -96,6 +96,7 @@ struct TaskCreationSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                .help(title.trimmingCharacters(in: .whitespaces).isEmpty ? "Enter a task title to create the task." : "Create this task.")
                 .stableXrayId("taskCreation.createButton")
             }
             .padding()

@@ -860,23 +860,23 @@ struct ChatView: View {
                 .environmentObject(appState)
                 .environment(\.modelContext, modelContext)
         }
-        .alert("Commands", isPresented: $showSlashHelp) {
-            Button("OK", role: .cancel) {}
+        .alert("Slash Commands", isPresented: $showSlashHelp) {
+            Button("Dismiss", role: .cancel) {}
         } message: {
-            Text("/help — this list\n/topic <name> or /rename <name> — rename conversation\n/agents — add agents to this chat\n@AgentName — add that agent to the group if missing; everyone still receives each message")
+            Text("/help or /? — show this list\n/topic <name> or /rename <name> — rename the conversation\n/agents — open the Add Agents sheet\n@AgentName — invite that agent to this conversation\n\nTip: start a message with // to send a literal slash without triggering a command.")
         }
         .alert("Unknown command", isPresented: $showUnknownSlash) {
-            Button("OK", role: .cancel) {}
+            Button("Dismiss", role: .cancel) {}
         } message: {
             Text("Unknown command /\(unknownSlashName). Try /help.")
         }
         .alert("Mention", isPresented: $showMentionError) {
-            Button("OK", role: .cancel) {}
+            Button("Dismiss", role: .cancel) {}
         } message: {
             Text(mentionErrorDetail)
         }
         .alert("Recovery", isPresented: $showRecoveryError) {
-            Button("OK", role: .cancel) {}
+            Button("Dismiss", role: .cancel) {}
         } message: {
             Text(recoveryErrorDetail)
         }

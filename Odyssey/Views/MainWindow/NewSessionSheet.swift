@@ -67,6 +67,7 @@ struct NewSessionSheet: View {
     @State private var createFromPromptText = ""
     @State private var agentSearchText = ""
     @State private var groupSearchText = ""
+    @State private var showCatalog = false
     @State private var agentPickerStyle: CreateThreadPickerStyle = .list
     @State private var groupPickerStyle: CreateThreadPickerStyle = .list
     @State private var didRefreshOllama = false
@@ -468,6 +469,10 @@ struct NewSessionSheet: View {
             didRefreshOllama = true
             await refreshOllamaCatalogIfNeeded()
         }
+        .sheet(isPresented: $showCatalog) {
+            CatalogBrowserView()
+                .frame(minWidth: 700, minHeight: 550)
+        }
     }
 
     @ViewBuilder
@@ -687,7 +692,26 @@ struct NewSessionSheet: View {
                 cardsToggleId: "newSession.agentPickerStyle.cards"
             )
 
-            if filteredAgents.isEmpty {
+            if enabledAgents.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "person.2.badge.plus")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tertiary)
+                    Text("No agents yet")
+                        .font(.headline)
+                    Text("Open the Catalog to install your first agent.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Button("Open Catalog") {
+                        showCatalog = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .xrayId("newSession.openCatalogCTA")
+                }
+                .padding(40)
+                .frame(maxWidth: .infinity)
+                .xrayId("newSession.agentPickerEmptyState")
+            } else if filteredAgents.isEmpty {
                 ContentUnavailableView(
                     "No agents match your search",
                     systemImage: "cpu",
@@ -1220,6 +1244,7 @@ struct NewSessionSheet: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .disabled(createFromPromptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .help(createFromPromptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Describe the agent you want to create." : "Generate a new agent from your description.")
                         .xrayId("newSession.fromPrompt.generateButton")
                     }
                     Text("e.g. \"A code reviewer focused on security\"")
@@ -1537,6 +1562,7 @@ struct NewSessionSheet: View {
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.return)
             .disabled(!canStartSession)
+            .help(canStartSession ? "Start the session" : "Select at least one agent to start a session.")
             .xrayId("newSession.startSessionButton")
         }
         .padding(16)
