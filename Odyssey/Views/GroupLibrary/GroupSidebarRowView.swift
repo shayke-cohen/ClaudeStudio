@@ -91,6 +91,7 @@ struct GroupSidebarRowView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Start autonomous mission")
+                    .accessibilityLabel("Start autonomous mission for \(group.name)")
                     .stableXrayId("sidebar.groupRow.\(group.id.uuidString).autonomousButton")
                 }
 
@@ -102,6 +103,7 @@ struct GroupSidebarRowView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("New group thread with \(group.name)")
                 .stableXrayId("sidebar.groupRow.\(group.id.uuidString).newChatButton")
             }
             .stableXrayId("sidebar.groupRow.\(group.id.uuidString)")

@@ -1209,6 +1209,7 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .modifier(SidebarChromeButtonModifier(tint: projectTint(project)))
+                .accessibilityLabel("Add task to \(project.name)")
                 .xrayId("sidebar.projectTasksAdd.\(project.id.uuidString)")
             }
 
@@ -1438,6 +1439,7 @@ struct SidebarView: View {
                                 .frame(width: 20, height: 20)
                         }
                         .buttonStyle(.plain)
+                        .keyboardShortcut("t", modifiers: [.command, .shift])
                         .xrayId("sidebar.tasksAddButton")
                         .accessibilityLabel("Add task")
                         .contentShape(Rectangle())
@@ -1810,6 +1812,7 @@ struct SidebarView: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .xrayId("sidebar.moreMenu.\(convo.id.uuidString)")
+                .accessibilityLabel("More options for \(convo.topic ?? "this thread")")
             }
             SidebarActivityIndicator(
                 summary: activity,

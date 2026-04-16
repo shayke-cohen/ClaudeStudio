@@ -110,6 +110,7 @@ struct MessageBubble: View {
                     }
                     .buttonStyle(.plain)
                     .help("Open in browser")
+                    .accessibilityLabel("Open diagram in browser")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
