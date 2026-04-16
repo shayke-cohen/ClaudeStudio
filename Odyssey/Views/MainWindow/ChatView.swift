@@ -298,7 +298,11 @@ struct ChatView: View {
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Environment(WindowState.self) private var windowState: WindowState
     @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
     @StateObject private var quickActionTracker = QuickActionUsageTracker()
+
+    private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
     @State private var inputText = ""
     @State private var inputHeight: CGFloat = PasteableTextField.minHeight
     @State private var isProcessing = false
@@ -2103,18 +2107,20 @@ struct ChatView: View {
                 .help(conversation?.isSharedRoom == true ? "Add your local agents to this shared room" : "Add agents or groups to this thread")
                 .disabled(isProcessing)
 
-                Button {
-                    windowState.sharedRoomInviteConversationId = conversationId
-                    windowState.showSharedRoomInviteSheet = true
-                } label: {
-                    Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room", systemImage: "person.badge.plus")
-                        .font(captionFont)
+                if federationEnabled {
+                    Button {
+                        windowState.sharedRoomInviteConversationId = conversationId
+                        windowState.showSharedRoomInviteSheet = true
+                    } label: {
+                        Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room", systemImage: "person.badge.plus")
+                            .font(captionFont)
+                    }
+                    .buttonStyle(.borderless)
+                    .xrayId("chat.shareRoomButton")
+                    .accessibilityLabel(conversation?.isSharedRoom == true ? "Add people to room" : "Share this conversation as a room")
+                    .help(conversation?.isSharedRoom == true ? "Invite people to this shared room" : "Convert this conversation into a shared room and invite people")
+                    .disabled(isProcessing)
                 }
-                .buttonStyle(.borderless)
-                .xrayId("chat.shareRoomButton")
-                .accessibilityLabel(conversation?.isSharedRoom == true ? "Add people to room" : "Share this conversation as a room")
-                .help(conversation?.isSharedRoom == true ? "Invite people to this shared room" : "Convert this conversation into a shared room and invite people")
-                .disabled(isProcessing)
 
                 Button {
                     showFileImporter = true
@@ -2283,12 +2289,14 @@ struct ChatView: View {
                               systemImage: "plus.circle")
                     }
 
-                    Button {
-                        windowState.sharedRoomInviteConversationId = conversationId
-                        windowState.showSharedRoomInviteSheet = true
-                    } label: {
-                        Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room",
-                              systemImage: "person.badge.plus")
+                    if federationEnabled {
+                        Button {
+                            windowState.sharedRoomInviteConversationId = conversationId
+                            windowState.showSharedRoomInviteSheet = true
+                        } label: {
+                            Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room",
+                                  systemImage: "person.badge.plus")
+                        }
                     }
 
                     Button {

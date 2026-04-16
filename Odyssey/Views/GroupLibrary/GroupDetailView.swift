@@ -9,12 +9,16 @@ struct GroupDetailView: View {
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
     @Query private var allConversations: [Conversation]
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.autonomousMissionsKey, store: AppSettings.store) private var autonomousMissionsFlag = false
     @State private var editingGroup: AgentGroup?
     @State private var showDeleteConfirm = false
     @State private var autonomousGroup: AgentGroup?
     @State private var instructionExpanded = false
     @State private var showingScheduleEditor = false
     @State private var scheduleDraft = ScheduledMissionDraft()
+
+    private var autonomousMissionsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autonomousMissionsKey) || (masterFlag && autonomousMissionsFlag) }
 
     private var group: AgentGroup? { allGroups.first { $0.id == groupId } }
 
@@ -128,7 +132,7 @@ struct GroupDetailView: View {
                     .controlSize(.regular)
                     .xrayId("groupDetail.startChatButton")
 
-                    if group.autonomousCapable {
+                    if autonomousMissionsEnabled && group.autonomousCapable {
                         Button {
                             autonomousGroup = group
                         } label: {

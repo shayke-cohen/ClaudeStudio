@@ -5,6 +5,8 @@ struct GroupEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Agent.name) private var allAgents: [Agent]
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.workflowsKey, store: AppSettings.store) private var workflowsFlag = false
 
     let group: AgentGroup?
 
@@ -25,6 +27,7 @@ struct GroupEditorView: View {
     private let availableColors = ["blue", "red", "green", "purple", "orange", "yellow", "pink", "teal", "indigo", "gray"]
 
     private var isEditing: Bool { group != nil }
+    private var workflowsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workflowsKey) || (masterFlag && workflowsFlag) }
 
     private var selectedAgents: [Agent] {
         allAgents.filter { selectedAgentIds.contains($0.id) }
@@ -120,15 +123,17 @@ struct GroupEditorView: View {
                 }
 
                 // Workflow
-                Section("Workflow") {
-                    Toggle("Enable Workflow (step-by-step pipeline)", isOn: $hasWorkflow)
-                        .stableXrayId("groupEditor.workflowToggle")
+                if workflowsEnabled {
+                    Section("Workflow") {
+                        Toggle("Enable Workflow (step-by-step pipeline)", isOn: $hasWorkflow)
+                            .stableXrayId("groupEditor.workflowToggle")
 
-                    if hasWorkflow {
-                        WorkflowEditorView(
-                            availableAgents: selectedAgents,
-                            steps: $workflowSteps
-                        )
+                        if hasWorkflow {
+                            WorkflowEditorView(
+                                availableAgents: selectedAgents,
+                                steps: $workflowSteps
+                            )
+                        }
                     }
                 }
 

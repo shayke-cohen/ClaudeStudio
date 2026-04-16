@@ -137,6 +137,10 @@ struct SidebarView: View {
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.workshopKey, store: AppSettings.store) private var workshopFlag = false
+    @AppStorage(FeatureFlags.autoAssembleKey, store: AppSettings.store) private var autoAssembleFlag = false
+    @AppStorage(FeatureFlags.autonomousMissionsKey, store: AppSettings.store) private var autonomousMissionsFlag = false
     @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
     @AppStorage("sidebar.showProjectTasksSection") private var showsProjectTasksSection = false
     @AppStorage("sidebar.showProjectSchedulesSection") private var showsProjectSchedulesSection = false
@@ -177,6 +181,11 @@ struct SidebarView: View {
     @State private var isResidentHistoryExpanded = false
     @AppStorage("sidebar.residentsExpanded") private var isResidentsSectionExpanded: Bool = true
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
+
+    private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
+    private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
+    private var autonomousMissionsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autonomousMissionsKey) || (masterFlag && autonomousMissionsFlag) }
+
     var body: some View {
         @Bindable var ws = windowState
         List {
@@ -715,24 +724,26 @@ struct SidebarView: View {
             .xrayId(catalog.xrayId)
             .accessibilityLabel(catalog.helpText)
 
-            Divider()
-                .frame(height: 16)
+            if workshopEnabled {
+                Divider()
+                    .frame(height: 16)
 
-            let workshop = SidebarBottomBarItem.workshop
-            Button {
-                windowState.showWorkshop = true
-            } label: {
-                Label(workshop.rawValue, systemImage: workshop.icon)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .font(.caption)
-                    .frame(minHeight: 24)
-                    .frame(maxWidth: .infinity)
+                let workshop = SidebarBottomBarItem.workshop
+                Button {
+                    windowState.showWorkshop = true
+                } label: {
+                    Label(workshop.rawValue, systemImage: workshop.icon)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .font(.caption)
+                        .frame(minHeight: 24)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .help(workshop.helpText)
+                .xrayId(workshop.xrayId)
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                .accessibilityLabel(workshop.helpText)
             }
-            .buttonStyle(.plain)
-            .help(workshop.helpText)
-            .xrayId(workshop.xrayId)
-            .keyboardShortcut("w", modifiers: [.command, .shift])
-            .accessibilityLabel(workshop.helpText)
 
             Divider()
                 .frame(height: 16)
@@ -771,23 +782,25 @@ struct SidebarView: View {
             .xrayId(agents.xrayId)
             .accessibilityLabel(agents.helpText)
 
-            Divider()
-                .frame(height: 16)
+            if autoAssembleEnabled {
+                Divider()
+                    .frame(height: 16)
 
-            let autoAssemble = SidebarBottomBarItem.autoAssemble
-            Button {
-                showAutoAssemble = true
-            } label: {
-                Image(systemName: autoAssemble.icon)
-                    .font(.caption)
-                    .frame(width: 24, height: 24)
-                    .frame(maxWidth: .infinity)
+                let autoAssemble = SidebarBottomBarItem.autoAssemble
+                Button {
+                    showAutoAssemble = true
+                } label: {
+                    Image(systemName: autoAssemble.icon)
+                        .font(.caption)
+                        .frame(width: 24, height: 24)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .help(autoAssemble.helpText)
+                .xrayId(autoAssemble.xrayId)
+                .accessibilityLabel(autoAssemble.helpText)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .help(autoAssemble.helpText)
-            .xrayId(autoAssemble.xrayId)
-            .accessibilityLabel(autoAssemble.helpText)
-            .contentShape(Rectangle())
 
             Divider()
                 .frame(height: 16)
@@ -1648,7 +1661,7 @@ struct SidebarView: View {
                             windowState.selectedConversationId = convoId
                         }
                     },
-                    onNewAutonomousChat: group.autonomousCapable ? {
+                    onNewAutonomousChat: (autonomousMissionsEnabled && group.autonomousCapable) ? {
                         autonomousGroup = group
                     } : nil,
                     onSelectConversation: { conv in

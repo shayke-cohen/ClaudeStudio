@@ -7,9 +7,13 @@ struct AgentEditorView: View {
     @Query(sort: \Skill.name) private var allSkills: [Skill]
     @Query(sort: \MCPServer.name) private var allMCPs: [MCPServer]
     @Query(sort: \PermissionSet.name) private var allPermissions: [PermissionSet]
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.advancedAgentConfigKey, store: AppSettings.store) private var advancedAgentConfigFlag = false
 
     let agent: Agent?
     let onSave: (Agent) -> Void
+
+    private var advancedAgentConfigEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.advancedAgentConfigKey) || (masterFlag && advancedAgentConfigFlag) }
 
     @State private var currentStep = 0
     @State private var name: String
@@ -191,21 +195,23 @@ struct AgentEditorView: View {
                     }
                 }
                 .xrayId("agentEditor.modelPicker")
-                TextField("Max Turns", text: $maxTurns)
-                    .xrayId("agentEditor.maxTurnsField")
-                TextField("Max Budget ($)", text: $maxBudget)
-                    .xrayId("agentEditor.maxBudgetField")
+                if advancedAgentConfigEnabled {
+                    TextField("Max Turns", text: $maxTurns)
+                        .xrayId("agentEditor.maxTurnsField")
+                    TextField("Max Budget ($)", text: $maxBudget)
+                        .xrayId("agentEditor.maxBudgetField")
 
-                Picker("Instance Policy", selection: $instancePolicy) {
-                    ForEach(AgentInstancePolicy.allCases, id: \.self) { policy in
-                        Text(policy.displayName).tag(policy)
+                    Picker("Instance Policy", selection: $instancePolicy) {
+                        ForEach(AgentInstancePolicy.allCases, id: \.self) { policy in
+                            Text(policy.displayName).tag(policy)
+                        }
                     }
-                }
-                .xrayId("agentEditor.instancePolicyPicker")
+                    .xrayId("agentEditor.instancePolicyPicker")
 
-                if instancePolicy == .pool {
-                    TextField("Pool Max", text: $instancePolicyPoolMax)
-                        .xrayId("agentEditor.instancePolicyPoolMaxField")
+                    if instancePolicy == .pool {
+                        TextField("Pool Max", text: $instancePolicyPoolMax)
+                            .xrayId("agentEditor.instancePolicyPoolMaxField")
+                    }
                 }
             }
 

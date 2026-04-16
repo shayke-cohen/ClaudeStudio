@@ -28,9 +28,17 @@ struct MainWindowView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
     @AppStorage(AppSettings.useLegacyChatChromeKey, store: AppSettings.store) private var useLegacyChatChrome = false
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.peerNetworkKey, store: AppSettings.store) private var peerNetworkFlag = false
+    @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
+    @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
     @Query private var conversations: [Conversation]
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showStatusPopover = false
+
+    private var showPeerNetwork: Bool { FeatureFlags.isEnabled(FeatureFlags.peerNetworkKey) || (masterFlag && peerNetworkFlag) }
+    private var showDebugLogs: Bool { FeatureFlags.isEnabled(FeatureFlags.debugLogsKey) || (masterFlag && debugLogsFlag) }
+    private var showFederation: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
 
     var body: some View {
         @Bindable var ws = windowState
@@ -139,17 +147,19 @@ struct MainWindowView: View {
                     .accessibilityLabel("Schedules")
                 }
 
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        ws.showSharedRoomInbox = true
-                    } label: {
-                        Label("Invites", systemImage: "person.badge.plus")
+                if showFederation {
+                    ToolbarItem(placement: .automatic) {
+                        Button {
+                            ws.showSharedRoomInbox = true
+                        } label: {
+                            Label("Invites", systemImage: "person.badge.plus")
+                        }
+                        .keyboardShortcut("i", modifiers: [.command, .shift])
+                        .help("Shared room invites (⌘⇧I)")
+                        .xrayId("mainWindow.sharedRoomInboxButton")
+                        .accessibilityLabel("Shared Room Invites")
+                        .badge(sharedRoomService.unreadInviteCount)
                     }
-                    .keyboardShortcut("i", modifiers: [.command, .shift])
-                    .help("Shared room invites (⌘⇧I)")
-                    .xrayId("mainWindow.sharedRoomInboxButton")
-                    .accessibilityLabel("Shared Room Invites")
-                    .badge(sharedRoomService.unreadInviteCount)
                 }
 
                 ToolbarItem(placement: .automatic) {
@@ -165,28 +175,32 @@ struct MainWindowView: View {
                     .badge(appState.commsEvents.count)
                 }
 
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        windowState.showPeerNetwork = true
-                    } label: {
-                        Label("Peer Network", systemImage: "network")
+                if showPeerNetwork {
+                    ToolbarItem(placement: .automatic) {
+                        Button {
+                            windowState.showPeerNetwork = true
+                        } label: {
+                            Label("Peer Network", systemImage: "network")
+                        }
+                        .keyboardShortcut("p", modifiers: [.command, .shift])
+                        .help("Peer network (⌘⇧P)")
+                        .xrayId("mainWindow.peerNetworkButton")
+                        .accessibilityLabel("Peer Network")
                     }
-                    .keyboardShortcut("p", modifiers: [.command, .shift])
-                    .help("Peer network (⌘⇧P)")
-                    .xrayId("mainWindow.peerNetworkButton")
-                    .accessibilityLabel("Peer Network")
                 }
 
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        openWindow(id: "debug-log")
-                    } label: {
-                        Label("Debug Log", systemImage: "ladybug")
+                if showDebugLogs {
+                    ToolbarItem(placement: .automatic) {
+                        Button {
+                            openWindow(id: "debug-log")
+                        } label: {
+                            Label("Debug Log", systemImage: "ladybug")
+                        }
+                        .keyboardShortcut("d", modifiers: [.command, .shift])
+                        .help("Debug log (⌘⇧D)")
+                        .xrayId("mainWindow.debugLogButton")
+                        .accessibilityLabel("Debug Log")
                     }
-                    .keyboardShortcut("d", modifiers: [.command, .shift])
-                    .help("Debug log (⌘⇧D)")
-                    .xrayId("mainWindow.debugLogButton")
-                    .accessibilityLabel("Debug Log")
                 }
             } else if ws.activeRoute != .settings {
                 ToolbarItem(placement: .automatic) {
@@ -198,12 +212,14 @@ struct MainWindowView: View {
                         }
                         .keyboardShortcut("s", modifiers: [.command, .shift])
 
-                        Button {
-                            ws.showSharedRoomInbox = true
-                        } label: {
-                            Label("Invites", systemImage: "person.badge.plus")
+                        if showFederation {
+                            Button {
+                                ws.showSharedRoomInbox = true
+                            } label: {
+                                Label("Invites", systemImage: "person.badge.plus")
+                            }
+                            .keyboardShortcut("i", modifiers: [.command, .shift])
                         }
-                        .keyboardShortcut("i", modifiers: [.command, .shift])
 
                         Button {
                             windowState.showAgentComms = true
@@ -212,19 +228,23 @@ struct MainWindowView: View {
                         }
                         .keyboardShortcut("a", modifiers: [.command, .shift])
 
-                        Button {
-                            windowState.showPeerNetwork = true
-                        } label: {
-                            Label("Peer Network", systemImage: "network")
+                        if showPeerNetwork {
+                            Button {
+                                windowState.showPeerNetwork = true
+                            } label: {
+                                Label("Peer Network", systemImage: "network")
+                            }
+                            .keyboardShortcut("p", modifiers: [.command, .shift])
                         }
-                        .keyboardShortcut("p", modifiers: [.command, .shift])
 
-                        Button {
-                            openWindow(id: "debug-log")
-                        } label: {
-                            Label("Debug Log", systemImage: "ladybug")
+                        if showDebugLogs {
+                            Button {
+                                openWindow(id: "debug-log")
+                            } label: {
+                                Label("Debug Log", systemImage: "ladybug")
+                            }
+                            .keyboardShortcut("d", modifiers: [.command, .shift])
                         }
-                        .keyboardShortcut("d", modifiers: [.command, .shift])
                     } label: {
                         MainToolbarActionLabel(title: "Workspace", systemImage: "rectangle.grid.1x2")
                     }

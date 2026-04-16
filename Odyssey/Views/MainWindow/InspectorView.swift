@@ -19,6 +19,8 @@ struct InspectorView: View {
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
     @State private var now = Date()
     @State private var editingGroup: AgentGroup?
     @State private var instructionExpanded = false
@@ -33,6 +35,8 @@ struct InspectorView: View {
     // workingDirectoryDraft removed — project dir is per-window, not editable per-session
 
     private let durationTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
 
     private var sourceGroup: AgentGroup? {
         guard let gid = conversation.sourceGroupId else { return nil }
@@ -211,7 +215,7 @@ struct InspectorView: View {
                 } else {
                     multiSessionsSection
                 }
-                if conversation.isSharedRoom {
+                if conversation.isSharedRoom && federationEnabled {
                     sharedRoomSection
                 }
                 if hasWorkingDirectory {

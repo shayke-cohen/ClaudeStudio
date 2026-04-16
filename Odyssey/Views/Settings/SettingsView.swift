@@ -79,8 +79,28 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @State private var selectedSection: SettingsSection
     @StateObject private var modelsState = ModelsSettingsState()
+    @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
+    @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
+    @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
+    @AppStorage(FeatureFlags.devModeKey, store: AppSettings.store) private var devModeFlag = false
 
     private let onBackToApp: (() -> Void)?
+
+    private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
+    private var devModeEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.devModeKey) || (masterFlag && devModeFlag) }
+
+    private var visibleSections: [SettingsSection] {
+        SettingsSection.allCases.filter { section in
+            switch section {
+            case .iosPairing, .federation, .acceptInvite:
+                return federationEnabled
+            case .developer:
+                return devModeEnabled
+            default:
+                return true
+            }
+        }
+    }
 
     init(
         initialSection: SettingsSection = .general,
@@ -120,7 +140,7 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(SettingsSection.allCases) { section in
+                ForEach(visibleSections) { section in
                     Button {
                         selectedSection = section
                     } label: {
