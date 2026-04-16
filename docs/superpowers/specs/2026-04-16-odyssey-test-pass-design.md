@@ -24,7 +24,7 @@ Run each of these, record exact counts, investigate any failure before writing n
 
 1. `./scripts/run-all-tests.sh` — Swift XCTest + sidecar unit/integration/api/e2e + legacy API harness.
 2. `cd sidecar && bun test test/nostr-crypto.test.ts test/nostr-transport.test.ts test/nostr-live-relay.test.ts` — root-level Nostr tests not in the runner.
-3. `cd sidecar && bun test test/sidecar-api.test.ts` via the runner only (it wraps port allocation).
+3. `cd sidecar && bun run test/sidecar-api.script.ts` via the runner only (it wraps port allocation).
 4. AppXray smoke: discover + connect to a running Odyssey debug build, inspect main window, screenshot.
 5. Argus iOS smoke: allocate simulator, launch OdysseyiOS, inspect first screen.
 

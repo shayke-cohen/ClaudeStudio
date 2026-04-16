@@ -52,7 +52,7 @@ else
   OVERALL=1
 fi
 
-step "3/3 Sidecar — legacy test/sidecar-api.test.ts (ephemeral WS/HTTP ports)"
+step "3/3 Sidecar — manual harness test/sidecar-api.script.ts (ephemeral WS/HTTP ports)"
 if ! command -v curl >/dev/null 2>&1; then
   echo "SKIP: curl not found (needed for health check)"
   OVERALL=1
@@ -118,7 +118,7 @@ else
           ODYSSEY_HTTP_PORT="$API_HTTP_PORT" \
           CLAUDESTUDIO_WS_PORT="$API_WS_PORT" \
           CLAUDESTUDIO_HTTP_PORT="$API_HTTP_PORT" \
-          bun run test/sidecar-api.test.ts); then
+          bun run test/sidecar-api.script.ts); then
         echo "OK: sidecar-api harness"
       else
         echo "FAIL: sidecar-api harness"

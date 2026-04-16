@@ -6,8 +6,12 @@
  * - Blackboard HTTP API (write, read, query, keys)
  * - Streaming events (stream.token, stream.toolCall, stream.toolResult, session.result, session.error)
  *
- * Usage: ODYSSEY_WS_PORT=9849 ODYSSEY_HTTP_PORT=9850 bun test/sidecar-api.test.ts
+ * Usage: ODYSSEY_WS_PORT=9849 ODYSSEY_HTTP_PORT=9850 bun run test/sidecar-api.script.ts
  * Requires: sidecar listening on the same ports (defaults 9849 WS / 9850 HTTP).
+ *
+ * Note: this is a manual smoke script, NOT a bun:test suite. The .script.ts
+ * extension keeps it out of `bun test` auto-discovery. Use scripts/run-all-tests.sh
+ * for the canonical run with proper port allocation.
  */
 
 const WS_PORT = Number(process.env.ODYSSEY_WS_PORT ?? process.env.CLAUDESTUDIO_WS_PORT ?? "9849");

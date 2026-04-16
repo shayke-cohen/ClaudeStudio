@@ -16,7 +16,7 @@
 | Sidecar root (Nostr crypto+transport) | 22 pass / 0 fail | 22 pass / 0 fail | 0 |
 | Sidecar Nostr live relay | not run | 1 pass / 0 fail | +1 |
 | Sidecar security (exploit) | not run | 18 pass / 0 fail | +18 |
-| Legacy `sidecar-api.test.ts` harness | not run | 11 pass / 0 fail | +11 |
+| Legacy `sidecar-api.script.ts` harness | not run | 11 pass / 0 fail | +11 |
 | **Sidecar total** | **306 pass / 5 fail** | **387 pass / 0 fail** | **+81, 5 fixed** |
 | Swift XCTest (macOS) | **LOAD FAILED** (signing) | **649 pass / 1 skip / 0 fail** | +18 new, unblocked |
 | iOS XCTest | 24 pass / 0 fail | 30 pass / 0 fail | +6 |

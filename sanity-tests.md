@@ -240,9 +240,9 @@ Focused backend regression tests. Boots its own sidecar subprocess on random por
 
 ---
 
-## Known Issue: `test/sidecar-api.test.ts` (legacy)
+## Known Issue: `test/sidecar-api.script.ts` (legacy manual harness)
 
-This file is a **legacy standalone runner** (9/11 passing, 2 failing). It has its own `main()` entry point, doesn't use the `bun:test` framework, and connects to hardcoded ports 9849/9850 expecting a pre-running sidecar.
+This file is a **legacy standalone runner** (9/11 passing, 2 failing). It has its own `main()` entry point, doesn't use the `bun:test` framework, and connects to hardcoded ports 9849/9850 expecting a pre-running sidecar. Renamed from `.test.ts` → `.script.ts` so `bun test` (no args) no longer auto-discovers it; run via `scripts/run-all-tests.sh` or directly with `bun run test/sidecar-api.script.ts`.
 
 **Failing tests:**
 1. `session.create + session.message round-trip` — expects a confirmation `stream.token` after `session.create`, but the sidecar no longer emits one on create.
@@ -550,6 +550,6 @@ Compare the returned tree against the tables in `TESTING.md` Section 5. Any inte
 ## Last Full Run
 
 **Date:** 2026-03-22
-**Result:** 139/139 pass (excluding 2 legacy failures in `sidecar-api.test.ts`)
+**Result:** 139/139 pass (excluding 2 legacy failures in `sidecar-api.script.ts`)
 **Live tests:** All 6 live tests pass with `ODYSSEY_E2E_LIVE=1`
 **ACCEPT-1 time:** ~135s (Orchestrator delegated to Researcher + Coder, produced meditation app)

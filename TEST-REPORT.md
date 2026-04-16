@@ -10,7 +10,7 @@
 
 ## 1. Sidecar API Tests (Automated)
 
-**Test runner:** `sidecar/test/sidecar-api.test.ts`
+**Test runner:** `sidecar/test/sidecar-api.script.ts`
 **Result:** 11/11 PASSED (7.8s total)
 
 ### HTTP API
