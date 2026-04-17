@@ -4703,6 +4703,8 @@ struct DelegationModePickerView: View {
     let hasCoordinator: Bool
     let onSelect: (DelegationMode, String?) -> Void
 
+    @State private var expandedMode: DelegationMode? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             modeCard(.off, icon: "🚫", label: "Off", desc: "Questions always go to you", timeout: "5 min")
@@ -4747,13 +4749,45 @@ struct DelegationModePickerView: View {
     @ViewBuilder
     private func modeCardWithPicker(_ m: DelegationMode, icon: String, label: String, desc: String, timeout: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            modeCard(m, icon: icon, label: label, desc: desc, timeout: timeout)
-            if mode == m {
+            Button(action: { expandedMode = (expandedMode == m ? nil : m) }) {
+                HStack {
+                    Text(icon).font(.title3)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(label).font(.system(size: 12, weight: .semibold))
+                        Text(desc).font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(timeout)
+                        .font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(mode == m ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
+                        .foregroundStyle(mode == m ? Color.accentColor : Color.secondary)
+                }
+                .padding(8)
+                .background(mode == m ? Color.accentColor.opacity(0.08) : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(mode == m ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1.5)
+                )
+                .cornerRadius(7)
+            }
+            .buttonStyle(.plain)
+
+            if mode == m && targetAgentName == nil {
+                Text("Tap to select an agent below")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 36)
+                    .padding(.vertical, 4)
+            }
+
+            if expandedMode == m {
                 let agentParticipants = participants.filter { $0.typeKind == "agentSession" }
                 VStack(spacing: 0) {
                     ForEach(agentParticipants, id: \.id) { p in
                         let isSelected = targetAgentName == p.displayName
-                        Button(action: { onSelect(m, p.displayName) }) {
+                        Button(action: { onSelect(m, p.displayName); expandedMode = nil }) {
                             HStack {
                                 Text("🤖").font(.system(size: 12))
                                 Text(p.displayName).font(.system(size: 11))
