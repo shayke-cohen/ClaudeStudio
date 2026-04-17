@@ -343,6 +343,15 @@ export class WsServer {
         this.broadcast({ type: "ios.pushRegistered", apnsToken: pushCmd.apnsToken, success: true });
         break;
       }
+
+      case "conversation.setDelegationMode": {
+        this.ctx.delegation.set(command.sessionId, {
+          mode: command.mode,
+          targetAgentName: command.targetAgentName,
+        });
+        logger.info("ws", `conversation.setDelegationMode: session=${command.sessionId} mode=${command.mode} target=${command.targetAgentName ?? "none"}`);
+        break;
+      }
     }
   }
 

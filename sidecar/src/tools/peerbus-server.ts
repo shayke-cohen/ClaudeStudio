@@ -7,6 +7,7 @@ import { createWorkspaceTools } from "./workspace-tools.js";
 import { createTaskBoardTools } from "./task-board-tools.js";
 import { createConnectorTools } from "./connector-tools.js";
 import { createAskUserTool } from "./ask-user-tool.js";
+import { createAskAgentTool } from "./ask-agent-tool.js";
 import { createRichDisplayTools } from "./rich-display-tools.js";
 import { logger } from "../logger.js";
 import {
@@ -65,10 +66,11 @@ export function createPeerBusToolDefinitions(
 
   if (includeAskUser) {
     definitions.push(...createAskUserTool(ctx, callingSessionId, onQuestionCreated));
+    definitions.push(...createAskAgentTool(ctx, callingSessionId));
     definitions.push(...createRichDisplayTools(ctx, callingSessionId));
-    logger.debug("peerbus", `ask_user + rich display tools INCLUDED for session ${callingSessionId}`);
+    logger.debug("peerbus", `ask_user + ask_agent + rich display tools INCLUDED for session ${callingSessionId}`);
   } else {
-    logger.debug("peerbus", `ask_user tool NOT included for session ${callingSessionId} (includeAskUser=${includeAskUser})`);
+    logger.debug("peerbus", `ask_user/ask_agent tools NOT included for session ${callingSessionId} (includeAskUser=${includeAskUser})`);
   }
 
   return definitions;
