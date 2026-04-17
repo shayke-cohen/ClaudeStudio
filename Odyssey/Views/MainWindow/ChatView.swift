@@ -4371,7 +4371,7 @@ struct QuestionRoutingPillView: View {
             Circle()
                 .fill(isFallback ? Color.orange : Color.green)
                 .frame(width: 6, height: 6)
-            Text(isFallback ? "No reply · routed to \(targetAgentName)" : "Routing to \(targetAgentName)\u{2026}")
+            Text(isFallback ? "⏱ No reply · routed to \(targetAgentName)" : "Routing to \(targetAgentName)\u{2026}")
                 .font(.system(size: 10))
                 .foregroundColor(isFallback ? .orange : .green)
         }
@@ -4382,5 +4382,6 @@ struct QuestionRoutingPillView: View {
                 .stroke(isFallback ? Color.orange.opacity(0.25) : Color.green.opacity(0.25))
         )
         .cornerRadius(8)
+        .xrayId(isFallback ? "chat.routingPill.fallback" : "chat.routingPill.inFlight")
     }
 }
