@@ -716,6 +716,7 @@ final class ConfigSyncService {
                 entity.instancePolicy = AgentInstancePolicy(rawValue: entry.config.instancePolicy ?? "") ?? .agentDefault
                 entity.instancePolicyPoolMax = entry.config.instancePolicyPoolMax
                 if let isShared = entry.config.isShared { entity.isShared = isShared }
+                entity.configSlug = slug
                 entity.updatedAt = Date()
             } else {
                 // Check for a name-match migration candidate (no configSlug yet)
@@ -779,10 +780,8 @@ final class ConfigSyncService {
                 // Only disable if this slug was seen by the file-backed reader at some point (i.e. the
                 // entity's configSlug matches the file-backed layout). We conservatively skip to avoid
                 // disabling catalog-format entities here.
+                entity.isEnabled = false
             }
-            // No-op: deletion/disabling of file-backed agents is handled by the legacy syncAgents()
-            // which soft-disables any slug not found in the flat-file catalog. Doing it here too would
-            // double-disable. The file-backed format is additive; the legacy path owns the disable logic.
         }
     }
 
@@ -922,6 +921,7 @@ final class ConfigSyncService {
                 entity.category = entry.dto.category ?? "General"
                 entity.triggers = entry.dto.triggers ?? []
                 entity.content = entry.content
+                entity.sourceKind = "filesystem"
                 entity.updatedAt = Date()
             } else {
                 let byName = existing.first { $0.name == entry.dto.name && $0.configSlug == nil }
@@ -1015,6 +1015,7 @@ final class ConfigSyncService {
             // Only disable if the entity was created via the new MCPConfigFileDTO format.
             // We detect this conservatively: if the legacy catalog already tracks it, it
             // will soft-disable via syncMCPs(). We skip here to avoid double-disabling.
+            entity.isEnabled = false
         }
     }
 
