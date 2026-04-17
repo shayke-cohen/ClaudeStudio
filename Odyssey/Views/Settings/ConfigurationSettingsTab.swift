@@ -188,36 +188,44 @@ struct ConfigurationSettingsTab: View {
 
     private var itemListPane: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                TextField("Search", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.caption)
+            // Header: section title + "+ New" button
+            HStack(alignment: .center) {
+                Text(selectedSection.title)
+                    .font(.system(size: 13, weight: .bold))
+                Spacer()
+                if selectedSection != .templates && selectedSection != .permissions {
+                    Button { handleNewItem() } label: {
+                        Text("+ New")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.configuration.listNewButton")
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
+            .padding(.horizontal, 12)
+            .padding(.top, 11)
+            .padding(.bottom, 7)
+
+            // Search field
+            HStack(spacing: 5) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                TextField("Search \(selectedSection.title.lowercased())…", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 8)
+            .padding(.bottom, 6)
+            .accessibilityIdentifier("settings.configuration.listSearch")
 
             Divider()
 
             configItemList
-
-            Divider()
-
-            if selectedSection != .templates && selectedSection != .permissions {
-                Button {
-                    handleNewItem()
-                } label: {
-                    Label("New \(selectedSection.title.dropLast(selectedSection.title.hasSuffix("s") ? 1 : 0))", systemImage: "plus")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .xrayId("settings.configuration.newItemButton")
-            }
         }
         .frame(maxHeight: .infinity)
     }
@@ -230,10 +238,26 @@ struct ConfigurationSettingsTab: View {
                 items: filteredAgents,
                 selectedItem: $selectedItem,
                 itemRow: { agent in
-                    ConfigItemRow(
+                    let skillCount = agent.skillIds.count
+                    let mcpCount = agent.extraMCPServerIds.count
+                    let subtitle: String = {
+                        var parts = ["\(skillCount) skill\(skillCount == 1 ? "" : "s")"]
+                        if mcpCount > 0 { parts.append("\(mcpCount) MCP\(mcpCount == 1 ? "" : "s")") }
+                        return parts.joined(separator: " · ")
+                    }()
+                    let shortModel: String = {
+                        if agent.model.contains("opus")   { return "opus"   }
+                        if agent.model.contains("sonnet") { return "sonnet" }
+                        if agent.model.contains("haiku")  { return "haiku"  }
+                        return agent.model == AgentDefaults.inheritMarker ? "" : String(agent.model.prefix(8))
+                    }()
+                    return ConfigListRow(
                         name: agent.name,
                         icon: agent.icon,
-                        subtitle: "\(agent.provider) · \(agent.skillIds.count) skills"
+                        color: Color.fromAgentColor(agent.color),
+                        subtitle: subtitle,
+                        modelBadge: shortModel.isEmpty ? nil : shortModel,
+                        showPinDot: agent.isResident
                     )
                     .tag(ConfigSelectedItem.agent(agent))
                 }
@@ -243,10 +267,21 @@ struct ConfigurationSettingsTab: View {
                 items: filteredGroups,
                 selectedItem: $selectedItem,
                 itemRow: { group in
-                    ConfigItemRow(
+                    let memberNames = agents
+                        .filter { group.agentIds.contains($0.id) }
+                        .prefix(3)
+                        .map(\.name)
+                    let remaining = max(0, group.agentIds.count - 3)
+                    let subtitle: String = {
+                        guard !memberNames.isEmpty else { return "No members" }
+                        let joined = memberNames.joined(separator: " · ")
+                        return remaining > 0 ? "\(joined) +\(remaining) more" : joined
+                    }()
+                    return ConfigListRow(
                         name: group.name,
                         icon: group.icon,
-                        subtitle: "\(group.agentIds.count) members"
+                        color: Color.fromAgentColor(group.color),
+                        subtitle: subtitle
                     )
                     .tag(ConfigSelectedItem.group(group))
                 }
@@ -256,11 +291,13 @@ struct ConfigurationSettingsTab: View {
                 items: filteredSkills,
                 selectedItem: $selectedItem,
                 itemRow: { skill in
-                    ConfigItemRow(
+                    let count = skill.triggers.count
+                    let subtitle = "\(skill.category.isEmpty ? "Uncategorized" : skill.category) · \(count) trigger\(count == 1 ? "" : "s")"
+                    return ConfigListRow(
                         name: skill.name,
-                        icon: "bolt",
-                        subtitle: skill.category,
-                        useSystemIcon: true
+                        icon: "bolt.fill",
+                        color: .green,
+                        subtitle: subtitle
                     )
                     .tag(ConfigSelectedItem.skill(skill))
                 }
@@ -270,11 +307,13 @@ struct ConfigurationSettingsTab: View {
                 items: filteredMCPs,
                 selectedItem: $selectedItem,
                 itemRow: { mcp in
-                    ConfigItemRow(
+                    let desc = mcp.serverDescription.isEmpty ? nil : String(mcp.serverDescription.prefix(30))
+                    let subtitle = desc.map { "\(mcp.transportKind) · \($0)" } ?? mcp.transportKind
+                    return ConfigListRow(
                         name: mcp.name,
-                        icon: "hammer",
-                        subtitle: mcp.transportKind,
-                        useSystemIcon: true
+                        icon: "hammer.fill",
+                        color: .orange,
+                        subtitle: subtitle
                     )
                     .tag(ConfigSelectedItem.mcp(mcp))
                 }
@@ -286,11 +325,11 @@ struct ConfigurationSettingsTab: View {
                 items: filteredPermissions,
                 selectedItem: $selectedItem,
                 itemRow: { perm in
-                    ConfigItemRow(
+                    ConfigListRow(
                         name: perm.name,
-                        icon: "lock.shield",
-                        subtitle: "\(perm.allowRules.count) allow · \(perm.denyRules.count) deny",
-                        useSystemIcon: true
+                        icon: "lock.shield.fill",
+                        color: .indigo,
+                        subtitle: "\(perm.allowRules.count) allow · \(perm.denyRules.count) deny"
                     )
                     .tag(ConfigSelectedItem.permission(perm))
                 }
@@ -401,46 +440,71 @@ private struct ConfigItemList<Item: Identifiable, Row: View>: View {
     }
 }
 
-// MARK: - Row component
+// MARK: - Rich list row
 
-private struct ConfigItemRow: View {
+private struct ConfigListRow: View {
     let name: String
     let icon: String
+    let color: Color
     let subtitle: String
-    var useSystemIcon: Bool = false
-
-    private var resolvedSystemIcon: String {
-        if useSystemIcon { return icon }
-        // Heuristic: SF Symbol names start with an ASCII letter; emoji start with high codepoints.
-        // Works for all current data; edge case: icon names starting with digits (e.g. "42.circle") would be treated as emoji.
-        if icon.unicodeScalars.first.map({ CharacterSet.letters.contains($0) }) == true {
-            return icon
-        }
-        return "person.crop.circle"
-    }
+    var modelBadge: String? = nil
+    var showPinDot: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            if useSystemIcon || icon.unicodeScalars.first.map({ CharacterSet.letters.contains($0) }) == true {
-                Image(systemName: resolvedSystemIcon)
-                    .frame(width: 18)
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-            } else {
-                Text(icon)
-                    .frame(width: 18)
-                    .font(.callout)
-            }
+        HStack(spacing: 9) {
+            avatarView
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
-                    .font(.callout.weight(.medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.caption2)
+                    .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let badge = modelBadge, !badge.isEmpty {
+                badgeView(badge)
+            }
+            if showPinDot {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 6, height: 6)
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private var avatarView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(color)
+                .frame(width: 28, height: 28)
+            if icon.unicodeScalars.first.map({ CharacterSet.letters.contains($0) }) == true {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+            } else {
+                Text(icon)
+                    .font(.system(size: 13))
+            }
+        }
+    }
+
+    private func badgeView(_ model: String) -> some View {
+        let (bg, fg) = badgeColors(model)
+        return Text(model)
+            .font(.system(size: 9, weight: .bold))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(bg, in: RoundedRectangle(cornerRadius: 5))
+            .foregroundStyle(fg)
+    }
+
+    private func badgeColors(_ model: String) -> (Color, Color) {
+        if model.contains("opus")   { return (.blue.opacity(0.15),   .blue)   }
+        if model.contains("sonnet") { return (.green.opacity(0.15),  .green)  }
+        if model.contains("haiku")  { return (.purple.opacity(0.15), .purple) }
+        return (.secondary.opacity(0.1), .secondary)
     }
 }
