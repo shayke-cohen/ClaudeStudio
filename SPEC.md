@@ -397,6 +397,9 @@ XCTest-based unit test target for verifying catalog system integrity, service lo
 | FR-13.15: FileNodeTests — initialization, computed properties, loadChildren, reloadChildren, applyGitStatus | Done |
 | FR-13.16: FileExplorerIntegrationTests — git path resolution, @Published behavior, edge cases, deep nesting | Done |
 | FR-13.17: 200+ XCTest cases passing (includes `WorkspaceResolverTests`) | Done |
+| FR-13.18: ThreadCreationTests — 20 XCTest cases: unit (mission trimming, ThreadKind selection), integration (SwiftData object graph for agent/freeform threads, participant type discrimination), API (`AppState.startGroupChat` — returns UUID, persists `.group` conversation, applies missionOverride, rejects empty/unresolvable groups), template filtering (by agent ID, by group ID, sort order, freeform returns empty) | Done |
+| FR-13.19: AppXray E2E YAML for thread creation popovers (`tests/appxray/thread-creation-popover.yaml`) — 6 tests: agent picker opens, "No specialized agent" row visible, mission hint, group picker opens, empty-state template chips region | Done |
+| FR-13.20: 804 Swift XCTest cases passing across OdysseyTests | Done |
 
 ### FR-14: Inter-Agent Communication (PeerBus)
 
@@ -716,6 +719,30 @@ When all agents in a conversation finish their work, the app automatically detec
 | FR-28.16: `ConversationMessage.MessageType.systemEvaluation` stores the hidden eval turn in SwiftData but is never rendered in the chat bubble view | Done |
 | FR-28.17: Idle result and evaluating state are cleared when the user sends a new message to the conversation | Done |
 | FR-28.18: Unit tests (16), integration tests (8), API/WebSocket tests (6), XCTests (17), and AppXray YAML cover the full eval pipeline | Done |
+
+
+### FR-29: Agent Question Delegation (Auto-Answer)
+
+**Status:** Implemented
+
+In multi-agent group conversations agents can route clarifying questions to other agents instead of always blocking on the user. The user controls how much autonomy to grant via a per-conversation delegation mode.
+
+| Requirement | Status |
+|---|---|
+| FR-29.1: `ask_agent(question, to_agent)` tool routes directly to the nominated agent — no user interruption | Done |
+| FR-29.2: `ask_user` gains optional `timeout_seconds` hint; in auto modes the card shows a live countdown | Done |
+| FR-29.3: Four delegation modes: Off (5 min → best judgment), By agents (30s → fallback chain), Specific agent (30s → chosen agent), Coordinator (30s → coordinator session) | Done |
+| FR-29.4: Fallback chain (By agents mode): coordinator if present → least-busy available agent → best judgment | Done |
+| FR-29.5: `DelegationStore` holds per-session `DelegationConfig {mode, targetAgentName?}`; cleaned up on session teardown | Done |
+| FR-29.6: `resolveTarget` — Off/By agents use nominated agent; Specific agent/Coordinator override to `targetAgentName` | Done |
+| FR-29.7: `conversation.setDelegationMode` wire command; Swift calls it when user changes mode in the picker | Done |
+| FR-29.8: `agent.question.routing` event emitted before delegation spawn; `agent.question.resolved` emitted after, carrying `answeredBy`, `isFallback`, and `answer` text | Done |
+| FR-29.9: `Conversation.delegationMode` and `delegationTargetAgentName` persisted in SwiftData; `pendingQuestionRouting` and `resolvedQuestions` are `@Transient` runtime state | Done |
+| FR-29.10: Auto-Answer badge button in chat header (only visible in group conversations); blue tint when any auto mode is active | Done |
+| FR-29.11: Mode picker is a card-style popover with timeout badge per row; Specific agent card expands an inline agent picker | Done |
+| FR-29.12: Routing pill renders between messages — green (in-flight) or amber (fallback/timeout) | Done |
+| FR-29.13: Delegated answer shown as a synthetic bubble using the `answer` field from the resolved event; tagged "answered for you" (direct) or "fallback answer" (timeout) | Done |
+| FR-29.14: 117 tests across 7 layers: DelegationStore unit (8), ask-user helpers (22), ask-agent unit (14), integration flows (20), API/WS (14), AppXray YAML (14), Swift XCTest (25) | Done |
 
 ### Phase 9 — UX principles
 
