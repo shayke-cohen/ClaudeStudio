@@ -1718,6 +1718,14 @@ struct ChatView: View {
                                 .id("allDoneBanner")
                             }
 
+                            if let convo = conversation,
+                               appState.idleResults[convo.id.uuidString] != nil ||
+                               appState.evaluatingConversations.contains(convo.id.uuidString) {
+                                ConversationIdleResultView(conversationId: convo.id.uuidString)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    .id("idleResultView")
+                            }
+
                             Color.clear
                                 .frame(height: 1)
                                 .id(bottomScrollAnchor)

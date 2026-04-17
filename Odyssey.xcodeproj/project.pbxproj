@@ -73,6 +73,7 @@
 		46FB467A52AEAA2B5539E47E /* GroupAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD89E280FF0192E53D13568 /* GroupAssembler.swift */; };
 		48451D9C3B7751D9ADC0CA27 /* AgentProvisioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23B3B667785EE2839D81EA8 /* AgentProvisioner.swift */; };
 		48A021D17DD1120E32A39193 /* ConversationTreeNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62070BA1FCD86DA889ECD32D /* ConversationTreeNode.swift */; };
+		9589EDE93A1D445084BF9B0E /* ConversationIdleResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6797AC19B6D402CBF088B71 /* ConversationIdleResultView.swift */; };
 		4A9EF5119AE6FB66324C3D03 /* PromptTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D54F17BE4D8447127FBA81 /* PromptTemplate.swift */; };
 		4AF9054731A78C6D7D9014C8 /* ResidentAgentSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C239D0F037BD4C6B503FF5D5 /* ResidentAgentSupport.swift */; };
 		4B02F3DFA7721C59DC9A2E44 /* IdentityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA847BD8AF68DB5325D3CAF2 /* IdentityManager.swift */; };
@@ -378,6 +379,7 @@
 		5F7D02959EBB59C190BD138E /* SharedRoomInviteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRoomInviteSheet.swift; sourceTree = "<group>"; };
 		6181E164D6F6C72DAE58A922 /* PeerCatalogServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerCatalogServer.swift; sourceTree = "<group>"; };
 		62070BA1FCD86DA889ECD32D /* ConversationTreeNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTreeNode.swift; sourceTree = "<group>"; };
+		B6797AC19B6D402CBF088B71 /* ConversationIdleResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIdleResultView.swift; sourceTree = "<group>"; };
 		6266C8BE8CB4B1DC0050AA28 /* GroupPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupPopoverView.swift; sourceTree = "<group>"; };
 		63263BABF78A5A722099C0D5 /* RemoteSidecarManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSidecarManagerTests.swift; sourceTree = "<group>"; };
 		64E578B5DF4181B43F9663DD /* OllamaCatalogServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaCatalogServiceTests.swift; sourceTree = "<group>"; };
@@ -771,6 +773,7 @@
 				025A005B776366EC801B1187 /* CodeBlockView.swift */,
 				854257D624FF2888BB09A84C /* ColorExtension.swift */,
 				62070BA1FCD86DA889ECD32D /* ConversationTreeNode.swift */,
+				B6797AC19B6D402CBF088B71 /* ConversationIdleResultView.swift */,
 				D0F51D3A20726B5110862E55 /* GroupSummaryCard.swift */,
 				15AB75D93E7D75212FA5FD16 /* HighlightedCodeView.swift */,
 				8E4CCB76BF694A1ABA074D5D /* ImagePreviewOverlay.swift */,
@@ -1407,6 +1410,7 @@
 				4BA289DE86A43AFB7D29405D /* Conversation.swift in Sources */,
 				D7D3F04C53A2105D7CAFF259 /* ConversationMessage.swift in Sources */,
 				48A021D17DD1120E32A39193 /* ConversationTreeNode.swift in Sources */,
+				9589EDE93A1D445084BF9B0E /* ConversationIdleResultView.swift in Sources */,
 				17A35F4B23F27194E5B6F2F4 /* DebugLogView.swift in Sources */,
 				FCE5AF3A36C58B1B655C3EF8 /* DefaultsSeeder.swift in Sources */,
 				F641FC61384EE69649180C3A /* ExecutionModePromptBuilder.swift in Sources */,
