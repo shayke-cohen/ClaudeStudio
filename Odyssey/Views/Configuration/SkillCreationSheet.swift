@@ -13,6 +13,8 @@ struct SkillCreationSheet: View {
     var existingSkill: Skill? = nil
     let onSave: (Skill) -> Void
 
+    @State private var showMCPPicker: Bool = false
+
     // MARK: Mode
 
     @State private var mode: CreationMode = .fromPrompt
@@ -227,6 +229,10 @@ struct SkillCreationSheet: View {
                 triggersSection
             }
 
+            Section("Required MCPs") {
+                mcpsSection
+            }
+
             Section("Content (Markdown)") {
                 TextEditor(text: $content)
                     .font(.system(.body, design: .monospaced))
@@ -243,6 +249,99 @@ struct SkillCreationSheet: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    // MARK: - MCPs Section
+
+    @ViewBuilder
+    private var mcpsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Agents using this skill receive these MCPs automatically.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if !mcpServerIds.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(allMCPs.filter { mcpServerIds.contains($0.id) }) { mcp in
+                            HStack(spacing: 3) {
+                                Image(systemName: "server.rack").font(.caption2)
+                                Text(mcp.name).font(.caption2)
+                                Button {
+                                    mcpServerIds.removeAll { $0 == mcp.id }
+                                } label: {
+                                    Image(systemName: "xmark").font(.caption2)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove MCP \(mcp.name)")
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.orange.opacity(0.15))
+                            .cornerRadius(4)
+                        }
+                    }
+                }
+                .accessibilityIdentifier("skillCreation.selectedMCPsList")
+            }
+
+            Button("Add MCP…") { showMCPPicker.toggle() }
+                .font(.caption)
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.accentColor)
+                .accessibilityIdentifier("skillCreation.addMCPButton")
+                .popover(isPresented: $showMCPPicker, arrowEdge: .trailing) {
+                    mcpPickerPopover
+                }
+        }
+    }
+
+    private var mcpPickerPopover: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("MCPs")
+                .font(.headline)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+            Divider()
+            if allMCPs.isEmpty {
+                Text("No MCPs available")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(14)
+            } else {
+                List(allMCPs) { mcp in
+                    let isSelected = mcpServerIds.contains(mcp.id)
+                    Button {
+                        if isSelected {
+                            mcpServerIds.removeAll { $0 == mcp.id }
+                        } else {
+                            mcpServerIds.append(mcp.id)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(mcp.name).font(.callout)
+                                if !mcp.serverDescription.isEmpty {
+                                    Text(mcp.serverDescription)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+                .frame(width: 280, height: min(CGFloat(allMCPs.count) * 44 + 8, 240))
+            }
+        }
     }
 
     // MARK: - Triggers UI

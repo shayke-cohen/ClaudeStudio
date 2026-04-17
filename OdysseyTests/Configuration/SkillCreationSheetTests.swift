@@ -86,6 +86,61 @@ final class SkillCreationSheetTests: XCTestCase {
         )
     }
 
+    func test_saveWithMCPIds_persistsMCPIdsInSwiftData() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("odyssey-skill-mcp-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        defer { unsetenv("ODYSSEY_DATA_DIR") }
+
+        let mcp1 = MCPServer(name: "GitHub MCP", serverDescription: "GitHub tools", transport: .stdio(command: "gh", args: [], env: [:]))
+        let mcp2 = MCPServer(name: "Filesystem MCP", serverDescription: "File tools", transport: .stdio(command: "fs", args: [], env: [:]))
+        context.insert(mcp1)
+        context.insert(mcp2)
+        try context.save()
+
+        try performSkillSave(
+            existingSkill: nil,
+            name: "Security Skill",
+            skillDescription: "Security patterns",
+            category: "Security",
+            triggers: ["security"],
+            mcpServerIds: [mcp1.id, mcp2.id],
+            content: "# Security\nBe careful.",
+            version: "1.0",
+            context: context
+        )
+
+        let skills = try context.fetch(FetchDescriptor<Skill>())
+        let saved = try XCTUnwrap(skills.first)
+        XCTAssertEqual(Set(saved.mcpServerIds), Set([mcp1.id, mcp2.id]))
+    }
+
+    func test_saveWithEmptyMCPIds_persistsEmptyArray() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("odyssey-skill-nomcp-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        setenv("ODYSSEY_DATA_DIR", tempDir.path, 1)
+        defer { unsetenv("ODYSSEY_DATA_DIR") }
+
+        try performSkillSave(
+            existingSkill: nil,
+            name: "Solo Skill",
+            skillDescription: "",
+            category: "General",
+            triggers: [],
+            mcpServerIds: [],
+            content: "No MCPs needed.",
+            version: "1.0",
+            context: context
+        )
+
+        let skills = try context.fetch(FetchDescriptor<Skill>())
+        XCTAssertEqual(skills.first?.mcpServerIds, [])
+    }
+
     func test_slugify_handlesSpecialCharacters() {
         XCTAssertEqual(ConfigFileManager.slugify("Security Patterns"), "security-patterns")
         XCTAssertEqual(ConfigFileManager.slugify("Code Review Style!"), "code-review-style")

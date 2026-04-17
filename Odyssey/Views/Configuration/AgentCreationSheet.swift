@@ -45,10 +45,12 @@ struct AgentCreationSheet: View {
     @State private var maxBudget: String = ""
     @State private var instancePolicy: AgentInstancePolicy = .agentDefault
 
-    // Skill / MCP / permission pickers — full picker logic is a TODO in later tasks
-    // @State private var selectedSkillIds: Set<UUID> = []
-    // @State private var selectedMCPIds: Set<UUID> = []
-    // @State private var selectedPermissionId: UUID? = nil
+    // MARK: Capability pickers
+
+    @State private var selectedSkillIds: Set<UUID> = []
+    @State private var selectedMCPIds: Set<UUID> = []
+    @State private var showSkillPicker: Bool = false
+    @State private var showMCPPicker: Bool = false
 
     // MARK: - Init (pre-fill for edit use-case)
 
@@ -66,6 +68,8 @@ struct AgentCreationSheet: View {
             _maxTurns = State(initialValue: a.maxTurns.map { String($0) } ?? "")
             _maxBudget = State(initialValue: a.maxBudget.map { String($0) } ?? "")
             _instancePolicy = State(initialValue: a.instancePolicy)
+            _selectedSkillIds = State(initialValue: Set(a.skillIds))
+            _selectedMCPIds = State(initialValue: Set(a.extraMCPServerIds))
             _mode = State(initialValue: .manual)
         }
     }
@@ -234,15 +238,7 @@ struct AgentCreationSheet: View {
             }
 
             Section("Capabilities") {
-                // TODO: Skill picker — implement in a later task
-                Text("Skills: (picker coming soon)")
-                    .foregroundStyle(Color.secondary.opacity(0.6))
-                    .font(.callout)
-
-                // TODO: MCP picker — implement in a later task
-                Text("MCPs: (picker coming soon)")
-                    .foregroundStyle(Color.secondary.opacity(0.6))
-                    .font(.callout)
+                capabilitiesSection
             }
 
             Section("Limits (optional)") {
@@ -254,6 +250,177 @@ struct AgentCreationSheet: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    // MARK: - Capabilities Section (skills + MCPs)
+
+    @ViewBuilder
+    private var capabilitiesSection: some View {
+        // Skills
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Skills")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Add…") { showSkillPicker.toggle() }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityIdentifier("agentCreation.addSkillButton")
+                    .popover(isPresented: $showSkillPicker, arrowEdge: .trailing) {
+                        capabilityPickerPopover(
+                            title: "Skills",
+                            items: allSkills,
+                            id: \.id,
+                            name: \.name,
+                            subtitle: { $0.skillDescription.isEmpty ? nil : $0.skillDescription },
+                            selected: $selectedSkillIds
+                        )
+                    }
+            }
+
+            if selectedSkillIds.isEmpty {
+                Text("No skills selected")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(allSkills.filter { selectedSkillIds.contains($0.id) }) { skill in
+                            capabilityChip(
+                                label: skill.name,
+                                icon: "sparkles",
+                                tint: .green
+                            ) { selectedSkillIds.remove(skill.id) }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("agentCreation.selectedSkillsList")
+            }
+        }
+
+        Divider()
+
+        // MCPs
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Extra MCPs")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Add…") { showMCPPicker.toggle() }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityIdentifier("agentCreation.addMCPButton")
+                    .popover(isPresented: $showMCPPicker, arrowEdge: .trailing) {
+                        capabilityPickerPopover(
+                            title: "MCPs",
+                            items: allMCPs,
+                            id: \.id,
+                            name: \.name,
+                            subtitle: { $0.serverDescription.isEmpty ? nil : $0.serverDescription },
+                            selected: $selectedMCPIds
+                        )
+                    }
+            }
+
+            if selectedMCPIds.isEmpty {
+                Text("No MCPs selected")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(allMCPs.filter { selectedMCPIds.contains($0.id) }) { mcp in
+                            capabilityChip(
+                                label: mcp.name,
+                                icon: "server.rack",
+                                tint: .orange
+                            ) { selectedMCPIds.remove(mcp.id) }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("agentCreation.selectedMCPsList")
+            }
+        }
+    }
+
+    // MARK: - Capability chip (removable tag)
+
+    private func capabilityChip(label: String, icon: String, tint: Color, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.caption2)
+            Text(label).font(.caption2)
+            Button(action: onRemove) {
+                Image(systemName: "xmark").font(.caption2)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(label)")
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(tint.opacity(0.15))
+        .cornerRadius(4)
+    }
+
+    // MARK: - Generic capability picker popover
+
+    private func capabilityPickerPopover<T: Identifiable>(
+        title: String,
+        items: [T],
+        id: KeyPath<T, UUID>,
+        name: KeyPath<T, String>,
+        subtitle: @escaping (T) -> String?,
+        selected: Binding<Set<UUID>>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.headline)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+            Divider()
+            if items.isEmpty {
+                Text("None available")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(14)
+            } else {
+                List(items) { item in
+                    let isSelected = selected.wrappedValue.contains(item[keyPath: id])
+                    Button {
+                        if isSelected {
+                            selected.wrappedValue.remove(item[keyPath: id])
+                        } else {
+                            selected.wrappedValue.insert(item[keyPath: id])
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item[keyPath: name])
+                                    .font(.callout)
+                                if let sub = subtitle(item), !sub.isEmpty {
+                                    Text(sub)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+                .frame(width: 280, height: min(CGFloat(items.count) * 44 + 8, 240))
+            }
+        }
     }
 
     // MARK: - Footer
@@ -337,6 +504,9 @@ struct AgentCreationSheet: View {
         systemPrompt = spec.systemPrompt
         maxTurns = spec.maxTurns.map { String($0) } ?? ""
         maxBudget = spec.maxBudget.map { String($0) } ?? ""
+        // Map matched IDs from the spec back to UUIDs in our local catalog
+        selectedSkillIds = Set(spec.matchedSkillIds.compactMap { UUID(uuidString: $0) })
+        selectedMCPIds = Set(spec.matchedMCPIds.compactMap { UUID(uuidString: $0) })
         // Switch to manual mode so the user can review and edit the result
         mode = .manual
     }
@@ -356,6 +526,8 @@ struct AgentCreationSheet: View {
                 maxTurns: Int(maxTurns),
                 maxBudget: Double(maxBudget),
                 instancePolicy: instancePolicy,
+                skillIds: Array(selectedSkillIds),
+                mcpIds: Array(selectedMCPIds),
                 modelContext: modelContext,
                 onSave: onSave,
                 dismiss: { dismiss() }
@@ -382,11 +554,23 @@ func performAgentSave(
     maxTurns: Int?,
     maxBudget: Double?,
     instancePolicy: AgentInstancePolicy,
+    skillIds: [UUID] = [],
+    mcpIds: [UUID] = [],
     modelContext: ModelContext,
     onSave: (Agent) -> Void,
     dismiss: () -> Void
 ) throws {
     let slug = ConfigFileManager.slugify(name)
+
+    // Resolve slugs for the config file — look up by UUID from SwiftData
+    let allSkills = (try? modelContext.fetch(FetchDescriptor<Skill>())) ?? []
+    let allMCPs = (try? modelContext.fetch(FetchDescriptor<MCPServer>())) ?? []
+    let skillSlugs = allSkills
+        .filter { skillIds.contains($0.id) }
+        .compactMap { $0.configSlug }
+    let mcpSlugs = allMCPs
+        .filter { mcpIds.contains($0.id) }
+        .compactMap { $0.configSlug }
 
     // Build the on-disk DTO
     let dto = AgentConfigFileDTO(
@@ -397,8 +581,8 @@ func performAgentSave(
         resident: nil,
         icon: icon.isEmpty ? nil : icon,
         color: color.isEmpty ? nil : color,
-        skills: [],
-        mcps: [],
+        skills: skillSlugs,
+        mcps: mcpSlugs,
         permissions: nil,
         maxTurns: maxTurns,
         maxBudget: maxBudget,
@@ -439,6 +623,8 @@ func performAgentSave(
     agent.maxTurns = maxTurns
     agent.maxBudget = maxBudget
     agent.instancePolicy = instancePolicy
+    agent.skillIds = skillIds
+    agent.extraMCPServerIds = mcpIds
     agent.updatedAt = Date()
     try? modelContext.save()
 
