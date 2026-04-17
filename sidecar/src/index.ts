@@ -12,6 +12,7 @@ import { RelayClient } from "./relay-client.js";
 import { NostrTransport } from "./relay/nostr-transport.js";
 import { ConversationStore } from "./stores/conversation-store.js";
 import { ProjectStore } from "./stores/project-store.js";
+import { DelegationStore } from "./stores/delegation-store.js";
 import { SessionManager } from "./session-manager.js";
 import { SseManager } from "./sse-manager.js";
 import { WebhookManager } from "./webhook-manager.js";
@@ -45,6 +46,7 @@ if (NOSTR_PRIVKEY_HEX && NOSTR_PUBKEY_HEX) {
 }
 const conversationStore = new ConversationStore();
 const projectStore = new ProjectStore();
+const delegation = new DelegationStore();
 const agentDefinitions = new Map<string, AgentConfig>();
 const sseManager = new SseManager();
 const webhookManager = new WebhookManager();
@@ -64,6 +66,7 @@ const toolContext: ToolContext = {
   nostrTransport,
   conversationStore,
   projectStore,
+  delegation,
   broadcast: (event) => broadcastFn(event),
   agentDefinitions,
   spawnSession: async (sessionId, config, initialPrompt, waitForResult) => {
