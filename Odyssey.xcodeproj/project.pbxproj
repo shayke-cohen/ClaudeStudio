@@ -1187,6 +1187,7 @@
 				};
 			};
 			buildConfigurationList = DDA97F92741C2C718536BA52 /* Build configuration list for PBXProject "Odyssey" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1203,7 +1204,6 @@
 				BBC4B72E121871E49436DC24 /* XCLocalSwiftPackageReference "Packages/OdysseyCore" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 32355096EA6D9877FF016108 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
