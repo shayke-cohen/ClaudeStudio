@@ -533,6 +533,347 @@ enum ConfigFileManager {
         return FileManager.default.fileExists(atPath: path)
     }
 
+    // MARK: - File-Backed Config Directories
+
+    static var agentsDirectory: URL {
+        configDirectory.appendingPathComponent("agents")
+    }
+
+    static var groupsDirectory: URL {
+        configDirectory.appendingPathComponent("groups")
+    }
+
+    static var skillsDirectory: URL {
+        configDirectory.appendingPathComponent("skills")
+    }
+
+    static var mcpsDirectory: URL {
+        configDirectory.appendingPathComponent("mcps")
+    }
+
+    // MARK: - File-Backed Read Methods
+
+    /// Read all file-backed agents from ~/.odyssey/config/agents/{slug}/.
+    /// Returns tuples of (slug, config.json DTO, prompt.md content).
+    /// Skips subdirectories missing config.json; logs and skips on parse errors.
+    static func readAllAgentFiles() -> [(slug: String, config: AgentConfigFileDTO, prompt: String)] {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(
+            at: agentsDirectory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return [] }
+
+        var results: [(slug: String, config: AgentConfigFileDTO, prompt: String)] = []
+        let decoder = JSONDecoder()
+        for subdir in contents where (try? subdir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+            let slug = subdir.lastPathComponent
+            let configFile = subdir.appendingPathComponent("config.json")
+            guard fm.fileExists(atPath: configFile.path) else { continue }
+            guard let data = try? Data(contentsOf: configFile),
+                  let config = try? decoder.decode(AgentConfigFileDTO.self, from: data) else {
+                Log.configFile.warning("Failed to parse agent config: \(slug, privacy: .public)")
+                continue
+            }
+            let promptFile = subdir.appendingPathComponent("prompt.md")
+            let prompt = (try? String(contentsOf: promptFile, encoding: .utf8)) ?? ""
+            results.append((slug: slug, config: config, prompt: prompt))
+        }
+        return results
+    }
+
+    /// Read all file-backed groups from ~/.odyssey/config/groups/{slug}/.
+    /// Returns tuples of (slug, config.json DTO, instruction.md, mission.md?, workflow.json?).
+    /// Skips subdirectories missing config.json; logs and skips on parse errors.
+    static func readAllGroupFiles() -> [(slug: String, config: GroupConfigFileDTO, instruction: String, mission: String?, workflow: [WorkflowStepFileDTO]?)] {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(
+            at: groupsDirectory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return [] }
+
+        var results: [(slug: String, config: GroupConfigFileDTO, instruction: String, mission: String?, workflow: [WorkflowStepFileDTO]?)] = []
+        let decoder = JSONDecoder()
+        for subdir in contents where (try? subdir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+            let slug = subdir.lastPathComponent
+            let configFile = subdir.appendingPathComponent("config.json")
+            guard fm.fileExists(atPath: configFile.path) else { continue }
+            guard let data = try? Data(contentsOf: configFile),
+                  let config = try? decoder.decode(GroupConfigFileDTO.self, from: data) else {
+                Log.configFile.warning("Failed to parse group config: \(slug, privacy: .public)")
+                continue
+            }
+            let instruction = (try? String(contentsOf: subdir.appendingPathComponent("instruction.md"), encoding: .utf8)) ?? ""
+            let mission = try? String(contentsOf: subdir.appendingPathComponent("mission.md"), encoding: .utf8)
+            var workflow: [WorkflowStepFileDTO]?
+            let workflowFile = subdir.appendingPathComponent("workflow.json")
+            if fm.fileExists(atPath: workflowFile.path),
+               let wfData = try? Data(contentsOf: workflowFile),
+               let wfSteps = try? decoder.decode([WorkflowStepFileDTO].self, from: wfData) {
+                workflow = wfSteps
+            }
+            results.append((slug: slug, config: config, instruction: instruction, mission: mission, workflow: workflow))
+        }
+        return results
+    }
+
+    /// Read all file-backed skills from ~/.odyssey/config/skills/{slug}.md.
+    /// Returns tuples of (slug, frontmatter DTO, markdown body).
+    /// Logs and skips on parse errors.
+    ///
+    /// NOTE: This method uses the flat-file user-config layout ({slug}.md files directly
+    /// inside the skills/ directory). The pre-existing readAllSkills() method uses a
+    /// subdirectory layout ({slug}/SKILL.md). Both read from the same directory
+    /// (~/.odyssey/config/skills/). Any pre-existing {slug}/SKILL.md subdirectory entries
+    /// in that directory will be silently skipped by this method (they lack a .md extension
+    /// at the top level).
+    static func readAllSkillFiles() -> [(slug: String, dto: SkillFileDTO, content: String)] {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(
+            at: skillsDirectory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return [] }
+
+        var results: [(slug: String, dto: SkillFileDTO, content: String)] = []
+        for file in contents where file.pathExtension == "md" {
+            let slug = file.deletingPathExtension().lastPathComponent
+            guard let raw = try? String(contentsOf: file, encoding: .utf8) else {
+                Log.configFile.warning("Failed to read skill file: \(slug, privacy: .public)")
+                continue
+            }
+            let (dto, body) = parseSkillFileFrontmatter(raw, fallbackSlug: slug)
+            results.append((slug: slug, dto: dto, content: body))
+        }
+        return results
+    }
+
+    /// Read all file-backed MCP configs from ~/.odyssey/config/mcps/{slug}.json.
+    /// Returns tuples of (slug, DTO). Logs and skips on parse errors.
+    static func readAllMCPFiles() -> [(slug: String, dto: MCPConfigFileDTO)] {
+        let dir = mcpsDirectory
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return [] }
+
+        let decoder = JSONDecoder()
+        var results: [(slug: String, dto: MCPConfigFileDTO)] = []
+        for file in contents where file.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: file),
+                  let dto = try? decoder.decode(MCPConfigFileDTO.self, from: data) else {
+                Log.configFile.warning("Failed to parse MCP file: \(file.lastPathComponent, privacy: .public)")
+                continue
+            }
+            let slug = file.deletingPathExtension().lastPathComponent
+            results.append((slug: slug, dto: dto))
+        }
+        return results
+    }
+
+    // MARK: - File-Backed Write Methods
+
+    /// Write an agent config + prompt to ~/.odyssey/config/agents/{slug}/.
+    static func writeBack(agentSlug: String, config: AgentConfigFileDTO, prompt: String) throws {
+        let dir = agentsDirectory.appendingPathComponent(agentSlug)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(config)
+        // NOTE: These writes are not transactional. If a later write fails after
+        // an earlier one succeeds, the folder may be left in a partially-updated state.
+        // ConfigSyncService will re-sync on next file-watch event.
+        try data.write(to: dir.appendingPathComponent("config.json"), options: .atomic)
+        try prompt.write(to: dir.appendingPathComponent("prompt.md"), atomically: true, encoding: .utf8)
+    }
+
+    /// Write a group config, instruction, optional mission, and optional workflow to
+    /// ~/.odyssey/config/groups/{slug}/.
+    static func writeBack(groupSlug: String, config: GroupConfigFileDTO, instruction: String, mission: String?, workflow: [WorkflowStepFileDTO]?) throws {
+        let dir = groupsDirectory.appendingPathComponent(groupSlug)
+        let fm = FileManager.default
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let configData = try encoder.encode(config)
+        // NOTE: These writes are not transactional. If a later write fails after
+        // an earlier one succeeds, the folder may be left in a partially-updated state.
+        // ConfigSyncService will re-sync on next file-watch event.
+        try configData.write(to: dir.appendingPathComponent("config.json"), options: .atomic)
+        try instruction.write(to: dir.appendingPathComponent("instruction.md"), atomically: true, encoding: .utf8)
+        if let mission {
+            try mission.write(to: dir.appendingPathComponent("mission.md"), atomically: true, encoding: .utf8)
+        }
+        let workflowFile = dir.appendingPathComponent("workflow.json")
+        if let workflow {
+            let wfData = try encoder.encode(workflow)
+            try wfData.write(to: workflowFile, options: .atomic)
+        } else if fm.fileExists(atPath: workflowFile.path) {
+            try fm.removeItem(at: workflowFile)
+        }
+    }
+
+    /// Write a skill (frontmatter + body) to ~/.odyssey/config/skills/{slug}.md.
+    static func writeBack(skillSlug: String, dto: SkillFileDTO, content: String) throws {
+        try FileManager.default.createDirectory(at: skillsDirectory, withIntermediateDirectories: true)
+        let file = skillsDirectory.appendingPathComponent("\(skillSlug).md")
+        let serialized = serializeSkillFile(dto, content: content)
+        try serialized.write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    /// Write an MCP config to ~/.odyssey/config/mcps/{slug}.json.
+    static func writeBack(mcpSlug: String, dto: MCPConfigFileDTO) throws {
+        try FileManager.default.createDirectory(at: mcpsDirectory, withIntermediateDirectories: true)
+        let file = mcpsDirectory.appendingPathComponent("\(mcpSlug).json")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(dto)
+        try data.write(to: file, options: .atomic)
+    }
+
+    // MARK: - Bundled Catalog Sync
+
+    /// Copy bundled Catalog/agents/ to ~/.odyssey/config/agents/ (skip slugs already present).
+    static func syncBundledAgents() {
+        // No bundled resources in Resources/Catalog/agents/ yet — no-op.
+        // When catalog migration adds agent .json + .md pairs here, enumerate and copy.
+    }
+
+    /// Copy bundled Catalog/groups/ to ~/.odyssey/config/groups/ (skip slugs already present).
+    static func syncBundledGroups() {
+        // No bundled resources in Resources/Catalog/groups/ yet — no-op.
+        // When catalog migration adds group directories here, enumerate and copy.
+    }
+
+    /// Copy bundled Catalog/skills/ to ~/.odyssey/config/skills/ (skip slugs already present).
+    static func syncBundledSkills() throws {
+        guard let root = bundledCatalogRoot(subdirectory: "skills") else {
+            // No bundled catalog skills directory in app bundle yet — no-op.
+            return
+        }
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return }
+        try fm.createDirectory(at: skillsDirectory, withIntermediateDirectories: true)
+        for file in files where file.pathExtension == "md" {
+            let dest = skillsDirectory.appendingPathComponent(file.lastPathComponent)
+            guard !fm.fileExists(atPath: dest.path) else { continue }
+            try fm.copyItem(at: file, to: dest)
+        }
+    }
+
+    /// Copy bundled Catalog/mcps/ to ~/.odyssey/config/mcps/ (skip slugs already present).
+    static func syncBundledMCPs() throws {
+        guard let root = bundledCatalogRoot(subdirectory: "mcps") else {
+            // No bundled catalog MCPs directory in app bundle yet — no-op.
+            return
+        }
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return }
+        try fm.createDirectory(at: mcpsDirectory, withIntermediateDirectories: true)
+        for file in files where file.pathExtension == "json" {
+            let dest = mcpsDirectory.appendingPathComponent(file.lastPathComponent)
+            guard !fm.fileExists(atPath: dest.path) else { continue }
+            try fm.copyItem(at: file, to: dest)
+        }
+    }
+
+    // MARK: - SkillFileDTO Frontmatter Parsing
+
+    /// Parse YAML frontmatter from a flat skills/{slug}.md file into a SkillFileDTO + body.
+    private static func parseSkillFileFrontmatter(_ content: String, fallbackSlug: String) -> (SkillFileDTO, String) {
+        var dto = SkillFileDTO(name: fallbackSlug, category: nil, triggers: nil)
+        guard content.hasPrefix("---") else { return (dto, content) }
+
+        // Split on first "---" that appears on its own line after the opening "---"
+        let lines = content.components(separatedBy: "\n")
+        var frontmatterLines: [String] = []
+        var bodyLines: [String] = []
+        var inFrontmatter = false
+        var foundClosingDelimiter = false
+
+        for line in lines {
+            if !inFrontmatter && line.trimmingCharacters(in: .whitespaces) == "---" {
+                inFrontmatter = true
+                continue
+            }
+            if inFrontmatter && !foundClosingDelimiter {
+                if line.trimmingCharacters(in: .whitespaces) == "---" {
+                    foundClosingDelimiter = true
+                    continue
+                }
+                frontmatterLines.append(line)
+            } else if foundClosingDelimiter {
+                bodyLines.append(line)
+            }
+        }
+
+        guard foundClosingDelimiter else { return (dto, content) }
+
+        let yaml = frontmatterLines.joined(separator: "\n")
+        var body = bodyLines.joined(separator: "\n")
+        // trim leading/trailing newlines from body
+        body = body.trimmingCharacters(in: .newlines)
+
+        var inTriggers = false
+
+        for line in yaml.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("name:") {
+                dto.name = trimmed.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                inTriggers = false
+            } else if trimmed.hasPrefix("category:") {
+                dto.category = trimmed.dropFirst(9).trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                inTriggers = false
+            } else if trimmed.hasPrefix("triggers:") {
+                dto.triggers = []
+                inTriggers = true
+            } else if trimmed.hasPrefix("- ") && inTriggers {
+                dto.triggers?.append(trimmed.dropFirst(2).trimmingCharacters(in: .whitespaces))
+            } else if !trimmed.isEmpty && !trimmed.hasPrefix("-") {
+                inTriggers = false
+            }
+        }
+
+        return (dto, body)
+    }
+
+    /// Serialize a SkillFileDTO + body back to a YAML-frontmatter markdown string.
+    private static func serializeSkillFile(_ dto: SkillFileDTO, content: String) -> String {
+        var yaml = "---\n"
+        let escapedName = dto.name.replacingOccurrences(of: "\"", with: "\\\"")
+        yaml += "name: \"\(escapedName)\"\n"
+        if let category = dto.category, !category.isEmpty {
+            yaml += "category: \(category)\n"
+        }
+        if let triggers = dto.triggers, !triggers.isEmpty {
+            yaml += "triggers:\n"
+            for trigger in triggers {
+                yaml += "- \(trigger)\n"
+            }
+        }
+        yaml += "---\n"
+        return yaml + "\n" + content + "\n"
+    }
+
+    // MARK: - Private Catalog Bundle Helpers
+
+    private static func bundledCatalogRoot(subdirectory: String) -> URL? {
+        // App bundle first
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("Catalog/\(subdirectory)"),
+           FileManager.default.fileExists(atPath: url.path) {
+            return url
+        }
+        // Dev-mode fallbacks
+        let candidates = [
+            "\(NSHomeDirectory())/Odyssey/Odyssey/Resources/Catalog/\(subdirectory)",
+            "\(FileManager.default.currentDirectoryPath)/Odyssey/Resources/Catalog/\(subdirectory)",
+        ]
+        for path in candidates where FileManager.default.fileExists(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+        return nil
+    }
+
     // MARK: - Prompt Templates (per-owner markdown files)
 
     /// Root for user-editable chat-start prompt templates.

@@ -3,7 +3,6 @@ import SwiftData
 import AppKit
 
 enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
-    case catalog = "Discover"
     case workshop = "Workshop"
     case schedules = "Schedules"
     case agents = "Agents"
@@ -14,7 +13,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .catalog: "square.grid.2x2"
         case .workshop: "wrench.and.screwdriver"
         case .schedules: "clock.badge"
         case .agents: "cpu"
@@ -25,7 +23,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
-        case .catalog: "Open discover"
         case .workshop: "Entity workshop (⌘⇧W)"
         case .schedules: "Scheduled missions (⌘⇧S)"
         case .agents: "Agent library"
@@ -36,7 +33,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var xrayId: String {
         switch self {
-        case .catalog: "sidebar.catalogButton"
         case .workshop: "sidebar.workshopButton"
         case .schedules: "sidebar.schedulesButton"
         case .agents: "sidebar.agentsButton"
@@ -49,7 +45,7 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
     /// Items with text labels participate in the adaptive icon-only collapse via `ViewThatFits`.
     var hasTextLabel: Bool {
         switch self {
-        case .catalog, .workshop, .schedules, .agents: true
+        case .workshop, .schedules, .agents: true
         case .autoAssemble, .newSession: false
         }
     }
@@ -175,10 +171,7 @@ struct SidebarView: View {
     @State private var hoveredProjectId: UUID?
     @State private var hoveredConversationId: UUID?
     @State private var expandedProjectIds: Set<UUID> = []
-    @State private var expandedResidentIds: Set<UUID> = []
-    @State private var isResidentActiveExpanded = true
-    @State private var isResidentHistoryExpanded = false
-    @AppStorage("sidebar.residentsExpanded") private var isResidentsSectionExpanded: Bool = true
+    @AppStorage("sidebar.nonResidentAgentsExpanded") private var isNonResidentAgentsExpanded: Bool = false
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
 
     private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
@@ -190,30 +183,9 @@ struct SidebarView: View {
         List {
             utilitySection
 
-            Section {
-                if isResidentsSectionExpanded {
-                    ForEach(residentAgents) { agent in
-                        residentRows(agent)
-                    }
-                    // "Add" row — uses appXrayTapProxy so AppXray's NSButton click fires reliably
-                    Button {
-                        appState.showAddResidentSheet = true
-                    } label: {
-                        Label(residentAgents.isEmpty ? "Add agents to Residents…" : "Add more…",
-                              systemImage: "plus")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add agent to Residents")
-                    .appXrayTapProxy(id: "sidebar.residentAgents.addButton") {
-                        appState.showAddResidentSheet = true
-                    }
-                }
-            } header: {
-                residentAgentsHeader
-                    .stableXrayId("sidebar.residentAgentsSection")
-            }
+            agentsSection
+
+            groupsSection
 
             if sortedProjects.isEmpty {
                 emptyState
@@ -270,10 +242,6 @@ struct SidebarView: View {
         }
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationSheet()
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $appState.showAddResidentSheet) {
-            addResidentSheet
                 .environmentObject(appState)
         }
         .sheet(item: $editingTask) { task in
@@ -436,16 +404,6 @@ struct SidebarView: View {
             .accessibilityLabel("New")
 
             Button {
-                windowState.openLibrary()
-            } label: {
-                Label("Library", systemImage: "books.vertical")
-            }
-            .buttonStyle(.plain)
-            .appXrayTapProxy(id: "sidebar.utility.library") {
-                windowState.openLibrary()
-            }
-
-            Button {
                 addProjectFolder()
             } label: {
                 Label("Add Project", systemImage: "folder.badge.plus")
@@ -487,200 +445,6 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Resident Agents
-
-    private var residentAgentsHeader: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isResidentsSectionExpanded.toggle()
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: isResidentsSectionExpanded ? "chevron.down" : "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("Residents")
-                    .font(.headline.weight(.semibold))
-            }
-        }
-        .buttonStyle(.plain)
-        .xrayId("sidebar.residentAgents.header")
-    }
-
-    private var addResidentSheet: some View {
-        AddResidentSheet(onDone: { appState.showAddResidentSheet = false })
-    }
-
-    @ViewBuilder
-    private func residentRows(_ agent: Agent) -> some View {
-        residentAgentHeaderRow(agent)
-        if expandedResidentIds.contains(agent.id) {
-            residentChatRows(agent)
-        }
-    }
-
-    private func residentAgentHeaderRow(_ agent: Agent) -> some View {
-        let isExpanded = expandedResidentIds.contains(agent.id)
-        let hasActive = agentHasActiveSession(agent)
-        let hasPastChats = !conversationsForAgent(agent).isEmpty
-        let tint = Color.fromAgentColor(agent.color)
-
-        return HStack(spacing: 8) {
-            sidebarSymbolBadge(symbol: agent.icon, tint: tint, size: 32, cornerRadius: 11)
-            Text(agent.name)
-                .font(.headline.weight(.medium))
-                .lineLimit(1)
-                .layoutPriority(1)
-            Spacer(minLength: 8)
-            Circle()
-                .fill(hasActive ? Color.green : (hasPastChats ? Color.secondary.opacity(0.5) : Color.secondary.opacity(0.2)))
-                .frame(width: 7, height: 7)
-            Button {
-                startResidentSession(with: agent)
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 22, height: 22)
-            }
-            .modifier(SidebarChromeButtonModifier(tint: tint))
-            .buttonStyle(.plain)
-            .help("New chat with \(agent.name)")
-            .accessibilityLabel("New chat with \(agent.name)")
-            .accessibilityIdentifier("resident.\(agent.name.lowercased()).newChat")
-            .appXrayTapProxy(id: "resident.\(agent.name.lowercased()).newChat") {
-                startResidentSession(with: agent)
-            }
-            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .frame(width: 12)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if expandedResidentIds.contains(agent.id) {
-                expandedResidentIds.remove(agent.id)
-            } else {
-                expandedResidentIds.insert(agent.id)
-            }
-        }
-        .padding(.vertical, 9)
-        .padding(.horizontal, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-        )
-        .contextMenu {
-            Button("New Chat") { startResidentSession(with: agent) }
-            Divider()
-            Button("Edit Agent") { windowState.openLibrary(.build, buildSection: .agents) }
-            Divider()
-            Button("Remove from Residents", role: .destructive) {
-                agent.isResident = false
-                try? modelContext.save()
-            }
-        }
-        .xrayId("sidebar.residentAgentRow.\(agent.id.uuidString)")
-    }
-
-    @ViewBuilder
-    private func residentChatRows(_ agent: Agent) -> some View {
-        let allConvos = conversationsForAgent(agent)
-            .filter { !$0.isArchived }
-            .sorted { $0.startedAt > $1.startedAt }
-        let activeConvos = filteredConversations(Array(allConvos.prefix(5)))
-        let historyConvos = filteredConversations(Array(allConvos.dropFirst(5)))
-
-        if allConvos.isEmpty {
-            residentIndentedRow {
-                Text("No chats yet")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        } else {
-            residentChatBucket(
-                title: "Active (\(activeConvos.count))",
-                symbol: "bolt.fill",
-                isExpanded: Binding(
-                    get: { isResidentActiveExpanded || !searchText.isEmpty },
-                    set: { isResidentActiveExpanded = $0 }
-                ),
-                conversations: activeConvos
-            )
-            if !historyConvos.isEmpty {
-                residentChatBucket(
-                    title: "History (\(historyConvos.count))",
-                    symbol: "clock.arrow.circlepath",
-                    isExpanded: Binding(
-                        get: { isResidentHistoryExpanded || !searchText.isEmpty },
-                        set: { isResidentHistoryExpanded = $0 }
-                    ),
-                    conversations: historyConvos
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func residentChatBucket(
-        title: String,
-        symbol: String,
-        isExpanded: Binding<Bool>,
-        conversations: [Conversation]
-    ) -> some View {
-        if !conversations.isEmpty {
-            let expanded = isExpanded.wrappedValue || !searchText.isEmpty
-            residentIndentedRow {
-                Button {
-                    if searchText.isEmpty { isExpanded.wrappedValue.toggle() }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Label(title, systemImage: symbol)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            if expanded {
-                ForEach(conversations) { convo in
-                    residentIndentedRow {
-                        conversationRow(convo)
-                            .tag(convo.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture { selectConversation(convo) }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) { promptDelete(convo) } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                Button { archiveConversation(convo) } label: {
-                                    Label("Archive", systemImage: "archivebox")
-                                }
-                                .tint(.indigo)
-                            }
-                    }
-                    .xrayId("sidebar.residentChatRow.\(convo.id.uuidString)")
-                }
-            }
-        }
-    }
-
-    private func residentIndentedRow<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        content()
-            .padding(.leading, 18)
-            .padding(.trailing, 4)
-            .padding(.bottom, 2)
-    }
-
     // MARK: - Bottom Bar
 
     private var sidebarBottomBar: some View {
@@ -696,25 +460,7 @@ struct SidebarView: View {
 
     private var sidebarBottomBarButtons: some View {
         HStack(spacing: 0) {
-            let catalog = SidebarBottomBarItem.catalog
-            Button {
-                windowState.openLibrary(.discover)
-            } label: {
-                Label(catalog.rawValue, systemImage: catalog.icon)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .font(.caption)
-                    .frame(minHeight: 24)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.plain)
-            .help(catalog.helpText)
-            .xrayId(catalog.xrayId)
-            .accessibilityLabel(catalog.helpText)
-
             if workshopEnabled {
-                Divider()
-                    .frame(height: 16)
-
                 let workshop = SidebarBottomBarItem.workshop
                 Button {
                     windowState.showWorkshop = true
@@ -730,10 +476,10 @@ struct SidebarView: View {
                 .xrayId(workshop.xrayId)
                 .keyboardShortcut("w", modifiers: [.command, .shift])
                 .accessibilityLabel(workshop.helpText)
-            }
 
-            Divider()
-                .frame(height: 16)
+                Divider()
+                    .frame(height: 16)
+            }
 
             let schedules = SidebarBottomBarItem.schedules
             Button {
@@ -756,7 +502,7 @@ struct SidebarView: View {
 
             let agents = SidebarBottomBarItem.agents
             Button {
-                windowState.openLibrary(.build, buildSection: .agents)
+                windowState.openConfiguration(section: .agents)
             } label: {
                 Label(agents.rawValue, systemImage: agents.icon)
                     .fixedSize(horizontal: true, vertical: false)
@@ -1296,13 +1042,13 @@ struct SidebarView: View {
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                 Button {
-                    windowState.openLibrary()
+                    windowState.openConfiguration(section: .agents)
                 } label: {
-                    Label("Open Library", systemImage: "books.vertical")
+                    Label("Open Configuration", systemImage: "gearshape")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-                .help("Browse reusable tools")
+                .help("Configure agents and groups")
                 .xrayId("sidebar.emptyState.newSessionButton")
             }
             .frame(maxWidth: .infinity)
@@ -1630,7 +1376,6 @@ struct SidebarView: View {
             ForEach(groups.filter { $0.isEnabled }) { group in
                 GroupSidebarRowView(
                     group: group,
-                    agentCount: group.agentIds.compactMap { id in agents.first { $0.id == id } }.count,
                     conversations: conversationsForGroup(group),
                     allAgents: agents,
                     isExpanded: Binding(
@@ -1681,6 +1426,11 @@ struct SidebarView: View {
                     Button("Duplicate") { duplicateGroup(group) }
                         .xrayId("sidebar.groupContext.duplicate.\(group.id.uuidString)")
                     Divider()
+                    Button("Open in Configuration") {
+                        windowState.openConfiguration(section: .groups)
+                    }
+                    .xrayId("sidebar.groupContext.openConfig.\(group.id.uuidString)")
+                    Divider()
                     Button("Delete", role: .destructive) { deleteGroup(group) }
                         .xrayId("sidebar.groupContext.delete.\(group.id.uuidString)")
                 }
@@ -1690,7 +1440,7 @@ struct SidebarView: View {
                 Text("Groups")
                 Spacer()
                 Button {
-                    windowState.openLibrary(.build, buildSection: .groups)
+                    windowState.openConfiguration(section: .groups)
                 } label: {
                     Image(systemName: "plus")
                         .font(.caption)
@@ -1707,37 +1457,106 @@ struct SidebarView: View {
 
     // MARK: - Agents Section
 
+    private var agentsSectionHeader: some View {
+        HStack {
+            Text("Agents")
+            Spacer()
+            Button {
+                windowState.openConfiguration(section: .agents)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .xrayId("sidebar.agentsSection.addButton")
+            .accessibilityLabel("Add agent")
+            .contentShape(Rectangle())
+        }
+    }
+
     @ViewBuilder
     private var agentsSection: some View {
-        Section("Agents") {
-            ForEach(agents.filter { $0.isEnabled }) { agent in
-                AgentSidebarRowView(
-                    agent: agent,
-                    conversations: conversationsForAgent(agent),
-                    isExpanded: Binding(
-                        get: { expandedAgentIds.contains(agent.id) },
-                        set: { expanded in
-                            if expanded { expandedAgentIds.insert(agent.id) }
-                            else { expandedAgentIds.remove(agent.id) }
-                        }
-                    ),
-                    onNewChat: { startSession(with: agent) },
-                    onSelectConversation: { conv in
-                        windowState.selectedConversationId = conv.id
-                    },
-                    onSelectAgent: {
-                        selectOrCreateAgentChat(agent)
-                    },
-                    selectedConversationId: windowState.selectedConversationId,
-                    hasActiveSession: agentHasActiveSession(agent)
-                )
-                .contextMenu {
-                    Button("Start Session") {
-                        startSession(with: agent)
-                    }
-                    .xrayId("sidebar.agentRow.startSession.\(agent.id.uuidString)")
-                }
+        Section {
+            // 1. Resident (pinned) agents — always shown
+            ForEach(residentAgents) { agent in
+                agentSidebarRow(agent, isPinned: true)
             }
+
+            // 2. Non-resident agents — collapsed under "N more agents..."
+            if !nonResidentAgents.isEmpty {
+                if isNonResidentAgentsExpanded {
+                    ForEach(nonResidentAgents) { agent in
+                        agentSidebarRow(agent, isPinned: false)
+                    }
+                }
+                Button {
+                    isNonResidentAgentsExpanded.toggle()
+                } label: {
+                    Label(
+                        isNonResidentAgentsExpanded
+                            ? "Show fewer"
+                            : "\(nonResidentAgents.count) more agent\(nonResidentAgents.count == 1 ? "" : "s")\u{2026}",
+                        systemImage: isNonResidentAgentsExpanded ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .xrayId("sidebar.agents.showMore")
+            }
+        } header: {
+            agentsSectionHeader
+        }
+        .stableXrayId("sidebar.agentsSection")
+    }
+
+    @ViewBuilder
+    private func agentSidebarRow(_ agent: Agent, isPinned: Bool) -> some View {
+        AgentSidebarRowView(
+            agent: agent,
+            conversations: conversationsForAgent(agent),
+            isExpanded: Binding(
+                get: { expandedAgentIds.contains(agent.id) },
+                set: { expanded in
+                    if expanded { expandedAgentIds.insert(agent.id) }
+                    else { expandedAgentIds.remove(agent.id) }
+                }
+            ),
+            onNewChat: { startSession(with: agent) },
+            onSelectConversation: { conv in
+                windowState.selectedConversationId = conv.id
+            },
+            onSelectAgent: {
+                selectOrCreateAgentChat(agent)
+            },
+            selectedConversationId: windowState.selectedConversationId,
+            hasActiveSession: agentHasActiveSession(agent)
+        )
+        .overlay(alignment: .topTrailing) {
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tertiary)
+                    .padding(.trailing, 4)
+            }
+        }
+        .contextMenu {
+            Button("New Session") {
+                startSession(with: agent)
+            }
+            .xrayId("sidebar.agentRow.newSession.\(agent.id.uuidString)")
+            Divider()
+            Button(isPinned ? "Unpin from Sidebar" : "Pin to Sidebar") {
+                agent.isResident.toggle()
+                try? modelContext.save()
+            }
+            .xrayId("sidebar.agentRow.togglePin.\(agent.id.uuidString)")
+            Divider()
+            Button("Open in Configuration") {
+                windowState.openConfiguration(section: .agents)
+            }
+            .xrayId("sidebar.agentRow.openConfig.\(agent.id.uuidString)")
         }
     }
 
@@ -2066,7 +1885,16 @@ struct SidebarView: View {
     }
 
     private func conversationsForProject(_ project: Project) -> [Conversation] {
-        conversations.filter { $0.projectId == project.id }
+        let agentSessionConversationIds = Set(
+            allSessions
+                .filter { $0.agent != nil }
+                .flatMap { $0.conversations.map { $0.id } }
+        )
+        return conversations.filter {
+            $0.projectId == project.id
+            && $0.sourceGroupId == nil
+            && !agentSessionConversationIds.contains($0.id)
+        }
     }
 
     private func projectForConversation(_ convo: Conversation) -> Project? {
@@ -2243,42 +2071,6 @@ struct SidebarView: View {
         modelContext.insert(conversation)
         try? modelContext.save()
         windowState.selectedConversationId = conversation.id
-    }
-
-    private func startResidentSession(with agent: Agent) {
-        // Always ensure a home folder is set — never fall back to the project directory
-        if agent.defaultWorkingDirectory == nil || agent.defaultWorkingDirectory!.isEmpty {
-            agent.defaultWorkingDirectory = Agent.defaultHomePath(for: agent.name)
-            try? modelContext.save()
-        }
-        let homeDir = agent.defaultWorkingDirectory!
-        let expandedPath = (homeDir as NSString).expandingTildeInPath
-        let session = Session(agent: agent, mode: .interactive)
-        session.workingDirectory = expandedPath
-        let conversation = Conversation(
-            topic: agent.name,
-            sessions: [session],
-            projectId: nil,
-            threadKind: .direct
-        )
-        let userParticipant = Participant(type: .user, displayName: "You")
-        let agentParticipant = Participant(
-            type: .agentSession(sessionId: session.id),
-            displayName: agent.name
-        )
-        userParticipant.conversation = conversation
-        agentParticipant.conversation = conversation
-        conversation.participants = [userParticipant, agentParticipant]
-        session.conversations = [conversation]
-
-        modelContext.insert(session)
-        modelContext.insert(conversation)
-        try? modelContext.save()
-
-        expandedResidentIds.insert(agent.id)
-        windowState.selectedConversationId = conversation.id
-
-        ResidentAgentSupport.seedMemoryFileIfNeeded(in: expandedPath, agentName: agent.name)
     }
 
     private func createQuickChat(in project: Project) {

@@ -340,7 +340,7 @@ struct InspectorView: View {
             InfoRow(label: "Tool Calls", value: "\(live?.toolCallCount ?? session.toolCallCount)")
             if let agent {
                 Button {
-                    windowState.openLibrary(.build, buildSection: .agents)
+                    windowState.openConfiguration(section: .agents)
                 } label: {
                     Text("Open \(agent.name) in editor")
                         .font(.caption)
@@ -549,7 +549,7 @@ struct InspectorView: View {
                 .xrayId("inspector.agentHeading")
 
             Button {
-                windowState.openLibrary(.build, buildSection: .agents)
+                windowState.openConfiguration(section: .agents)
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: agent.icon)

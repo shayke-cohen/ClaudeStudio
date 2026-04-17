@@ -15,6 +15,15 @@ enum GroupRole: String, CaseIterable, Sendable {
         }
     }
 
+    var emoji: String {
+        switch self {
+        case .participant: return ""
+        case .coordinator: return "👑"
+        case .scribe: return "📋"
+        case .observer: return "👁"
+        }
+    }
+
     var systemPromptSnippet: String {
         switch self {
         case .participant:

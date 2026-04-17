@@ -43,7 +43,12 @@ struct MainWindowView: View {
         @Bindable var ws = windowState
         Group {
             if ws.activeRoute == .settings {
-                SettingsView {
+                SettingsView(
+                    pendingConfigSection: ws.pendingConfigSection,
+                    pendingConfigSlug: ws.pendingConfigSlug
+                ) {
+                    ws.pendingConfigSection = nil
+                    ws.pendingConfigSlug = nil
                     ws.closeSettings()
                 }
                 .environmentObject(appState)
@@ -172,14 +177,6 @@ struct MainWindowView: View {
         }
         .sheet(isPresented: $ws.showNewGroupThreadSheet) {
             NewSessionSheet(initialStartKind: .groups)
-        }
-        .sheet(isPresented: $ws.showLibraryHub) {
-            IntentLibraryHubView(
-                selectedSection: $ws.selectedLibrarySection,
-                selectedBuildSection: $ws.selectedLibraryBuildSection,
-                selectedDiscoverSection: $ws.selectedLibraryDiscoverSection
-            )
-                .frame(minWidth: 760, minHeight: 560)
         }
         .sheet(isPresented: $ws.showScheduleLibrary) {
             ScheduleLibraryView()

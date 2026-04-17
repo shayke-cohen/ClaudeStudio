@@ -128,6 +128,7 @@
 		81916B0235EECCF5432D86C6 /* DefaultMCPs.json in Resources */ = {isa = PBXBuildFile; fileRef = B0AF535FFB97A018FDF5CE70 /* DefaultMCPs.json */; };
 		81C95B0A72E17D80CD2F84B1 /* TURNAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B724D409EFAEE01DDC826E /* TURNAllocator.swift */; };
 		826B023429A708501C91D46B /* ConfigFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB47CB1FF7ECC13A7E4F60C4 /* ConfigFileManager.swift */; };
+		13A2092C45254F0FA442AD40 /* ConfigFileDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */; };
 		84DEA88B2E3F0B1D2097F49C /* InlineHTMLView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0767BDA0E45E895D8CBC2D /* InlineHTMLView.swift */; };
 		86F3EA0D9EA3076ED5F0A908 /* DefaultSkills in Resources */ = {isa = PBXBuildFile; fileRef = F25E68993F1578F447F078C1 /* DefaultSkills */; };
 		8837504C0988F54F3AE831CA /* SidecarProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36601B02576E1AAA2B2A323D /* SidecarProtocol.swift */; };
@@ -153,6 +154,8 @@
 		9D179DEC41B409E69C1E09E3 /* PeerCatalogServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6181E164D6F6C72DAE58A922 /* PeerCatalogServer.swift */; };
 		9E431E795FADF9969DC53648 /* AgentProvisionerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC2B79A68879850C3C9E9AA1 /* AgentProvisionerTests.swift */; };
 		9ED4FD197D1E511B44B87EAD /* TemplatesSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */; };
+		A1B2C3D4E5F60001A1B2C3D4 /* ConfigurationSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002A1B2C3D4 /* ConfigurationSettingsTab.swift */; };
+		A1B2C3D4E5F60003A1B2C3D4 /* ConfigurationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60004A1B2C3D4 /* ConfigurationDetailView.swift */; };
 		A284BB4C3D93501475943CB2 /* SharedRoomLocalBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CBE6D508B750D68D5F8FF29 /* SharedRoomLocalBackendTests.swift */; };
 		A2E7312CBAC8C902F0FBB060 /* FileNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2993EDAC99A2B593B03B0B /* FileNodeTests.swift */; };
 		A39A64018334B881F5A3A405 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E5FF320955B1EDBB5A577E /* SidebarView.swift */; };
@@ -226,7 +229,6 @@
 		E4DB4B6053B64D616682841F /* SidecarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE6D5BFEC4719B2DBEFB703 /* SidecarManager.swift */; };
 		E50441A9D862EA7FD74826EB /* iOSAgentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D667133088DCC6D9B55AC48 /* iOSAgentListView.swift */; };
 		E65A2B757B152673E7A2D0AE /* TemplatePickerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EA5448052E9E2C0038E6E5 /* TemplatePickerRow.swift */; };
-		E6A7A06897437405DCFF5484 /* IntentLibraryHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3762EB432A3F5385D5C7063 /* IntentLibraryHubView.swift */; };
 		E7A4B8B80E4B98B4C13F5C79 /* InviteCodeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A437B897AAAAC6266F8966B8 /* InviteCodeGenerator.swift */; };
 		E916F33C7B172423DDB1E510 /* CatalogDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C40CFEF2765642CEA44E445 /* CatalogDetailView.swift */; };
 		E9B673FB093EB98651791A64 /* GroupWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB6305C724016DB5D94EE87 /* GroupWorkflowTests.swift */; };
@@ -320,6 +322,8 @@
 		27202D7BC01AF900E69E64D2 /* OdysseyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OdysseyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2770BA2281FFCAB6B442C451 /* iOSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSSettingsView.swift; sourceTree = "<group>"; };
 		29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesSettingsTab.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60002A1B2C3D4 /* ConfigurationSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationSettingsTab.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60004A1B2C3D4 /* ConfigurationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationDetailView.swift; sourceTree = "<group>"; };
 		2B4A8439FA6BF28913E45057 /* LocalFileReferenceSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileReferenceSupportTests.swift; sourceTree = "<group>"; };
 		2CA8A42772131656447E14DA /* WindowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowState.swift; sourceTree = "<group>"; };
 		2CC0ED635AA00B4C404C8C2B /* WorkshopEntityRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkshopEntityRow.swift; sourceTree = "<group>"; };
@@ -362,6 +366,7 @@
 		555BB4B0C308663516AF0D15 /* NATTraversalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NATTraversalManager.swift; sourceTree = "<group>"; };
 		558615E63E7CD517950BA9C3 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSyncService.swift; sourceTree = "<group>"; };
+		53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFileDTOs.swift; sourceTree = "<group>"; };
 		5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeManager.swift; sourceTree = "<group>"; };
 		591274642A5865F01227951C /* SidebarSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSectionTests.swift; sourceTree = "<group>"; };
 		5934F4DE08F615C09AB5CEF7 /* AgentDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDefaults.swift; sourceTree = "<group>"; };
@@ -425,7 +430,6 @@
 		A0A5CC3B8FB27A5C32C71FEA /* BlackboardSnapshotClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackboardSnapshotClient.swift; sourceTree = "<group>"; };
 		A12C713B24C25396C17E38C8 /* ChatSendRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSendRoutingTests.swift; sourceTree = "<group>"; };
 		A30424480B105E123B571324 /* NATTraversalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NATTraversalTests.swift; sourceTree = "<group>"; };
-		A3762EB432A3F5385D5C7063 /* IntentLibraryHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentLibraryHubView.swift; sourceTree = "<group>"; };
 		A41E26A91126632EB2EAF8E7 /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
 		A437B897AAAAC6266F8966B8 /* InviteCodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteCodeGenerator.swift; sourceTree = "<group>"; };
 		A5A67DAB9C3CDD0DF7FADCE2 /* MCPEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPEditorView.swift; sourceTree = "<group>"; };
@@ -586,7 +590,6 @@
 				3230CC7D10A04D7F16841F79 /* FileExplorerView.swift */,
 				469C8EB1BC85EAD15272406A /* FileTreeView.swift */,
 				DDDDBE5CD946AABBA32DB09C /* InspectorView.swift */,
-				A3762EB432A3F5385D5C7063 /* IntentLibraryHubView.swift */,
 				C0FD67A4B246106B4021B8EA /* MainWindowView.swift */,
 				EBA04E7FA48238BEC1518062 /* NewGroupThreadSheet.swift */,
 				4520B8439A61251FF1E43951 /* NewSessionSheet.swift */,
@@ -900,6 +903,8 @@
 				3B579CF29E9E1761D9BF310B /* PromptTemplateEditorSheet.swift */,
 				3425ADDEEC2EEF966F8759BA /* SettingsView.swift */,
 				29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */,
+				A1B2C3D4E5F60002A1B2C3D4 /* ConfigurationSettingsTab.swift */,
+				A1B2C3D4E5F60004A1B2C3D4 /* ConfigurationDetailView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -927,6 +932,7 @@
 				E1CD9576CD43CDC2384E3BE8 /* ChatSessionWatchdog.swift */,
 				E7C0A9DC8953F9D383C308B0 /* ChatTranscriptExport.swift */,
 				FB47CB1FF7ECC13A7E4F60C4 /* ConfigFileManager.swift */,
+				53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */,
 				55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */,
 				78F1DC54EF71599B30FD4FA9 /* ConnectionVault.swift */,
 				17ACBDA18387A1FE2CBB6C55 /* ConnectorCatalog.swift */,
@@ -1392,6 +1398,7 @@
 				EC7DF5261937DE6DD9291993 /* CodeBlockView.swift in Sources */,
 				98DCB062B28189240A60ACD5 /* ColorExtension.swift in Sources */,
 				826B023429A708501C91D46B /* ConfigFileManager.swift in Sources */,
+				13A2092C45254F0FA442AD40 /* ConfigFileDTOs.swift in Sources */,
 				B5A85727EB4EFCB322806746 /* ConfigSyncService.swift in Sources */,
 				FD3DE50783210491E451A6D0 /* Connection.swift in Sources */,
 				684D7C1879D3EEA3F97BC4BA /* ConnectionVault.swift in Sources */,
@@ -1432,7 +1439,6 @@
 				84DEA88B2E3F0B1D2097F49C /* InlineHTMLView.swift in Sources */,
 				FA9F8043E27BDFB32DC4830A /* InspectorView.swift in Sources */,
 				C3013C6A6A591C7F37DFCDA6 /* InstanceConfig.swift in Sources */,
-				E6A7A06897437405DCFF5484 /* IntentLibraryHubView.swift in Sources */,
 				E7A4B8B80E4B98B4C13F5C79 /* InviteCodeGenerator.swift in Sources */,
 				EE907D6938D3AD4C68E8C8DA /* LabsSettingsView.swift in Sources */,
 				9BD78B6E2A75C023FFFAEFF4 /* LaunchIntent.swift in Sources */,
@@ -1508,6 +1514,8 @@
 				258BF9C6F0D8FA4FA5270768 /* TaskItem.swift in Sources */,
 				E65A2B757B152673E7A2D0AE /* TemplatePickerRow.swift in Sources */,
 				9ED4FD197D1E511B44B87EAD /* TemplatesSettingsTab.swift in Sources */,
+				A1B2C3D4E5F60001A1B2C3D4 /* ConfigurationSettingsTab.swift in Sources */,
+				A1B2C3D4E5F60003A1B2C3D4 /* ConfigurationDetailView.swift in Sources */,
 				BFD29E858CE515DD4400DC7D /* TerminalOutputView.swift in Sources */,
 				339AB580DED537F9467BCAC4 /* ToolCallView.swift in Sources */,
 				A5F456BAEBB6C649F464697C /* TransportManager.swift in Sources */,

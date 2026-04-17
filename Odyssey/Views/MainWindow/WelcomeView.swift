@@ -176,7 +176,7 @@ struct WelcomeView: View {
                 color: .orange,
                 identifier: "welcome.quickAction.browseAgents"
             ) {
-                windowState.openLibrary(.build, buildSection: .agents)
+                windowState.openConfiguration(section: .agents)
             }
             quickActionCard(
                 title: "Browse Groups",
@@ -186,7 +186,7 @@ struct WelcomeView: View {
                 color: .teal,
                 identifier: "welcome.quickAction.browseGroups"
             ) {
-                windowState.openLibrary(.build, buildSection: .groups)
+                windowState.openConfiguration(section: .groups)
             }
             quickActionCard(
                 title: "Schedules",

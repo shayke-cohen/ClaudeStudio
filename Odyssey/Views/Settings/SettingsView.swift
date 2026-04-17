@@ -7,7 +7,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case connection
     case connectors
     case chatDisplay
-    case templates
+    case configuration
     case labs
     case developer
     case iosPairing
@@ -23,7 +23,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "Connection"
         case .connectors: "Connectors"
         case .chatDisplay: "Chat Display"
-        case .templates: "Templates"
+        case .configuration: "Configuration"
         case .labs: "Labs"
         case .developer: "Developer"
         case .iosPairing: "iOS Pairing"
@@ -39,7 +39,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "Sidecar lifecycle and local ports"
         case .connectors: "OAuth setup, broker config, and tokens"
         case .chatDisplay: "Rendering and conversation chrome"
-        case .templates: "Curate reusable starter prompts per agent and group"
+        case .configuration: "Manage agents, groups, skills, MCPs, templates, and permissions"
         case .labs: "Experimental and power-user feature flags"
         case .developer: "Paths, diagnostics, and experimental controls"
         case .iosPairing: "QR code and device pairing for iOS access"
@@ -55,7 +55,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "network"
         case .connectors: "link.badge.plus"
         case .chatDisplay: "bubble.left.and.text.bubble.right"
-        case .templates: "text.badge.plus"
+        case .configuration: "gearshape.2"
         case .labs: "flask"
         case .developer: "wrench.and.screwdriver"
         case .iosPairing: "iphone.and.arrow.forward"
@@ -71,7 +71,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .connection: "settings.tab.connection"
         case .connectors: "settings.tab.connectors"
         case .chatDisplay: "settings.tab.chatDisplay"
-        case .templates: "settings.tab.templates"
+        case .configuration: "settings.tab.configuration"
         case .labs: "settings.tab.labs"
         case .developer: "settings.tab.developer"
         case .iosPairing: "settings.tab.iosPairing"
@@ -89,6 +89,8 @@ struct SettingsView: View {
     @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
     @AppStorage(FeatureFlags.devModeKey, store: AppSettings.store) private var devModeFlag = false
 
+    private let pendingConfigSection: ConfigSection?
+    private let pendingConfigSlug: String?
     private let onBackToApp: (() -> Void)?
 
     private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
@@ -109,9 +111,13 @@ struct SettingsView: View {
 
     init(
         initialSection: SettingsSection = .general,
+        pendingConfigSection: ConfigSection? = nil,
+        pendingConfigSlug: String? = nil,
         onBackToApp: (() -> Void)? = nil
     ) {
-        _selectedSection = State(initialValue: initialSection)
+        _selectedSection = State(initialValue: pendingConfigSection != nil ? .configuration : initialSection)
+        self.pendingConfigSection = pendingConfigSection
+        self.pendingConfigSlug = pendingConfigSlug
         self.onBackToApp = onBackToApp
     }
 
@@ -218,8 +224,11 @@ struct SettingsView: View {
                 ConnectorsSettingsTab()
             case .chatDisplay:
                 ChatDisplaySettingsTab()
-            case .templates:
-                TemplatesSettingsTab()
+            case .configuration:
+                ConfigurationSettingsTab(
+                    initialSection: pendingConfigSection,
+                    initialSlug: pendingConfigSlug
+                )
             case .labs:
                 LabsSettingsView()
             case .developer:

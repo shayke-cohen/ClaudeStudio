@@ -352,8 +352,12 @@ struct ChatView: View {
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
-    @Query private var allAgents: [Agent]
+    // Unfiltered queries for chip display. Acceptable for typical catalog sizes (< a few hundred items).
+    // If performance becomes an issue, filter by agent.skillIds / agent.extraMCPServerIds at query time.
+    @Query private var allSkills: [Skill]
+    @Query private var allMCPs: [MCPServer]
     @Query private var allGroups: [AgentGroup]
+    @Query private var allAgents: [Agent]
     @Query(sort: \Session.startedAt) private var allSessions: [Session]
 
     private let autoScrollThreshold: CGFloat = 120
@@ -983,7 +987,7 @@ struct ChatView: View {
             .xrayId("chat.groupAgentIcons")
         } else if let agent = primarySession?.agent {
             Button {
-                windowState.openLibrary(.build, buildSection: .agents)
+                windowState.openConfiguration(section: .agents)
             } label: {
                 Image(systemName: agent.icon)
                     .foregroundStyle(Color.fromAgentColor(agent.color))
@@ -998,6 +1002,85 @@ struct ChatView: View {
                 .foregroundStyle(.blue)
                 .font(.title3)
                 .xrayId("chat.chatIcon")
+        }
+    }
+
+    @ViewBuilder
+    private var headerChips: some View {
+        let agent = primarySession?.agent
+        let sourceGroupId = conversation?.sourceGroupId
+        let sourceGroup = sourceGroupId.flatMap { id in allGroups.first { $0.id == id } }
+
+        let agentSkills: [Skill] = agent.map { a in
+            allSkills.filter { a.skillIds.contains($0.id) }
+        } ?? []
+
+        let agentMCPs: [MCPServer] = agent.map { a in
+            allMCPs.filter { a.extraMCPServerIds.contains($0.id) }
+        } ?? []
+
+        if agentSkills.isEmpty && agentMCPs.isEmpty && sourceGroup == nil {
+            EmptyView()
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    // Skill chips
+                    ForEach(agentSkills) { skill in
+                        Button {
+                            windowState.openConfiguration(section: .skills, slug: skill.configSlug)
+                        } label: {
+                            Text("⚡ \(skill.name)")
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.green.opacity(0.12), in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .xrayId("chat.skillChip.\(skill.id.uuidString)")
+                    }
+
+                    // MCP chips
+                    ForEach(agentMCPs) { mcp in
+                        Button {
+                            windowState.openConfiguration(section: .mcps, slug: mcp.configSlug)
+                        } label: {
+                            Text("🔧 \(mcp.name)")
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange.opacity(0.12), in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .xrayId("chat.mcpChip.\(mcp.id.uuidString)")
+                    }
+
+                    // Group role chips
+                    if let group = sourceGroup {
+                        let memberAgents = group.agentIds.compactMap { id in
+                            allAgents.first { $0.id == id }
+                        }
+                        ForEach(memberAgents, id: \.id) { member in
+                            let role = group.roleFor(agentId: member.id)
+                            if role != .participant {
+                                Button {
+                                    windowState.openConfiguration(section: .groups, slug: group.configSlug)
+                                } label: {
+                                    Text("\(role.emoji) \(member.name)")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.purple.opacity(0.12), in: Capsule())
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .xrayId("chat.roleChip.\(member.id.uuidString)")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1041,6 +1124,8 @@ struct ChatView: View {
                     simplifiedSessionMenu(convo)
                 }
             }
+
+            headerChips
 
             simplifiedMissionSection
 

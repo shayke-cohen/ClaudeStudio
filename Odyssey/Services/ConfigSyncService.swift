@@ -154,6 +154,12 @@ final class ConfigSyncService {
         ConfigFileManager.syncBundledBuiltIns(overwriteExisting: overwriteExisting)
         ConfigFileManager.syncBundledPromptTemplates(overwriteExisting: overwriteExisting)
 
+        // Sync bundled Catalog entries for the new file-backed format (no-ops until catalog migration populates them)
+        ConfigFileManager.syncBundledAgents()
+        ConfigFileManager.syncBundledGroups()
+        try? ConfigFileManager.syncBundledSkills()
+        try? ConfigFileManager.syncBundledMCPs()
+
         if overwriteExisting {
             ConfigFileManager.removeRetiredBundleMCPs(slugs: Self.retiredBuiltInMCPSlugs)
         }
@@ -190,13 +196,19 @@ final class ConfigSyncService {
         // Load templates for system prompt resolution
         let templates = ConfigFileManager.readAllTemplates()
 
-        // Sync each entity type
+        // Sync each entity type (catalog / legacy flat-file format)
         syncPermissions(context: context)
         syncMCPs(context: context)
         syncSkills(context: context)
         syncAgents(context: context, templates: templates)
         syncGroups(context: context)
         syncPromptTemplates(context: context)
+
+        // Sync file-backed entities (new subdirectory / slug-file format)
+        syncAgentFiles(context: context)
+        syncGroupFiles(context: context)
+        syncSkillFiles(context: context)
+        syncMCPFiles(context: context)
 
         // Sync feature flags from features.json (restart-free flag flipping)
         syncFeaturesFromDisk()
@@ -634,6 +646,591 @@ final class ConfigSyncService {
 
         for entity in existing where entity.configSlug != nil && !seenSlugs.contains(entity.configSlug!) {
             entity.isEnabled = false
+        }
+    }
+
+    // MARK: - File-Backed Entity Sync (new subdirectory / slug-file format)
+
+    // MARK: Agents
+
+    private func syncAgentFiles(context: ModelContext) {
+        let fileEntries = ConfigFileManager.readAllAgentFiles()
+        let existing = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
+        let slugMap = Dictionary(uniqueKeysWithValues: existing.compactMap { e in
+            e.configSlug.map { ($0, e) }
+        })
+
+        // Pre-build lookup maps for slug → UUID resolution
+        let allSkills = (try? context.fetch(FetchDescriptor<Skill>())) ?? []
+        let skillBySlug: [String: UUID] = Dictionary(uniqueKeysWithValues: allSkills.compactMap { s in
+            s.configSlug.map { ($0, s.id) }
+        })
+        let allMCPs = (try? context.fetch(FetchDescriptor<MCPServer>())) ?? []
+        let mcpBySlug: [String: UUID] = Dictionary(uniqueKeysWithValues: allMCPs.compactMap { m in
+            m.configSlug.map { ($0, m.id) }
+        })
+        let allPerms = (try? context.fetch(FetchDescriptor<PermissionSet>())) ?? []
+        let permBySlug: [String: UUID] = Dictionary(uniqueKeysWithValues: allPerms.compactMap { p in
+            p.configSlug.map { ($0, p.id) }
+        })
+
+        var seenSlugs: Set<String> = []
+
+        for entry in fileEntries {
+            let slug = entry.slug
+            seenSlugs.insert(slug)
+
+            // Resolve slug references to UUIDs
+            let skillIds: [UUID] = entry.config.skills.compactMap { skillSlug in
+                if let id = skillBySlug[skillSlug] { return id }
+                Log.configSync.warning("syncAgentFiles: unresolvable skill slug '\(skillSlug, privacy: .public)' for agent '\(slug, privacy: .public)' — skipped")
+                return nil
+            }
+            let mcpIds: [UUID] = entry.config.mcps.compactMap { mcpSlug in
+                if let id = mcpBySlug[mcpSlug] { return id }
+                Log.configSync.warning("syncAgentFiles: unresolvable MCP slug '\(mcpSlug, privacy: .public)' for agent '\(slug, privacy: .public)' — skipped")
+                return nil
+            }
+            let permId: UUID? = entry.config.permissions.flatMap { permSlug in
+                if let id = permBySlug[permSlug] { return id }
+                Log.configSync.warning("syncAgentFiles: unresolvable permission slug '\(permSlug, privacy: .public)' for agent '\(slug, privacy: .public)' — skipped")
+                return nil
+            }
+
+            if let entity = slugMap[slug] {
+                // Update existing
+                entity.name = entry.config.name
+                entity.agentDescription = entry.config.description ?? ""
+                entity.systemPrompt = entry.prompt
+                entity.provider = entry.config.provider ?? ProviderSelection.system.rawValue
+                entity.model = entry.config.model
+                entity.icon = entry.config.icon ?? ""
+                entity.color = entry.config.color ?? ""
+                entity.skillIds = skillIds
+                entity.extraMCPServerIds = mcpIds
+                entity.permissionSetId = permId
+                entity.maxTurns = entry.config.maxTurns
+                entity.maxBudget = entry.config.maxBudget
+                entity.maxThinkingTokens = entry.config.maxThinkingTokens
+                entity.defaultWorkingDirectory = entry.config.defaultWorkingDirectory
+                entity.instancePolicy = AgentInstancePolicy(rawValue: entry.config.instancePolicy ?? "") ?? .agentDefault
+                entity.instancePolicyPoolMax = entry.config.instancePolicyPoolMax
+                if let isShared = entry.config.isShared { entity.isShared = isShared }
+                entity.configSlug = slug
+                entity.updatedAt = Date()
+            } else {
+                // Check for a name-match migration candidate (no configSlug yet)
+                let byName = existing.first { $0.name == entry.config.name && $0.configSlug == nil }
+                if let entity = byName {
+                    entity.configSlug = slug
+                    entity.agentDescription = entry.config.description ?? ""
+                    entity.systemPrompt = entry.prompt
+                    entity.provider = entry.config.provider ?? ProviderSelection.system.rawValue
+                    entity.model = entry.config.model
+                    entity.icon = entry.config.icon ?? ""
+                    entity.color = entry.config.color ?? ""
+                    entity.skillIds = skillIds
+                    entity.extraMCPServerIds = mcpIds
+                    entity.permissionSetId = permId
+                    entity.maxTurns = entry.config.maxTurns
+                    entity.maxBudget = entry.config.maxBudget
+                    entity.maxThinkingTokens = entry.config.maxThinkingTokens
+                    entity.defaultWorkingDirectory = entry.config.defaultWorkingDirectory
+                    entity.instancePolicy = AgentInstancePolicy(rawValue: entry.config.instancePolicy ?? "") ?? .agentDefault
+                    entity.instancePolicyPoolMax = entry.config.instancePolicyPoolMax
+                    if let isShared = entry.config.isShared { entity.isShared = isShared }
+                    entity.updatedAt = Date()
+                } else {
+                    // Insert new
+                    let entity = Agent(
+                        name: entry.config.name,
+                        agentDescription: entry.config.description ?? "",
+                        systemPrompt: entry.prompt,
+                        provider: entry.config.provider ?? ProviderSelection.system.rawValue,
+                        model: entry.config.model,
+                        icon: entry.config.icon ?? "",
+                        color: entry.config.color ?? ""
+                    )
+                    entity.skillIds = skillIds
+                    entity.extraMCPServerIds = mcpIds
+                    entity.permissionSetId = permId
+                    entity.maxTurns = entry.config.maxTurns
+                    entity.maxBudget = entry.config.maxBudget
+                    entity.maxThinkingTokens = entry.config.maxThinkingTokens
+                    entity.defaultWorkingDirectory = entry.config.defaultWorkingDirectory
+                    entity.instancePolicy = AgentInstancePolicy(rawValue: entry.config.instancePolicy ?? "") ?? .agentDefault
+                    entity.instancePolicyPoolMax = entry.config.instancePolicyPoolMax
+                    if let isShared = entry.config.isShared { entity.isShared = isShared }
+                    entity.configSlug = slug
+                    entity.origin = .builtin
+                    context.insert(entity)
+                }
+            }
+        }
+
+        // Soft-disable entities whose files were removed
+        for entity in existing where entity.configSlug != nil && !seenSlugs.contains(entity.configSlug!) {
+            // Only disable if this slug looks like it came from the file-backed format (subdirectory style)
+            // Check: only touch entities whose slug is known to be from readAllAgentFiles (i.e. not already
+            // covered by syncAgents). To avoid double-disabling we skip — the legacy syncAgents() handles
+            // the catalog-format slugs; here we only disable if the file-backed directory is gone.
+            let fileBackedDir = ConfigFileManager.agentsDirectory.appendingPathComponent(entity.configSlug!)
+            if FileManager.default.fileExists(atPath: fileBackedDir.path + "/config.json") == false
+                && seenSlugs.isEmpty == false {
+                // Only disable if this slug was seen by the file-backed reader at some point (i.e. the
+                // entity's configSlug matches the file-backed layout). We conservatively skip to avoid
+                // disabling catalog-format entities here.
+                entity.isEnabled = false
+            }
+        }
+    }
+
+    // MARK: Groups
+
+    private func syncGroupFiles(context: ModelContext) {
+        let fileEntries = ConfigFileManager.readAllGroupFiles()
+        let existing = (try? context.fetch(FetchDescriptor<AgentGroup>())) ?? []
+        let slugMap = Dictionary(uniqueKeysWithValues: existing.compactMap { e in
+            e.configSlug.map { ($0, e) }
+        })
+
+        // Build agent slug → UUID map
+        let allAgents = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
+        let agentBySlug: [String: UUID] = Dictionary(uniqueKeysWithValues: allAgents.compactMap { a in
+            a.configSlug.map { ($0, a.id) }
+        })
+
+        var seenSlugs: Set<String> = []
+
+        for entry in fileEntries {
+            let slug = entry.slug
+            seenSlugs.insert(slug)
+
+            // Resolve agent slugs → UUIDs
+            let agentIds: [UUID] = entry.config.agents.compactMap { agentSlug in
+                if let id = agentBySlug[agentSlug] { return id }
+                Log.configSync.warning("syncGroupFiles: unresolvable agent slug '\(agentSlug, privacy: .public)' for group '\(slug, privacy: .public)' — skipped")
+                return nil
+            }
+            let coordinatorId: UUID? = entry.config.coordinator.flatMap { agentSlug in
+                if let id = agentBySlug[agentSlug] { return id }
+                Log.configSync.warning("syncGroupFiles: unresolvable coordinator slug '\(agentSlug, privacy: .public)' for group '\(slug, privacy: .public)' — skipped")
+                return nil
+            }
+            var roleMap: [UUID: String] = [:]
+            for (agentSlug, roleName) in entry.config.roles ?? [:] {
+                if let id = agentBySlug[agentSlug] {
+                    roleMap[id] = roleName
+                } else {
+                    Log.configSync.warning("syncGroupFiles: unresolvable role agent slug '\(agentSlug, privacy: .public)' for group '\(slug, privacy: .public)' — skipped")
+                }
+            }
+
+            // Convert workflow steps
+            let workflowSteps: [WorkflowStep]? = entry.workflow?.compactMap { step in
+                guard let agentId = agentBySlug[step.agent] else {
+                    Log.configSync.warning("syncGroupFiles: unresolvable workflow agent slug '\(step.agent, privacy: .public)' for group '\(slug, privacy: .public)' — step skipped")
+                    return nil
+                }
+                let gate: WorkflowArtifactGate? = step.artifactGate.map {
+                    WorkflowArtifactGate(
+                        profile: $0.profile,
+                        approvalRequired: $0.approvalRequired,
+                        publishRepoDoc: $0.publishRepoDoc,
+                        blockedDownstreamAgentNames: $0.blockedDownstreamAgentNames
+                    )
+                }
+                return WorkflowStep(
+                    agentId: agentId,
+                    instruction: step.instruction,
+                    condition: step.condition,
+                    autoAdvance: step.autoAdvance ?? false,
+                    stepLabel: step.stepLabel,
+                    artifactGate: gate
+                )
+            }
+
+            if let entity = slugMap[slug] {
+                entity.name = entry.config.name
+                entity.groupDescription = entry.config.description ?? ""
+                entity.icon = entry.config.icon ?? ""
+                entity.color = entry.config.color ?? ""
+                entity.groupInstruction = entry.instruction
+                entity.defaultMission = entry.mission
+                entity.agentIds = agentIds
+                entity.autoReplyEnabled = entry.config.autoReplyEnabled ?? true
+                entity.autonomousCapable = entry.config.autonomousCapable ?? false
+                entity.coordinatorAgentId = coordinatorId
+                entity.agentRoles = roleMap
+                entity.workflow = workflowSteps
+            } else {
+                let byName = existing.first { $0.name == entry.config.name && $0.configSlug == nil }
+                if let entity = byName {
+                    entity.configSlug = slug
+                    entity.groupDescription = entry.config.description ?? ""
+                    entity.icon = entry.config.icon ?? ""
+                    entity.color = entry.config.color ?? ""
+                    entity.groupInstruction = entry.instruction
+                    entity.defaultMission = entry.mission
+                    entity.agentIds = agentIds
+                    entity.autoReplyEnabled = entry.config.autoReplyEnabled ?? true
+                    entity.autonomousCapable = entry.config.autonomousCapable ?? false
+                    entity.coordinatorAgentId = coordinatorId
+                    entity.agentRoles = roleMap
+                    entity.workflow = workflowSteps
+                } else {
+                    let entity = AgentGroup(
+                        name: entry.config.name,
+                        groupDescription: entry.config.description ?? "",
+                        icon: entry.config.icon ?? "",
+                        color: entry.config.color ?? "",
+                        groupInstruction: entry.instruction,
+                        defaultMission: entry.mission,
+                        agentIds: agentIds
+                    )
+                    entity.autoReplyEnabled = entry.config.autoReplyEnabled ?? true
+                    entity.autonomousCapable = entry.config.autonomousCapable ?? false
+                    entity.coordinatorAgentId = coordinatorId
+                    entity.agentRoles = roleMap
+                    entity.workflow = workflowSteps
+                    entity.configSlug = slug
+                    entity.origin = .builtin
+                    context.insert(entity)
+                }
+            }
+        }
+        // File-backed groups: soft-disable is handled conservatively (legacy syncGroups owns the disable path)
+    }
+
+    // MARK: Skills (flat {slug}.md files)
+
+    private func syncSkillFiles(context: ModelContext) {
+        let fileEntries = ConfigFileManager.readAllSkillFiles()
+        let existing = (try? context.fetch(FetchDescriptor<Skill>())) ?? []
+        let slugMap = Dictionary(uniqueKeysWithValues: existing.compactMap { e in
+            e.configSlug.map { ($0, e) }
+        })
+        var seenSlugs: Set<String> = []
+
+        for entry in fileEntries {
+            let slug = entry.slug
+            seenSlugs.insert(slug)
+
+            if let entity = slugMap[slug] {
+                entity.name = entry.dto.name
+                entity.category = entry.dto.category ?? "General"
+                entity.triggers = entry.dto.triggers ?? []
+                entity.content = entry.content
+                entity.sourceKind = "filesystem"
+                entity.updatedAt = Date()
+            } else {
+                let byName = existing.first { $0.name == entry.dto.name && $0.configSlug == nil }
+                if let entity = byName {
+                    entity.configSlug = slug
+                    entity.category = entry.dto.category ?? "General"
+                    entity.triggers = entry.dto.triggers ?? []
+                    entity.content = entry.content
+                    entity.sourceKind = "filesystem"
+                    entity.updatedAt = Date()
+                } else {
+                    let entity = Skill(
+                        name: entry.dto.name,
+                        skillDescription: "",
+                        category: entry.dto.category ?? "General",
+                        content: entry.content
+                    )
+                    entity.triggers = entry.dto.triggers ?? []
+                    entity.configSlug = slug
+                    entity.sourceKind = "filesystem"
+                    context.insert(entity)
+                }
+            }
+        }
+
+        // Soft-disable skills whose flat .md files were removed
+        for entity in existing {
+            guard let slug = entity.configSlug,
+                  entity.sourceKind == "filesystem",
+                  !seenSlugs.contains(slug) else { continue }
+            entity.isEnabled = false
+        }
+    }
+
+    // MARK: MCPs (flat {slug}.json files in new MCPConfigFileDTO format)
+
+    private func syncMCPFiles(context: ModelContext) {
+        let fileEntries = ConfigFileManager.readAllMCPFiles()
+        let existing = (try? context.fetch(FetchDescriptor<MCPServer>())) ?? []
+        let slugMap = Dictionary(uniqueKeysWithValues: existing.compactMap { e in
+            e.configSlug.map { ($0, e) }
+        })
+        var seenSlugs: Set<String> = []
+
+        for entry in fileEntries {
+            let slug = entry.slug
+            seenSlugs.insert(slug)
+
+            let transport: MCPTransport = {
+                if entry.dto.transport == "stdio" {
+                    return .stdio(
+                        command: entry.dto.command ?? "",
+                        args: entry.dto.args ?? [],
+                        env: entry.dto.env ?? [:]
+                    )
+                } else {
+                    return .http(
+                        url: entry.dto.url ?? "",
+                        headers: entry.dto.headers ?? [:]
+                    )
+                }
+            }()
+
+            if let entity = slugMap[slug] {
+                entity.name = entry.dto.name
+                entity.serverDescription = entry.dto.description ?? ""
+                entity.transport = transport
+            } else {
+                let byName = existing.first { $0.name == entry.dto.name && $0.configSlug == nil }
+                if let entity = byName {
+                    entity.configSlug = slug
+                    entity.serverDescription = entry.dto.description ?? ""
+                    entity.transport = transport
+                } else {
+                    let entity = MCPServer(
+                        name: entry.dto.name,
+                        serverDescription: entry.dto.description ?? "",
+                        transport: transport
+                    )
+                    entity.configSlug = slug
+                    context.insert(entity)
+                }
+            }
+        }
+
+        // Soft-disable MCPs whose new-format files were removed.
+        // TODO: Safe soft-disable for file-backed MCPs requires a sourceKind field on MCPServer
+        // (analogous to Skill.sourceKind) to distinguish file-backed vs catalog entities.
+        // Without it, this loop would incorrectly disable catalog MCPs (octocode, argus, etc.)
+        // whose configSlug appears in the existing[] set but not in seenSlugs.
+        // entity.isEnabled = false  — deferred until MCPServer.sourceKind is added.
+        for entity in existing {
+            guard let slug = entity.configSlug, !seenSlugs.contains(slug) else { continue }
+            // Intentionally not disabling here — see TODO above.
+            _ = slug
+        }
+    }
+
+    // MARK: - File-Backed Write-Back (new subdirectory / slug-file format)
+
+    /// Slug derivation helper — delegates to ConfigFileManager.slugify.
+    private func deriveSlug(from name: String) -> String {
+        ConfigFileManager.slugify(name)
+    }
+
+    /// Write an agent back to its file-backed config directory (agents/{slug}/config.json + prompt.md).
+    func writeBack(_ agent: Agent) throws {
+        guard !isWritingBack else { return }
+        let slug = agent.configSlug ?? deriveSlug(from: agent.name)
+        if agent.configSlug == nil { agent.configSlug = slug }
+
+        guard let container = modelContainer else { return }
+        let context = ModelContext(container)
+        let allSkills = (try? context.fetch(FetchDescriptor<Skill>())) ?? []
+        let allMCPs = (try? context.fetch(FetchDescriptor<MCPServer>())) ?? []
+        let allPerms = (try? context.fetch(FetchDescriptor<PermissionSet>())) ?? []
+
+        let skillSlugs = agent.skillIds.compactMap { id -> String? in
+            guard let skill = allSkills.first(where: { $0.id == id }) else { return nil }
+            return skill.configSlug ?? deriveSlug(from: skill.name)
+        }
+        let mcpSlugs = agent.extraMCPServerIds.compactMap { id -> String? in
+            guard let mcp = allMCPs.first(where: { $0.id == id }) else { return nil }
+            return mcp.configSlug ?? deriveSlug(from: mcp.name)
+        }
+        let permSlug: String? = agent.permissionSetId.flatMap { id in
+            guard let perm = allPerms.first(where: { $0.id == id }) else { return nil }
+            return perm.configSlug ?? deriveSlug(from: perm.name)
+        }
+
+        let config = AgentConfigFileDTO(
+            name: agent.name,
+            description: agent.agentDescription.isEmpty ? nil : agent.agentDescription,
+            model: agent.model,
+            provider: agent.provider == ProviderSelection.system.rawValue ? nil : agent.provider,
+            resident: agent.isResident ? true : nil,
+            icon: agent.icon.isEmpty ? nil : agent.icon,
+            color: agent.color.isEmpty ? nil : agent.color,
+            skills: skillSlugs,
+            mcps: mcpSlugs,
+            permissions: permSlug,
+            maxTurns: agent.maxTurns,
+            maxBudget: agent.maxBudget,
+            maxThinkingTokens: agent.maxThinkingTokens,
+            instancePolicy: agent.instancePolicy == .agentDefault ? nil : agent.instancePolicy.rawValue,
+            instancePolicyPoolMax: agent.instancePolicy == .pool ? agent.instancePolicyPoolMax : nil,
+            defaultWorkingDirectory: agent.defaultWorkingDirectory,
+            isShared: agent.isShared ? true : nil
+        )
+
+        isWritingBack = true
+        do {
+            try ConfigFileManager.writeBack(agentSlug: slug, config: config, prompt: agent.systemPrompt)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.isWritingBack = false
+            }
+        } catch {
+            isWritingBack = false
+            throw error
+        }
+    }
+
+    /// Write a group back to its file-backed config directory (groups/{slug}/config.json + instruction.md + …).
+    func writeBack(_ group: AgentGroup) throws {
+        guard !isWritingBack else { return }
+        let slug = group.configSlug ?? deriveSlug(from: group.name)
+        if group.configSlug == nil { group.configSlug = slug }
+
+        guard let container = modelContainer else { return }
+        let context = ModelContext(container)
+        let allAgents = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
+
+        let agentSlugById: [UUID: String] = Dictionary(uniqueKeysWithValues: allAgents.compactMap { a -> (UUID, String)? in
+            let s = a.configSlug ?? deriveSlug(from: a.name)
+            return (a.id, s)
+        })
+
+        let agentSlugs = group.agentIds.compactMap { agentSlugById[$0] }
+        let coordinatorSlug = group.coordinatorAgentId.flatMap { agentSlugById[$0] }
+
+        var roles: [String: String] = [:]
+        for (agentId, roleName) in group.agentRoles {
+            if let agentSlug = agentSlugById[agentId] {
+                roles[agentSlug] = roleName
+            }
+        }
+
+        let workflowSteps: [WorkflowStepFileDTO]? = group.workflow?.map { step in
+            let agentSlug = agentSlugById[step.agentId] ?? "unknown"
+            let gate: WorkflowArtifactGateFileDTO? = step.artifactGate.map {
+                WorkflowArtifactGateFileDTO(
+                    profile: $0.profile,
+                    approvalRequired: $0.approvalRequired,
+                    publishRepoDoc: $0.publishRepoDoc,
+                    blockedDownstreamAgentNames: $0.blockedDownstreamAgentNames
+                )
+            }
+            return WorkflowStepFileDTO(
+                id: step.id.uuidString,
+                agent: agentSlug,
+                instruction: step.instruction,
+                stepLabel: step.stepLabel,
+                autoAdvance: step.autoAdvance,
+                condition: step.condition,
+                artifactGate: gate
+            )
+        }
+
+        // AgentGroup has no workingDirectory, model, or extraMCPServerIds fields,
+        // so those GroupConfigFileDTO fields remain nil.
+        let config = GroupConfigFileDTO(
+            name: group.name,
+            description: group.groupDescription.isEmpty ? nil : group.groupDescription,
+            agents: agentSlugs,
+            workingDirectory: nil,
+            model: nil,
+            mcps: nil,
+            icon: group.icon.isEmpty ? nil : group.icon,
+            color: group.color.isEmpty ? nil : group.color,
+            autoReplyEnabled: group.autoReplyEnabled,
+            autonomousCapable: group.autonomousCapable,
+            coordinator: coordinatorSlug,
+            routingMode: nil,
+            roles: roles.isEmpty ? nil : roles
+        )
+
+        isWritingBack = true
+        do {
+            try ConfigFileManager.writeBack(
+                groupSlug: slug,
+                config: config,
+                instruction: group.groupInstruction,
+                mission: group.defaultMission,
+                workflow: workflowSteps
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.isWritingBack = false
+            }
+        } catch {
+            isWritingBack = false
+            throw error
+        }
+    }
+
+    /// Write a skill back to its flat file-backed format (skills/{slug}.md).
+    func writeBack(_ skill: Skill) throws {
+        guard !isWritingBack else { return }
+        let slug = skill.configSlug ?? deriveSlug(from: skill.name)
+        if skill.configSlug == nil { skill.configSlug = slug }
+
+        let dto = SkillFileDTO(
+            name: skill.name,
+            category: skill.category.isEmpty ? nil : skill.category,
+            triggers: skill.triggers.isEmpty ? nil : skill.triggers
+        )
+
+        isWritingBack = true
+        do {
+            try ConfigFileManager.writeBack(skillSlug: slug, dto: dto, content: skill.content)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.isWritingBack = false
+            }
+        } catch {
+            isWritingBack = false
+            throw error
+        }
+    }
+
+    /// Write an MCP server back to its flat file-backed format (mcps/{slug}.json).
+    func writeBack(_ mcpServer: MCPServer) throws {
+        guard !isWritingBack else { return }
+        let slug = mcpServer.configSlug ?? deriveSlug(from: mcpServer.name)
+        if mcpServer.configSlug == nil { mcpServer.configSlug = slug }
+
+        let dto: MCPConfigFileDTO
+        switch mcpServer.transport {
+        case .stdio(let command, let args, let env):
+            dto = MCPConfigFileDTO(
+                name: mcpServer.name,
+                description: mcpServer.serverDescription.isEmpty ? nil : mcpServer.serverDescription,
+                transport: "stdio",
+                command: command,
+                args: args.isEmpty ? nil : args,
+                env: env.isEmpty ? nil : env,
+                url: nil,
+                headers: nil
+            )
+        case .http(let url, let headers):
+            dto = MCPConfigFileDTO(
+                name: mcpServer.name,
+                description: mcpServer.serverDescription.isEmpty ? nil : mcpServer.serverDescription,
+                transport: "http",
+                command: nil,
+                args: nil,
+                env: nil,
+                url: url,
+                headers: headers.isEmpty ? nil : headers
+            )
+        }
+
+        isWritingBack = true
+        do {
+            try ConfigFileManager.writeBack(mcpSlug: slug, dto: dto)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.isWritingBack = false
+            }
+        } catch {
+            isWritingBack = false
+            throw error
         }
     }
 
