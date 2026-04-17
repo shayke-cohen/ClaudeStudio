@@ -343,22 +343,26 @@ struct AgentCreationSheet: View {
 
     /// Save the manually-configured agent.
     private func save() {
-        performAgentSave(
-            existingAgent: existingAgent,
-            name: name,
-            agentDescription: agentDescription,
-            icon: icon.isEmpty ? "cpu" : icon,
-            color: color.isEmpty ? "blue" : color,
-            provider: provider,
-            model: model,
-            systemPrompt: systemPrompt,
-            maxTurns: Int(maxTurns),
-            maxBudget: Double(maxBudget),
-            instancePolicy: instancePolicy,
-            modelContext: modelContext,
-            onSave: onSave,
-            dismiss: { dismiss() }
-        )
+        do {
+            try performAgentSave(
+                existingAgent: existingAgent,
+                name: name,
+                agentDescription: agentDescription,
+                icon: icon.isEmpty ? "cpu" : icon,
+                color: color.isEmpty ? "blue" : color,
+                provider: provider,
+                model: model,
+                systemPrompt: systemPrompt,
+                maxTurns: Int(maxTurns),
+                maxBudget: Double(maxBudget),
+                instancePolicy: instancePolicy,
+                modelContext: modelContext,
+                onSave: onSave,
+                dismiss: { dismiss() }
+            )
+        } catch {
+            generateError = error.localizedDescription
+        }
     }
 }
 
@@ -381,7 +385,7 @@ func performAgentSave(
     modelContext: ModelContext,
     onSave: (Agent) -> Void,
     dismiss: () -> Void
-) {
+) throws {
     let slug = ConfigFileManager.slugify(name)
 
     // Build the on-disk DTO
@@ -406,7 +410,7 @@ func performAgentSave(
     )
 
     // Write to disk — ConfigSyncService will pick it up via file-watching
-    try? ConfigFileManager.writeBack(agentSlug: slug, config: dto, prompt: systemPrompt)
+    try ConfigFileManager.writeBack(agentSlug: slug, config: dto, prompt: systemPrompt)
 
     // Insert or update SwiftData
     let agent: Agent

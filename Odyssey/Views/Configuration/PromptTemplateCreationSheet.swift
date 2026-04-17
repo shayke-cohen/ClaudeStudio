@@ -249,7 +249,6 @@ struct PromptTemplateCreationSheet: View {
         generateError = nil
 
         appState.requestTemplateGeneration(
-            requestId: UUID().uuidString,
             intent: intentText.trimmingCharacters(in: .whitespacesAndNewlines),
             agentName: ownerAgent?.name ?? ownerGroup?.name ?? "",
             agentSystemPrompt: ownerAgent?.systemPrompt ?? ""
@@ -341,7 +340,7 @@ func performTemplateSave(
         existing.sortOrder = sortOrder
         existing.configSlug = configSlug
         existing.updatedAt = Date()
-        try? context.save()
+        try context.save()
         return existing
     } else {
         let template = PromptTemplate(
@@ -354,7 +353,7 @@ func performTemplateSave(
             configSlug: configSlug
         )
         context.insert(template)
-        try? context.save()
+        try context.save()
         return template
     }
 }

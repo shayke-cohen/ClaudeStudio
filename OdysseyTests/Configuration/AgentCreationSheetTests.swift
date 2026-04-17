@@ -27,7 +27,7 @@ final class AgentCreationSheetTests: XCTestCase {
 
         var savedAgent: Agent? = nil
 
-        performAgentSave(
+        try performAgentSave(
             name: "Test Agent",
             agentDescription: "A test agent",
             icon: "cpu",
