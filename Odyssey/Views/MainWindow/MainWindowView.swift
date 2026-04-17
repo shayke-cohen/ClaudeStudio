@@ -92,51 +92,6 @@ struct MainWindowView: View {
                     .help("Settings")
                     .xrayId("mainWindow.settingsButton")
                     .accessibilityLabel("Settings")
-
-                    ZStack {
-                        Button("") { }
-                            .frame(width: 0, height: 0)
-                            .opacity(0)
-                            .popover(isPresented: $ws.showAgentPicker, arrowEdge: .bottom) {
-                                AgentPickerPopover(
-                                    projectId: windowState.selectedProjectId,
-                                    projectDirectory: windowState.projectDirectory,
-                                    isPresented: $ws.showAgentPicker
-                                )
-                                .environmentObject(appState)
-                                .environment(windowState)
-                            }
-                        Button("") { }
-                            .frame(width: 0, height: 0)
-                            .opacity(0)
-                            .popover(isPresented: $ws.showGroupPicker, arrowEdge: .bottom) {
-                                GroupPickerPopover(
-                                    projectId: windowState.selectedProjectId,
-                                    projectDirectory: windowState.projectDirectory,
-                                    isPresented: $ws.showGroupPicker
-                                )
-                                .environmentObject(appState)
-                                .environment(windowState)
-                            }
-                        Menu {
-                            Button { ws.showAgentPicker = true } label: {
-                                Label("Chat with Agent", systemImage: "cpu")
-                            }
-                            .keyboardShortcut("n", modifiers: .command)
-                            Button { ws.showGroupPicker = true } label: {
-                                Label("Chat with Group", systemImage: "person.3.fill")
-                            }
-                            .keyboardShortcut("n", modifiers: [.command, .option])
-                        } label: {
-                            Label("New", systemImage: "square.and.pencil")
-                        }
-                        .menuStyle(.borderlessButton)
-                        .menuIndicator(.hidden)
-                        .fixedSize()
-                        .help("Start a new chat with an agent or group (⌘N)")
-                        .xrayId("mainWindow.newMenu")
-                        .accessibilityLabel("New")
-                    }
                 }
             }
 

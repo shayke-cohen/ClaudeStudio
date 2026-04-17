@@ -182,16 +182,18 @@ struct SidebarView: View {
         @Bindable var ws = windowState
         List {
             // Hidden global buttons — register ⌘N, ⌘⌥N, and ⌘⇧N shortcuts at all times
-            Button("") { ws.showAgentPicker = true }
-                .keyboardShortcut("n", modifiers: .command)
-                .hidden()
-            Button("") { ws.showGroupPicker = true }
-                .keyboardShortcut("n", modifiers: [.command, .option])
-                .hidden()
-            Button("") { ws.showAgentPicker = true }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
-                .opacity(0)
-                .frame(width: 0, height: 0)
+            Group {
+                Button("") { ws.showAgentPicker = true }
+                    .keyboardShortcut("n", modifiers: .command)
+                Button("") { ws.showGroupPicker = true }
+                    .keyboardShortcut("n", modifiers: [.command, .option])
+                Button("") { ws.showAgentPicker = true }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
+            .hidden()
+            .frame(width: 0, height: 0)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
 
             agentsSection
 
@@ -239,6 +241,54 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 240)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                ZStack {
+                    Button("") { }
+                        .frame(width: 0, height: 0)
+                        .opacity(0)
+                        .popover(isPresented: $ws.showAgentPicker, arrowEdge: .bottom) {
+                            AgentPickerPopover(
+                                projectId: windowState.selectedProjectId,
+                                projectDirectory: windowState.projectDirectory,
+                                isPresented: $ws.showAgentPicker
+                            )
+                            .environmentObject(appState)
+                            .environment(windowState)
+                        }
+                    Button("") { }
+                        .frame(width: 0, height: 0)
+                        .opacity(0)
+                        .popover(isPresented: $ws.showGroupPicker, arrowEdge: .bottom) {
+                            GroupPickerPopover(
+                                projectId: windowState.selectedProjectId,
+                                projectDirectory: windowState.projectDirectory,
+                                isPresented: $ws.showGroupPicker
+                            )
+                            .environmentObject(appState)
+                            .environment(windowState)
+                        }
+                    Menu {
+                        Button { ws.showAgentPicker = true } label: {
+                            Label("Chat with Agent", systemImage: "cpu")
+                        }
+                        .keyboardShortcut("n", modifiers: .command)
+                        Button { ws.showGroupPicker = true } label: {
+                            Label("Chat with Group", systemImage: "person.3.fill")
+                        }
+                        .keyboardShortcut("n", modifiers: [.command, .option])
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("Start a new chat with an agent or group (⌘N)")
+                    .xrayId("sidebar.newMenu")
+                    .accessibilityLabel("New")
+                }
+            }
+        }
         .sheet(item: $editingGroup) { group in
             GroupEditorView(group: group)
         }
