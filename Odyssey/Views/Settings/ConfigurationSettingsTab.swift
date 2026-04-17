@@ -311,14 +311,13 @@ struct ConfigurationSettingsTab: View {
                 items: filteredMCPs,
                 selectedItem: $selectedItem,
                 itemRow: { mcp in
-                    let desc = mcp.serverDescription.isEmpty
-                        ? mcp.transportKind
-                        : String(mcp.serverDescription.prefix(30))
+                    let desc = mcp.serverDescription.isEmpty ? nil : String(mcp.serverDescription.prefix(30))
+                    let subtitle = desc.map { "\(mcp.transportKind) · \($0)" } ?? mcp.transportKind
                     return ConfigListRow(
                         name: mcp.name,
                         icon: "hammer.fill",
                         color: .orange,
-                        subtitle: "\(mcp.transportKind) · \(desc)"
+                        subtitle: subtitle
                     )
                     .tag(ConfigSelectedItem.mcp(mcp))
                 }
