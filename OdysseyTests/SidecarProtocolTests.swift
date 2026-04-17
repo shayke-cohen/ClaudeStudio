@@ -465,4 +465,99 @@ final class SidecarProtocolTests: XCTestCase {
             XCTFail("Expected .taskListResult event, got \(String(describing: event))")
         }
     }
+
+    // MARK: - Slash Command Command Encoding
+
+    func testConversationClearEncoding() throws {
+        let command = SidecarCommand.conversationClear(conversationId: "conv-abc-123")
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["type"] as? String, "conversation.clear")
+        XCTAssertEqual(json["conversationId"] as? String, "conv-abc-123")
+    }
+
+    func testConversationClearPreservesConversationId() throws {
+        let uuid = UUID().uuidString
+        let command = SidecarCommand.conversationClear(conversationId: uuid)
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["conversationId"] as? String, uuid)
+    }
+
+    func testSessionUpdateModelEncoding() throws {
+        let command = SidecarCommand.sessionUpdateModel(
+            sessionId: "sess-xyz", model: "claude-opus-4-7")
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["type"] as? String, "session.updateModel")
+        XCTAssertEqual(json["sessionId"] as? String, "sess-xyz")
+        XCTAssertEqual(json["model"] as? String, "claude-opus-4-7")
+    }
+
+    func testSessionUpdateModelWithHaiku() throws {
+        let command = SidecarCommand.sessionUpdateModel(
+            sessionId: "sess-1", model: "claude-haiku-4-5")
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["model"] as? String, "claude-haiku-4-5")
+    }
+
+    func testSessionUpdateEffortEncoding() throws {
+        let command = SidecarCommand.sessionUpdateEffort(
+            sessionId: "sess-abc", effort: "high")
+        let data = try command.encodeToJSON()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["type"] as? String, "session.updateEffort")
+        XCTAssertEqual(json["sessionId"] as? String, "sess-abc")
+        XCTAssertEqual(json["effort"] as? String, "high")
+    }
+
+    func testSessionUpdateEffortAllLevels() throws {
+        let levels = ["low", "medium", "high", "max"]
+        for level in levels {
+            let command = SidecarCommand.sessionUpdateEffort(sessionId: "s1", effort: level)
+            let data = try command.encodeToJSON()
+            let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+            XCTAssertEqual(json["effort"] as? String, level,
+                "effort='\(level)' should be preserved in encoded JSON")
+        }
+    }
+
+    // MARK: - Slash Command Event Decoding
+
+    func testConversationClearedEventDecoding() {
+        let payload: [String: Any] = [
+            "type": "conversation.cleared",
+            "conversationId": "conv-test-456"
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let wire = try? JSONDecoder().decode(IncomingWireMessage.self, from: data) else {
+            XCTFail("Failed to decode conversation.cleared payload")
+            return
+        }
+
+        if case .conversationCleared(let cid) = wire.toEvent() {
+            XCTAssertEqual(cid, "conv-test-456")
+        } else {
+            XCTFail("Expected .conversationCleared event")
+        }
+    }
+
+    func testConversationClearedPreservesId() {
+        let uuid = UUID().uuidString
+        let payload: [String: Any] = ["type": "conversation.cleared", "conversationId": uuid]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let wire = try? JSONDecoder().decode(IncomingWireMessage.self, from: data) else {
+            XCTFail("Failed to decode")
+            return
+        }
+        if case .conversationCleared(let cid) = wire.toEvent() {
+            XCTAssertEqual(cid, uuid)
+        } else {
+            XCTFail("Expected .conversationCleared event")
+        }
+    }
 }

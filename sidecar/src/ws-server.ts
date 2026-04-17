@@ -356,7 +356,7 @@ export class WsServer {
       case "conversation.clear": {
         this.ctx.conversationStore.clearMessages(command.conversationId);
         logger.info("ws", `conversation.clear: conversationId=${command.conversationId}`);
-        this.ctx.broadcast({ type: "conversation.cleared", conversationId: command.conversationId });
+        this.broadcast({ type: "conversation.cleared", conversationId: command.conversationId });
         break;
       }
 

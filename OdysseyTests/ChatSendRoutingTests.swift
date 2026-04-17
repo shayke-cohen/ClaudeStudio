@@ -129,4 +129,159 @@ final class ChatSendRoutingTests: XCTestCase {
         let names = ChatSendRouting.mentionedAgentNames(in: "@all @Bob")
         XCTAssertEqual(names, ["all", "Bob"])
     }
+
+    // MARK: - Session commands
+
+    func testParseSlashClear() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/clear"), .clear)
+    }
+
+    func testParseSlashCompact() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/compact"), .compact)
+    }
+
+    func testParseSlashResume() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/resume"), .resume)
+    }
+
+    func testParseSlashExportNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/export"), .export(format: nil))
+    }
+
+    func testParseSlashExportWithFormat() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/export md"), .export(format: "md"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/export html"), .export(format: "html"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/export json"), .export(format: "json"))
+    }
+
+    // MARK: - Model commands
+
+    func testParseSlashModelNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/model"), .model(nil))
+    }
+
+    func testParseSlashModelWithArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/model claude-opus-4-7"), .model("claude-opus-4-7"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/model claude-haiku-4-5"), .model("claude-haiku-4-5"))
+    }
+
+    func testParseSlashEffortNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/effort"), .effort(nil))
+    }
+
+    func testParseSlashEffortWithLevel() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/effort low"), .effort("low"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/effort medium"), .effort("medium"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/effort high"), .effort("high"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/effort max"), .effort("max"))
+    }
+
+    func testParseSlashFast() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/fast"), .fast)
+    }
+
+    // MARK: - Memory & Skills commands
+
+    func testParseSlashMemory() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/memory"), .memory)
+    }
+
+    func testParseSlashSkills() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/skills"), .skills)
+    }
+
+    // MARK: - Agents commands
+
+    func testParseSlashModeNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/mode"), .mode(nil))
+    }
+
+    func testParseSlashModeWithArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/mode interactive"), .mode("interactive"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/mode autonomous"), .mode("autonomous"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/mode worker"), .mode("worker"))
+    }
+
+    func testParseSlashPlan() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/plan"), .plan)
+    }
+
+    // MARK: - Tools commands
+
+    func testParseSlashMCP() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/mcp"), .mcp)
+    }
+
+    func testParseSlashPermissions() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/permissions"), .permissions)
+    }
+
+    // MARK: - Git commands
+
+    func testParseSlashReview() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/review"), .review)
+    }
+
+    func testParseSlashDiff() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/diff"), .diff)
+    }
+
+    func testParseSlashBranchNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/branch"), .branch(action: nil))
+    }
+
+    func testParseSlashBranchWithAction() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/branch create"), .branch(action: "create"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/branch switch"), .branch(action: "switch"))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/branch list"), .branch(action: "list"))
+    }
+
+    func testParseSlashInit() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/init"), .initialize)
+    }
+
+    // MARK: - Workflow commands
+
+    func testParseSlashLoopNoArg() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/loop"), .loop(interval: nil))
+    }
+
+    func testParseSlashLoopWithInterval() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/loop 30"), .loop(interval: 30))
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/loop 120"), .loop(interval: 120))
+    }
+
+    func testParseSlashLoopNonIntegerArgTreatedAsNil() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/loop notanumber"), .loop(interval: nil))
+    }
+
+    func testParseSlashSchedule() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/schedule"), .schedule)
+    }
+
+    // MARK: - Info commands
+
+    func testParseSlashContext() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/context"), .context)
+    }
+
+    func testParseSlashCost() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/cost"), .cost)
+    }
+
+    // MARK: - Edge cases for new commands
+
+    func testLeadingWhitespaceStrippedForNewCommands() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("  /clear  "), .clear)
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("  /fast  "), .fast)
+    }
+
+    func testNewCommandOnSecondLineIgnored() {
+        XCTAssertEqual(ChatSendRouting.parseSlashCommand("/model\nclaude-opus-4-7"), .model(nil))
+    }
+
+    func testDoubleSlashDoesNotTriggerNewCommands() {
+        XCTAssertNil(ChatSendRouting.parseSlashCommand("//clear"))
+        XCTAssertNil(ChatSendRouting.parseSlashCommand("//model opus"))
+    }
 }
