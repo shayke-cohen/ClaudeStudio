@@ -92,6 +92,56 @@ struct MainWindowView: View {
                     .help("Settings")
                     .xrayId("mainWindow.settingsButton")
                     .accessibilityLabel("Settings")
+
+                    ZStack {
+                        Button("") { }
+                            .frame(width: 0, height: 0).opacity(0)
+                            .popover(isPresented: $ws.showAgentPicker, arrowEdge: .bottom) {
+                                AgentPickerPopover(
+                                    projectId: windowState.selectedProjectId,
+                                    projectDirectory: windowState.projectDirectory,
+                                    isPresented: $ws.showAgentPicker
+                                )
+                                .environmentObject(appState)
+                                .environment(windowState)
+                            }
+                        Button("") { }
+                            .frame(width: 0, height: 0).opacity(0)
+                            .popover(isPresented: $ws.showGroupPicker, arrowEdge: .bottom) {
+                                GroupPickerPopover(
+                                    projectId: windowState.selectedProjectId,
+                                    projectDirectory: windowState.projectDirectory,
+                                    isPresented: $ws.showGroupPicker
+                                )
+                                .environmentObject(appState)
+                                .environment(windowState)
+                            }
+                        Button("") { ws.showAgentPicker = true }
+                            .keyboardShortcut("n", modifiers: .command)
+                            .frame(width: 0, height: 0).opacity(0)
+                        Button("") { ws.showGroupPicker = true }
+                            .keyboardShortcut("n", modifiers: [.command, .option])
+                            .frame(width: 0, height: 0).opacity(0)
+                        Button("") { ws.showAgentPicker = true }
+                            .keyboardShortcut("n", modifiers: [.command, .shift])
+                            .frame(width: 0, height: 0).opacity(0)
+                        Menu {
+                            Button { ws.showAgentPicker = true } label: {
+                                Label("Chat with Agent", systemImage: "cpu")
+                            }
+                            Button { ws.showGroupPicker = true } label: {
+                                Label("Chat with Group", systemImage: "person.3.fill")
+                            }
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .help("New chat (⌘N)")
+                        .xrayId("mainWindow.newMenu")
+                        .accessibilityLabel("New")
+                    }
                 }
             }
 

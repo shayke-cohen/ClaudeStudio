@@ -227,68 +227,6 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 240)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            ZStack(alignment: .trailing) {
-                // Popover anchors — must be in the view hierarchy
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                    .popover(isPresented: $ws.showAgentPicker, arrowEdge: .bottom) {
-                        AgentPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $ws.showAgentPicker
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                    .popover(isPresented: $ws.showGroupPicker, arrowEdge: .bottom) {
-                        GroupPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $ws.showGroupPicker
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-
-                // Keyboard shortcut sinks
-                Button("") { ws.showAgentPicker = true }
-                    .keyboardShortcut("n", modifiers: .command)
-                    .frame(width: 0, height: 0).opacity(0)
-                Button("") { ws.showGroupPicker = true }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                    .frame(width: 0, height: 0).opacity(0)
-                Button("") { ws.showAgentPicker = true }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                    .frame(width: 0, height: 0).opacity(0)
-
-                // Visible compose menu
-                Menu {
-                    Button { ws.showAgentPicker = true } label: {
-                        Label("Chat with Agent", systemImage: "cpu")
-                    }
-                    Button { ws.showGroupPicker = true } label: {
-                        Label("Chat with Group", systemImage: "person.3.fill")
-                    }
-                } label: {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("New chat (⌘N)")
-                .xrayId("sidebar.newMenu")
-                .accessibilityLabel("New")
-                .padding(.trailing, 12)
-            }
-            .frame(maxWidth: .infinity, minHeight: 36)
-        }
         .sheet(item: $editingGroup) { group in
             GroupEditorView(group: group)
         }
