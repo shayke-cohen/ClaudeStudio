@@ -13,7 +13,7 @@ struct OdysseyApp: App {
     @StateObject private var sharedRoomService: SharedRoomService
     @StateObject private var sharedRoomTestAPIService: SharedRoomTestAPIService
     @State private var configSyncService = ConfigSyncService()
-    @AppStorage(AppSettings.appearanceKey, store: AppSettings.store) private var appearance = AppAppearance.system.rawValue
+    @AppStorage(AppSettings.appearanceKey, store: AppSettings.store) private var appearance = AppAppearance.dark.rawValue
     @AppStorage(AppSettings.textSizeKey, store: AppSettings.store) private var textSize = AppSettings.defaultTextSize
     @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
     @FocusedValue(\.openProjectSettingsAction) private var openProjectSettingsAction

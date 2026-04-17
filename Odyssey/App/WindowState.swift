@@ -254,6 +254,8 @@ final class WindowState {
     var selectedInspectorTab: WindowInspectorTab = .info
     var inspectorFileSelectionRequest: InspectorFileSelectionRequest?
 
+    var showAgentPicker: Bool = false
+    var showGroupPicker: Bool = false
     var showNewSessionSheet = false
     var showNewGroupThreadSheet = false
     var showScheduleLibrary = false

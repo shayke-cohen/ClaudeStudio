@@ -164,8 +164,6 @@ struct SidebarView: View {
     @State private var showDeleteConfirmation = false
     @State private var projectToArchiveThreads: Project?
     @State private var projectToRemove: Project?
-    @State private var showAgentPopover = false
-    @State private var showGroupPopover = false
     @State private var isPinnedExpanded = true
     @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
@@ -183,16 +181,14 @@ struct SidebarView: View {
     var body: some View {
         @Bindable var ws = windowState
         List {
-            utilitySection
-
             // Hidden global buttons — register ⌘N, ⌘⌥N, and ⌘⇧N shortcuts at all times
-            Button("") { showAgentPopover = true }
+            Button("") { ws.showAgentPicker = true }
                 .keyboardShortcut("n", modifiers: .command)
                 .hidden()
-            Button("") { showGroupPopover = true }
+            Button("") { ws.showGroupPicker = true }
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .hidden()
-            Button("") { showAgentPopover = true }
+            Button("") { ws.showAgentPicker = true }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .opacity(0)
                 .frame(width: 0, height: 0)
@@ -363,86 +359,6 @@ struct SidebarView: View {
             .sorted { $0.name < $1.name }
     }
 
-    // MARK: - Global Utilities
-
-    private var utilitySection: some View {
-        Section {
-            ZStack {
-                // Popover anchors — invisible, sit behind the Menu
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .popover(isPresented: $showAgentPopover, arrowEdge: .bottom) {
-                        AgentPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $showAgentPopover
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .popover(isPresented: $showGroupPopover, arrowEdge: .bottom) {
-                        GroupPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $showGroupPopover
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-
-                // The actual Menu button (no popover modifiers on it)
-                Menu {
-                    Button { showAgentPopover = true } label: {
-                        Label("Chat with Agent", systemImage: "cpu")
-                    }
-                    .keyboardShortcut("n", modifiers: .command)
-
-                    Button { showGroupPopover = true } label: {
-                        Label("Chat with Group", systemImage: "person.3.fill")
-                    }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .medium))
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(.primary)
-                        Text("New")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.primary)
-                        Spacer(minLength: 8)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .modifier(SidebarChromeButtonModifier(tint: .accentColor))
-                    .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .help("Start a new chat with an agent or group")
-                .xrayId("sidebar.utility.newMenu")
-                .accessibilityLabel("New")
-            }
-
-            Button {
-                addProjectFolder()
-            } label: {
-                Label("Add Project", systemImage: "folder.badge.plus")
-            }
-            .buttonStyle(.plain)
-            .appXrayTapProxy(id: "sidebar.utility.addProject") {
-                addProjectFolder()
-            }
-        }
-    }
-
     private var projectsHeader: some View {
         HStack {
             Button {
@@ -568,7 +484,7 @@ struct SidebarView: View {
 
             let newSession = SidebarBottomBarItem.newSession
             Button {
-                showAgentPopover = true
+                windowState.showAgentPicker = true
             } label: {
                 Image(systemName: newSession.icon)
                     .font(.caption)
