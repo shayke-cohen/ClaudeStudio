@@ -805,6 +805,8 @@ final class AppState: ObservableObject {
     /// Notify the sidecar that a user message has been persisted.
     /// Called from ChatView after inserting the user's ConversationMessage.
     func notifyUserMessageAppended(conversationId: UUID, message: ConversationMessage) {
+        idleResults.removeValue(forKey: conversationId.uuidString)
+        evaluatingConversations.remove(conversationId.uuidString)
         Task { await sidecarManager?.pushMessageAppend(conversationId: conversationId, message: message) }
     }
 
@@ -971,6 +973,53 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func checkConversationIdle(for sessionId: String) {
+        guard let conversation = conversationForSession(sessionId: sessionId) else { return }
+        let convId = conversation.id.uuidString
+        guard !evaluatingConversations.contains(convId) else { return }
+
+        let summary = conversationActivity(for: conversation)
+        switch summary.aggregate {
+        case .allDone, .completedWithErrors: break
+        default: return
+        }
+
+        evaluatingConversations.insert(convId)
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard self.evaluatingConversations.contains(convId) else { return }
+
+            var coordinatorSessionId: String? = nil
+            if let groupId = conversation.sourceGroupId,
+               let ctx = self.modelContext {
+                let descriptor = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == groupId })
+                if let sourceGroup = try? ctx.fetch(descriptor).first,
+                   let coordinatorId = sourceGroup.coordinatorAgentId {
+                    coordinatorSessionId = conversation.sessions
+                        .first(where: { $0.agent?.id == coordinatorId })?
+                        .id.uuidString
+                }
+            }
+
+            if let ctx = self.modelContext {
+                let evalMsg = ConversationMessage(
+                    text: "__idle_evaluation__",
+                    type: .systemEvaluation,
+                    conversation: conversation
+                )
+                ctx.insert(evalMsg)
+                try? ctx.save()
+            }
+
+            self.sendToSidecar(.conversationEvaluate(
+                conversationId: convId,
+                goal: conversation.goal,
+                coordinatorSessionId: coordinatorSessionId
+            ))
+        }
+    }
+
     func markSessionPausedLocally(_ sessionId: String) {
         if let uuid = UUID(uuidString: sessionId) {
             if activeSessions[uuid] == nil {
@@ -1047,6 +1096,7 @@ final class AppState: ObservableObject {
             thinkingText.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .done
+            checkConversationIdle(for: sessionId)
             markConversationUnreadIfNeeded(sessionId: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, topic in
                 ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
@@ -1073,6 +1123,7 @@ final class AppState: ObservableObject {
             streamingFileCards.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .error(error)
+            checkConversationIdle(for: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, _ in
                 ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
             }
@@ -1232,6 +1283,13 @@ final class AppState: ObservableObject {
                 conversation.pendingQuestionRouting.removeValue(forKey: questionId)
                 conversation.resolvedQuestions[questionId] = ResolvedQuestionInfo(answeredBy: answeredBy, isFallback: isFallback)
             }
+
+        case .conversationIdle:
+            break
+
+        case .conversationIdleResult(let conversationId, let status, let reason):
+            evaluatingConversations.remove(conversationId)
+            idleResults[conversationId] = ConversationIdleResult(status: status, reason: reason)
 
         case .connected:
             sidecarStatus = .connected
