@@ -340,6 +340,7 @@ struct ChatView: View {
     @State private var shareCoordinator: ShareTempFileCoordinator?
     @State private var showAllDoneBanner = false
     @State private var allDoneBannerTimer: Task<Void, Never>?
+    @State private var showDelegationPicker = false
     @State private var isNearBottom = true
     @State private var shouldAutoScroll = true
     @State private var didPerformInitialScrollRestore = false
@@ -1194,7 +1195,61 @@ struct ChatView: View {
             }
 
             executionModeToggleButton
+
+            if let convo = conversation, convo.sessions.count > 1 {
+                delegationBadgeButton(convo)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func delegationBadgeButton(_ convo: Conversation) -> some View {
+        let isActive = convo.delegationMode != .off
+        Button(action: { showDelegationPicker.toggle() }) {
+            HStack(spacing: 4) {
+                Image(systemName: isActive ? "bolt.fill" : "person.fill.questionmark")
+                    .font(.system(size: 10))
+                Text(isActive ? "Auto · \(convo.delegationMode.shortLabel)" : "Auto-Answer")
+                    .font(.system(size: 10, weight: .semibold))
+                Image(systemName: "chevron.down").font(.system(size: 8))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(isActive ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.15))
+            .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(isActive ? Color.accentColor.opacity(0.4) : Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showDelegationPicker, arrowEdge: .bottom) {
+            let sourceGroup = convo.sourceGroupId.flatMap { id in allGroups.first { $0.id == id } }
+            let hasCoordinator: Bool = {
+                guard let group = sourceGroup else { return false }
+                return group.agentIds.contains { group.roleFor(agentId: $0) == .coordinator }
+            }()
+            DelegationModePickerView(
+                mode: Binding(
+                    get: { convo.delegationMode },
+                    set: { _ in }
+                ),
+                targetAgentName: Binding(
+                    get: { convo.delegationTargetAgentName },
+                    set: { _ in }
+                ),
+                participants: convo.participants,
+                hasCoordinator: hasCoordinator,
+                onSelect: { mode, target in
+                    appState.setDelegationMode(for: convo, mode: mode, targetAgentName: target)
+                    showDelegationPicker = false
+                }
+            )
+        }
+        .xrayId("chat.delegationBadge")
+        .accessibilityLabel(isActive ? "Auto-Answer: \(convo.delegationMode.shortLabel)" : "Auto-Answer off")
+        .help("Configure auto-answer delegation mode")
     }
 
     @ViewBuilder
@@ -4174,5 +4229,92 @@ struct ChatView: View {
         modelContext.insert(newConvo)
         try? modelContext.save()
         windowState.selectedConversationId = newConvo.id
+    }
+}
+
+// MARK: - DelegationModePickerView
+
+struct DelegationModePickerView: View {
+    @Binding var mode: DelegationMode
+    @Binding var targetAgentName: String?
+    let participants: [Participant]
+    let hasCoordinator: Bool
+    let onSelect: (DelegationMode, String?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            modeCard(.off, icon: "🚫", label: "Off", desc: "Questions always go to you", timeout: "5 min")
+            modeCard(.byAgents, icon: "⚡", label: "By agents", desc: "Asking agent nominates who answers", timeout: "30s")
+            modeCardWithPicker(.specificAgent, icon: "👤", label: "Specific agent", desc: "Always routes to chosen agent", timeout: "30s")
+            if hasCoordinator {
+                modeCard(.coordinator, icon: "🎯", label: "Coordinator", desc: "Coordinator handles all questions", timeout: "30s")
+            }
+        }
+        .padding(8)
+        .frame(width: 280)
+    }
+
+    @ViewBuilder
+    private func modeCard(_ m: DelegationMode, icon: String, label: String, desc: String, timeout: String) -> some View {
+        Button(action: { onSelect(m, nil) }) {
+            HStack {
+                Text(icon).font(.title3)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label).font(.system(size: 12, weight: .semibold))
+                    Text(desc).font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(timeout)
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(mode == m ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+                    .cornerRadius(4)
+                    .foregroundStyle(mode == m ? Color.accentColor : Color.secondary)
+            }
+            .padding(8)
+            .background(mode == m ? Color.accentColor.opacity(0.08) : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(mode == m ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1.5)
+            )
+            .cornerRadius(7)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func modeCardWithPicker(_ m: DelegationMode, icon: String, label: String, desc: String, timeout: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            modeCard(m, icon: icon, label: label, desc: desc, timeout: timeout)
+            if mode == m {
+                let agentParticipants = participants.filter { $0.typeKind == "agentSession" }
+                VStack(spacing: 0) {
+                    ForEach(agentParticipants, id: \.id) { p in
+                        let isSelected = targetAgentName == p.displayName
+                        Button(action: { onSelect(m, p.displayName) }) {
+                            HStack {
+                                Text("🤖").font(.system(size: 12))
+                                Text(p.displayName).font(.system(size: 11))
+                                Spacer()
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
+                    }
+                }
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+            }
+        }
     }
 }

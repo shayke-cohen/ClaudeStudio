@@ -205,6 +205,15 @@ enum DelegationMode: String, Codable, CaseIterable, Sendable {
     case byAgents = "by_agents"
     case specificAgent = "specific_agent"
     case coordinator
+
+    var shortLabel: String {
+        switch self {
+        case .off: return "Off"
+        case .byAgents: return "agents"
+        case .specificAgent: return "specific"
+        case .coordinator: return "coordinator"
+        }
+    }
 }
 
 private struct ConversationSyncWire: Encodable {
