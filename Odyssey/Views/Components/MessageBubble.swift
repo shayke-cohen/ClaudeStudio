@@ -77,6 +77,8 @@ struct MessageBubble: View {
                 AnsweredQuestionBubble(message: message, agentAppearance: senderAppearance)
             case .richContent:
                 richContentView
+            case .systemEvaluation:
+                EmptyView()
             }
         }
         .xrayId("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")

@@ -402,6 +402,8 @@ enum ChatTranscriptExport {
                     text: message.text,
                     richTextFormat: format
                 )))
+            case .systemEvaluation:
+                break
             }
         }
 
