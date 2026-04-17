@@ -21,6 +21,7 @@ export class SessionManager {
   private readonly autonomousResults = new Map<string, { resolve: (result: string) => void }>();
   private readonly pendingCreates = new Map<string, Promise<void>>();
   private readonly runtimes: Record<"claude" | "codex" | "foundation" | "mlx", ProviderRuntime>;
+  private readonly suppressedEvalSessions = new Set<string>();
   private static readonly OLLAMA_CLAUDE_TURN_TIMEOUT_MS = 360_000;
   private static readonly OLLAMA_TURN_TIMEOUT_CODE = "OLLAMA_TURN_TIMEOUT";
 
@@ -29,8 +30,14 @@ export class SessionManager {
     private readonly registry: SessionRegistry,
     private readonly toolCtx: ToolContext,
   ) {
+    const suppressAwareEmit = (event: SidecarEvent) => {
+      if ("sessionId" in event && typeof event.sessionId === "string" && this.suppressedEvalSessions.has(event.sessionId)) {
+        return;
+      }
+      emit(event);
+    };
     const deps = {
-      emit,
+      emit: suppressAwareEmit,
       registry,
       toolCtx,
     };
@@ -446,6 +453,50 @@ export class SessionManager {
       attachmentCount,
       planMode,
     );
+  }
+
+  async evaluateSession(
+    sessionId: string,
+    prompt: string,
+  ): Promise<{ status: "complete" | "needsMore" | "failed"; reason: string } | null> {
+    const config = this.registry.getConfig(sessionId);
+    const state = this.registry.get(sessionId);
+    if (!config || !state?.claudeSessionId) {
+      logger.warn("session", `evaluateSession: no config or claudeSessionId for ${sessionId}`);
+      return null;
+    }
+
+    this.suppressedEvalSessions.add(sessionId);
+    try {
+      const result = await this.sendWithProviderTimeout(
+        this.runtimeFor(config),
+        {
+          sessionId,
+          config,
+          backendSessionId: state.claudeSessionId,
+          text: prompt,
+          attachments: undefined,
+          planMode: false,
+          abortController: new AbortController(),
+        },
+      );
+
+      const text = result.resultText;
+      const statusMatch = text.match(/STATUS:\s*(COMPLETE|NEEDS_MORE|FAILED)/i);
+      const reasonMatch = text.match(/REASON:\s*(.+)/i);
+      if (!statusMatch) return null;
+
+      const raw = statusMatch[1].toUpperCase();
+      const status: "complete" | "needsMore" | "failed" =
+        raw === "COMPLETE" ? "complete" : raw === "NEEDS_MORE" ? "needsMore" : "failed";
+      const reason = reasonMatch?.[1]?.trim() ?? "";
+      return { status, reason };
+    } catch (err) {
+      logger.error("session", `evaluateSession error for ${sessionId}: ${String(err)}`);
+      return null;
+    } finally {
+      this.suppressedEvalSessions.delete(sessionId);
+    }
   }
 
   private runtimeFor(config: AgentConfig): ProviderRuntime {

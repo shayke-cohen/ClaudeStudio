@@ -13,13 +13,28 @@ struct SlashCommandDropdown: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(groupedSuggestions.enumerated()), id: \.offset) { gIdx, entry in
-                if gIdx > 0 {
-                    Divider().padding(.horizontal, 8)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(groupedSuggestions.enumerated()), id: \.offset) { gIdx, entry in
+                            if gIdx > 0 {
+                                Divider().padding(.horizontal, 8)
+                            }
+                            groupHeader(entry.group)
+                            ForEach(entry.commands) { cmd in
+                                commandRow(cmd)
+                                    .id(cmd.id)
+                            }
+                        }
+                    }
                 }
-                groupHeader(entry.group)
-                ForEach(entry.commands) { cmd in
-                    commandRow(cmd)
+                .frame(maxHeight: 220)
+                .onChange(of: selectedIndex) { _, _ in
+                    if let selected = flatCommands[safe: selectedIndex] {
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            proxy.scrollTo(selected.id, anchor: .center)
+                        }
+                    }
                 }
             }
             Divider()
@@ -177,6 +192,12 @@ struct SlashSubPickerView: View {
         case "loop":     return "Set interval"
         default:         return "Choose option"
         }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 

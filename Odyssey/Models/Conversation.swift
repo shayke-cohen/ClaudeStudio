@@ -123,6 +123,7 @@ final class Conversation {
     // Delegation
     private var delegationModeRaw: String?
     var delegationTargetAgentName: String?
+    var goal: String?
     var startedAt: Date
     var closedAt: Date?
 

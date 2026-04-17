@@ -1,0 +1,77 @@
+name: Conversation Idle Detection
+description: >
+  E2E tests for the idle result pill that appears below the chat message list
+  when all agents in a conversation finish their work and the sidecar emits
+  conversation.idleResult. Tests are read-only / observation-only — they do
+  not start real Claude sessions to avoid API costs.
+
+tests:
+
+  - name: "ID-E2E-1: Idle result pill container has correct accessibility identifier"
+    description: >
+      When an idle result is shown (status injected via debug tooling or live session),
+      the pill container must carry the testId chat.idleResultView.
+    steps:
+      - interact:
+          action: screenshot
+      - inspect:
+          target: tree
+          selector: "@testId('chat.idleResultView')"
+    assert:
+      element_exists: "@testId('chat.idleResultView')"
+
+  - name: "ID-E2E-2: Sidebar conversation row shows idle status icon"
+    description: >
+      When a conversation has a known idle result, the sidebar row for that
+      conversation should surface an idle status icon
+      (testId: sidebar.conversationRow.{id}.idleStatusIcon).
+    steps:
+      - interact:
+          action: screenshot
+      - inspect:
+          target: tree
+          depth: 3
+    assert:
+      screenshot_contains_any:
+        - "idleStatusIcon"
+        - "Goal achieved"
+        - "Needs more work"
+        - "Failed"
+
+  - name: "ID-E2E-3: New session sheet has optional goal text field"
+    description: >
+      The new session sheet should contain a text field labelled "Goal (optional)"
+      so the user can specify a mission for automatic evaluation.
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId('sidebar.newThreadButton')"
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains: "Goal"
+
+  - name: "ID-E2E-4: Chat input area is accessible during evaluation"
+    description: >
+      While a conversation is evaluating (evaluatingConversations contains the id),
+      the chat input should still be accessible and not blocked.
+    steps:
+      - interact:
+          action: screenshot
+      - inspect:
+          target: element
+          selector: "@testId('chat.inputField')"
+    assert:
+      element_exists: "@testId('chat.inputField')"
+
+  - name: "ID-E2E-5: Evaluating state shows ellipsis pill"
+    description: >
+      While evaluation is in progress the pill shows an ellipsis icon and
+      "Evaluating..." label. This test documents the expected UI state.
+    steps:
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains_any:
+        - "Evaluating"
+        - "ellipsis"

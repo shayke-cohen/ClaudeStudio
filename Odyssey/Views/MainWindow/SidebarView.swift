@@ -1666,6 +1666,13 @@ struct SidebarView: View {
                 conversationStatus: convo.status
             )
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
+            if let result = appState.idleResults[convo.id.uuidString] {
+                Image(systemName: result.status.icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(result.status.color)
+                    .xrayId("sidebar.conversationRow.\(convo.id.uuidString).idleStatusIcon")
+                    .accessibilityLabel(result.status.label)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)

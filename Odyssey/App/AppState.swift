@@ -52,6 +52,8 @@ final class AppState: ObservableObject {
     @Published var progressTrackers: [String: ProgressTracker] = [:]
     @Published var pendingSuggestions: [String: [SuggestionItem]] = [:]
     @Published var completedPlans: [String: CompletedPlan] = [:]
+    @Published var idleResults: [String: ConversationIdleResult] = [:]
+    @Published var evaluatingConversations: Set<String> = []
     @Published private(set) var workerStandbySessions: Set<String> = []
     @Published var presenceStore: [String: PresenceStatus] = [:]
     /// Nostr public key hex (x-only, BIP-340) for this instance — used in invite generation.
@@ -480,6 +482,7 @@ final class AppState: ObservableObject {
         conversation.routingMode = .mentionAware
         conversation.sourceGroupId = group.id
         conversation.executionMode = executionMode
+        conversation.goal = missionOverride.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
@@ -811,6 +814,8 @@ final class AppState: ObservableObject {
     /// Notify the sidecar that a user message has been persisted.
     /// Called from ChatView after inserting the user's ConversationMessage.
     func notifyUserMessageAppended(conversationId: UUID, message: ConversationMessage) {
+        idleResults.removeValue(forKey: conversationId.uuidString)
+        evaluatingConversations.remove(conversationId.uuidString)
         Task { await sidecarManager?.pushMessageAppend(conversationId: conversationId, message: message) }
     }
 
@@ -1005,6 +1010,57 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func checkConversationIdle(for sessionId: String) {
+        guard let conversation = conversationForSession(sessionId: sessionId) else { return }
+        let convId = conversation.id.uuidString
+        guard !evaluatingConversations.contains(convId) else { return }
+
+        let summary = conversationActivity(for: conversation)
+        switch summary.aggregate {
+        case .allDone, .completedWithErrors: break
+        default: return
+        }
+
+        evaluatingConversations.insert(convId)
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard self.evaluatingConversations.contains(convId) else { return }
+            guard let ctx = self.modelContext else { return }
+
+            // Re-fetch conversation after the suspension point to avoid stale SwiftData access.
+            guard let convUUID = UUID(uuidString: convId) else { return }
+            let convDescriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == convUUID })
+            guard let freshConvo = try? ctx.fetch(convDescriptor).first else { return }
+
+            var coordinatorSessionId: String? = nil
+            if let groupId = freshConvo.sourceGroupId {
+                let descriptor = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == groupId })
+                if let sourceGroup = try? ctx.fetch(descriptor).first,
+                   let coordinatorId = sourceGroup.coordinatorAgentId {
+                    coordinatorSessionId = freshConvo.sessions
+                        .first(where: { $0.agent?.id == coordinatorId })?
+                        .id.uuidString
+                }
+            }
+
+            let evalMsg = ConversationMessage(
+                text: "__idle_evaluation__",
+                type: .systemEvaluation,
+                conversation: freshConvo
+            )
+            ctx.insert(evalMsg)
+            try? ctx.save()
+
+            self.sendToSidecar(.conversationEvaluate(
+                conversationId: convId,
+                goal: freshConvo.goal,
+                coordinatorSessionId: coordinatorSessionId,
+                sessionIds: freshConvo.sessions.map { $0.id.uuidString }
+            ))
+        }
+    }
+
     func markSessionPausedLocally(_ sessionId: String) {
         if let uuid = UUID(uuidString: sessionId) {
             if activeSessions[uuid] == nil {
@@ -1081,6 +1137,7 @@ final class AppState: ObservableObject {
             thinkingText.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .done
+            checkConversationIdle(for: sessionId)
             markConversationUnreadIfNeeded(sessionId: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, topic in
                 ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
@@ -1107,6 +1164,7 @@ final class AppState: ObservableObject {
             streamingFileCards.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .error(error)
+            checkConversationIdle(for: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, _ in
                 ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
             }
@@ -1300,6 +1358,13 @@ final class AppState: ObservableObject {
                 for msg in convo.messages { ctx.delete(msg) }
                 try? ctx.save()
             }
+
+        case .conversationIdle:
+            break
+
+        case .conversationIdleResult(let conversationId, let status, let reason):
+            evaluatingConversations.remove(conversationId)
+            idleResults[conversationId] = ConversationIdleResult(status: status, reason: reason)
 
         case .connected:
             sidecarStatus = .connected

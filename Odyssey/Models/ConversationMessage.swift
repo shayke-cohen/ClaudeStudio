@@ -14,6 +14,7 @@ enum MessageType: String, Codable, Sendable {
     case agentInvite
     case question
     case richContent
+    case systemEvaluation
 
     var isPeerChannel: Bool {
         switch self {

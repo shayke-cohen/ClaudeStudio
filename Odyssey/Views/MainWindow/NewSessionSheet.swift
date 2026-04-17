@@ -1661,6 +1661,7 @@ struct NewSessionSheet: View {
             threadKind: .freeform
         )
         conversation.executionMode = executionMode
+        conversation.goal = missionText.isEmpty ? nil : missionText
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
@@ -1720,6 +1721,7 @@ struct NewSessionSheet: View {
             threadKind: selectedList.count > 1 ? .group : .direct
         )
         conversation.executionMode = executionMode
+        conversation.goal = missionText.isEmpty ? nil : missionText
         if selectedList.count > 1 {
             conversation.routingMode = .mentionAware
         }

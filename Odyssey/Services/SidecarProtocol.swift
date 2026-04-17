@@ -40,6 +40,7 @@ enum SidecarCommand: Sendable {
     case conversationClear(conversationId: String)
     case sessionUpdateModel(sessionId: String, model: String)
     case sessionUpdateEffort(sessionId: String, effort: String)
+    case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?, sessionIds: [String])
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -202,6 +203,21 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(SessionUpdateModelWire(type: "session.updateModel", sessionId: sessionId, model: model))
         case .sessionUpdateEffort(let sessionId, let effort):
             return try encoder.encode(SessionUpdateEffortWire(type: "session.updateEffort", sessionId: sessionId, effort: effort))
+        case .conversationEvaluate(let conversationId, let goal, let coordinatorSessionId, let sessionIds):
+            struct ConversationEvaluateWire: Codable {
+                let type: String
+                let conversationId: String
+                let goal: String?
+                let coordinatorSessionId: String?
+                let sessionIds: [String]
+            }
+            return try encoder.encode(ConversationEvaluateWire(
+                type: "conversation.evaluate",
+                conversationId: conversationId,
+                goal: goal,
+                coordinatorSessionId: coordinatorSessionId,
+                sessionIds: sessionIds
+            ))
         }
     }
 }
@@ -637,6 +653,8 @@ enum SidecarEvent: Sendable {
     case conversationCleared(conversationId: String)
     case connected
     case disconnected
+    case conversationIdle(conversationId: String)
+    case conversationIdleResult(conversationId: String, status: ConversationIdleResult.Status, reason: String)
 }
 
 struct QuestionOption: Codable, Sendable, Identifiable {
@@ -686,6 +704,8 @@ struct PlanAllowedPrompt: Codable, Sendable, Identifiable {
 struct IncomingWireMessage: Codable, Sendable {
     let type: String
     let sessionId: String?
+    let conversationId: String?
+    let status: String?
     let text: String?
     let tool: String?
     let input: String?
@@ -764,7 +784,7 @@ struct IncomingWireMessage: Codable, Sendable {
     let conversationId: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, sessionId, text, tool, input, output, result, cost
+        case type, sessionId, conversationId, status, text, tool, input, output, result, cost
         case inputTokens, outputTokens, numTurns, toolCallCount
         case error, channelId, from, to, message, key, value, writtenBy
         case parentSessionId, childSessionId, originalSessionId, reusedSessionId
@@ -917,6 +937,13 @@ struct IncomingWireMessage: Codable, Sendable {
         case "conversation.cleared":
             guard let cid = conversationId else { return nil }
             return .conversationCleared(conversationId: cid)
+        case "conversation.idle":
+            guard let cid = conversationId else { return nil }
+            return .conversationIdle(conversationId: cid)
+        case "conversation.idleResult":
+            guard let cid = conversationId, let statusRaw = status,
+                  let s = ConversationIdleResult.Status(rawValue: statusRaw) else { return nil }
+            return .conversationIdleResult(conversationId: cid, status: s, reason: reason ?? "")
         default:
             return nil
         }
