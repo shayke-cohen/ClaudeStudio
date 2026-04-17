@@ -586,6 +586,17 @@ final class AppState: ObservableObject {
         }
     }
 
+    func setDelegationMode(for conversation: Conversation, mode: DelegationMode, targetAgentName: String? = nil) {
+        guard let primarySession = conversation.sessions.first else { return }
+        conversation.delegationMode = mode
+        conversation.delegationTargetAgentName = targetAgentName
+        sendToSidecar(.setDelegationMode(
+            sessionId: primarySession.id.uuidString,
+            mode: mode,
+            targetAgentName: targetAgentName
+        ))
+    }
+
     func connectSidecar() {
         guard sidecarStatus == .disconnected || {
             if case .error = sidecarStatus { return true }
@@ -1209,11 +1220,16 @@ final class AppState: ObservableObject {
             // successfully verifying an accepted InvitePayload that contains nostrPubkey.
             // The iOS side sends invites; the Mac side currently only generates them.
 
-        case .agentQuestionRouting:
-            _ = event
+        case .agentQuestionRouting(let sessionId, let questionId, let targetAgentName):
+            if let conversation = conversationForSession(sessionId: sessionId) {
+                conversation.pendingQuestionRouting[questionId] = targetAgentName
+            }
 
-        case .agentQuestionResolved:
-            _ = event
+        case .agentQuestionResolved(let sessionId, let questionId, let answeredBy, let isFallback):
+            if let conversation = conversationForSession(sessionId: sessionId) {
+                conversation.pendingQuestionRouting.removeValue(forKey: questionId)
+                conversation.resolvedQuestions[questionId] = ResolvedQuestionInfo(answeredBy: answeredBy, isFallback: isFallback)
+            }
 
         case .connected:
             sidecarStatus = .connected
