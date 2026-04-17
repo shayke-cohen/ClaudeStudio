@@ -16,6 +16,8 @@ struct MessageBubble: View {
     /// When set, shows “Fork from here” in the context menu (chat bubbles only).
     var onForkFromHere: (() -> Void)?
     var onScheduleFromMessage: (() -> Void)?
+    /// When non-nil, shows an attribution tag (answered-for-you / fallback) next to the sender name.
+    var delegationTag: ResolvedQuestionInfo? = nil
     @Environment(\.appTextScale) private var appTextScale
     @State private var isHovered = false
     @State private var isCopied = false
@@ -157,6 +159,19 @@ struct MessageBubble: View {
                         .font(captionFont)
                         .foregroundStyle(senderAppearance?.color ?? .secondary)
                         .xrayId("messageBubble.senderLabel.\(message.id.uuidString)")
+                    if let tag = delegationTag {
+                        Text(tag.isFallback ? "fallback answer" : "answered for you")
+                            .font(.system(size: 9, weight: .medium))
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(tag.isFallback ? Color.orange.opacity(0.12) : Color.accentColor.opacity(0.12))
+                            .foregroundColor(tag.isFallback ? Color.orange : Color.accentColor)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .stroke(tag.isFallback ? Color.orange.opacity(0.3) : Color.accentColor.opacity(0.3))
+                            )
+                            .cornerRadius(3)
+                            .xrayId("messageBubble.delegationTag.\(message.id.uuidString)")
+                    }
                 }
 
                 VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {

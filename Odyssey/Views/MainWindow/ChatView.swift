@@ -1635,7 +1635,8 @@ struct ChatView: View {
                                     onScheduleFromMessage: {
                                         scheduleDraft = makeScheduleDraft(from: message)
                                         showingScheduleEditor = true
-                                    }
+                                    },
+                                    delegationTag: resolvedDelegationTags[message.id]
                                 )
                                 .id(message.id)
                                 .background(
@@ -1686,6 +1687,19 @@ struct ChatView: View {
                                 }
                                 .id("agentQuestion-\(question.id)")
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
+
+                                // Routing pill: green while in-flight, amber if fallback-resolved
+                                if let convo = conversation {
+                                    if let targetAgent = convo.pendingQuestionRouting[question.id] {
+                                        QuestionRoutingPillView(targetAgentName: targetAgent, isFallback: false)
+                                            .padding(.leading, 32)
+                                            .transition(.opacity)
+                                    } else if let resolved = convo.resolvedQuestions[question.id] {
+                                        QuestionRoutingPillView(targetAgentName: resolved.answeredBy, isFallback: resolved.isFallback)
+                                            .padding(.leading, 32)
+                                            .transition(.opacity)
+                                    }
+                                }
                             }
 
                             ForEach(pendingConfirmationsForCurrentConversation) { confirmation in
@@ -2505,6 +2519,33 @@ struct ChatView: View {
         return convo.sessions.compactMap { session in
             appState.pendingQuestions[session.id.uuidString]
         }
+    }
+
+    /// Maps message IDs to delegation resolution info for attribution tags.
+    /// For each resolved question, finds the most recent chat message from the answering agent.
+    private var resolvedDelegationTags: [UUID: ResolvedQuestionInfo] {
+        guard let convo = conversation, !convo.resolvedQuestions.isEmpty else { return [:] }
+        var result: [UUID: ResolvedQuestionInfo] = [:]
+        let chatMessages = convo.messages
+            .filter { $0.type == .chat }
+            .sorted { $0.timestamp < $1.timestamp }
+        for (_, info) in convo.resolvedQuestions {
+            // Find the participant whose displayName matches answeredBy
+            let answererParticipant = convo.participants.first { p in
+                if let sessionId = p.typeSessionId,
+                   let session = convo.sessions.first(where: { $0.id == sessionId }),
+                   let agent = session.agent {
+                    return agent.name == info.answeredBy
+                }
+                return p.displayName == info.answeredBy
+            }
+            guard let participantId = answererParticipant?.id else { continue }
+            // Tag the most recent chat message from that participant
+            if let lastMsg = chatMessages.last(where: { $0.senderParticipantId == participantId }) {
+                result[lastMsg.id] = info
+            }
+        }
+        return result
     }
 
     private func agentNameForQuestion(_ question: AppState.AgentQuestion) -> String {
@@ -4316,5 +4357,30 @@ struct DelegationModePickerView: View {
                 )
             }
         }
+    }
+}
+
+// MARK: - Question Routing Pill
+
+struct QuestionRoutingPillView: View {
+    let targetAgentName: String
+    let isFallback: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(isFallback ? Color.orange : Color.green)
+                .frame(width: 6, height: 6)
+            Text(isFallback ? "No reply · routed to \(targetAgentName)" : "Routing to \(targetAgentName)\u{2026}")
+                .font(.system(size: 10))
+                .foregroundColor(isFallback ? .orange : .green)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(isFallback ? Color.orange.opacity(0.08) : Color.green.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isFallback ? Color.orange.opacity(0.25) : Color.green.opacity(0.25))
+        )
+        .cornerRadius(8)
     }
 }
