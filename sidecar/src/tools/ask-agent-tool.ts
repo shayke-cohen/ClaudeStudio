@@ -66,6 +66,7 @@ export function createAskAgentTool(ctx: ToolContext, callingSessionId: string) {
             questionId,
             answeredBy: resolvedTargetName,
             isFallback: false,
+            answer: agentAnswer ?? undefined,
           });
 
           return createTextResult({

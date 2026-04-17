@@ -249,4 +249,5 @@ final class Conversation {
 struct ResolvedQuestionInfo {
     let answeredBy: String
     let isFallback: Bool
+    let answer: String?
 }

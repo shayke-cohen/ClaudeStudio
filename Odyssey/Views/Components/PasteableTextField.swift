@@ -9,6 +9,8 @@ struct PasteableTextField: NSViewRepresentable {
     var onSubmit: () -> Void
     /// When plain Return should submit (Shift+Return always inserts a newline).
     var canSubmitOnReturn: () -> Bool = { true }
+    /// Called for ↑ (−1), ↓ (+1), Esc (0). Return true to consume the event.
+    var onNavigationKey: ((Int) -> Bool)? = nil
     @Environment(\.appTextScale) private var appTextScale
 
     private static let baseLineHeight: CGFloat = 17
@@ -34,6 +36,7 @@ struct PasteableTextField: NSViewRepresentable {
         textView.onImagePaste = onImagePaste
         textView.onSubmit = onSubmit
         textView.canSubmitOnReturn = canSubmitOnReturn
+        textView.onNavigationKey = onNavigationKey
         textView.delegate = context.coordinator
         textView.font = .systemFont(ofSize: fontSize)
         textView.isRichText = false
@@ -70,6 +73,7 @@ struct PasteableTextField: NSViewRepresentable {
         if let imagePasteTextView = textView as? ImagePasteTextView {
             imagePasteTextView.onSubmit = onSubmit
             imagePasteTextView.canSubmitOnReturn = canSubmitOnReturn
+            imagePasteTextView.onNavigationKey = onNavigationKey
         }
         if textView.string != text {
             textView.string = text
@@ -148,8 +152,23 @@ private class ImagePasteTextView: NSTextView {
     var onImagePaste: ((Data, String) -> Void)?
     var onSubmit: (() -> Void)?
     var canSubmitOnReturn: (() -> Bool)?
+    /// Called for ↑ (−1), ↓ (+1), Esc (0). Return true to consume the event.
+    var onNavigationKey: ((Int) -> Bool)?
 
     override func keyDown(with event: NSEvent) {
+        // Arrow/Esc handling for slash typeahead
+        if let handler = onNavigationKey {
+            switch event.keyCode {
+            case 126: // ↑
+                if handler(-1) { return }
+            case 125: // ↓
+                if handler(1) { return }
+            case 53:  // Esc
+                if handler(0) { return }
+            default: break
+            }
+        }
+
         let isReturnKey = event.keyCode == 36 || event.keyCode == 76
         if isReturnKey {
             if hasMarkedText() {

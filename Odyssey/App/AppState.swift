@@ -1225,10 +1225,18 @@ final class AppState: ObservableObject {
                 conversation.pendingQuestionRouting[questionId] = targetAgentName
             }
 
-        case .agentQuestionResolved(let sessionId, let questionId, let answeredBy, let isFallback):
+        case .agentQuestionResolved(let sessionId, let questionId, let answeredBy, let isFallback, let answer):
             if let conversation = conversationForSession(sessionId: sessionId) {
                 conversation.pendingQuestionRouting.removeValue(forKey: questionId)
-                conversation.resolvedQuestions[questionId] = ResolvedQuestionInfo(answeredBy: answeredBy, isFallback: isFallback)
+                conversation.resolvedQuestions[questionId] = ResolvedQuestionInfo(answeredBy: answeredBy, isFallback: isFallback, answer: answer)
+            }
+
+        case .conversationCleared(let conversationId):
+            if let ctx = modelContext,
+               let uuid = UUID(uuidString: conversationId),
+               let convo = try? ctx.fetch(FetchDescriptor<Conversation>()).first(where: { $0.id == uuid }) {
+                for msg in convo.messages { ctx.delete(msg) }
+                try? ctx.save()
             }
 
         case .connected:

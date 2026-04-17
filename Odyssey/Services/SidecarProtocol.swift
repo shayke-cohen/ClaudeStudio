@@ -35,6 +35,9 @@ enum SidecarCommand: Sendable {
     case projectSync(projects: [ProjectSummaryWire])
     case iosRegisterPush(apnsToken: String, appId: String)
     case setDelegationMode(sessionId: String, mode: DelegationMode, targetAgentName: String?)
+    case conversationClear(conversationId: String)
+    case sessionUpdateModel(sessionId: String, model: String)
+    case sessionUpdateEffort(sessionId: String, effort: String)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -183,6 +186,12 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 SetDelegationModeWire(type: "conversation.setDelegationMode", sessionId: sessionId, mode: mode.rawValue, targetAgentName: targetAgentName)
             )
+        case .conversationClear(let conversationId):
+            return try encoder.encode(SimpleConversationWire(type: "conversation.clear", conversationId: conversationId))
+        case .sessionUpdateModel(let sessionId, let model):
+            return try encoder.encode(SessionUpdateModelWire(type: "session.updateModel", sessionId: sessionId, model: model))
+        case .sessionUpdateEffort(let sessionId, let effort):
+            return try encoder.encode(SessionUpdateEffortWire(type: "session.updateEffort", sessionId: sessionId, effort: effort))
         }
     }
 }
@@ -191,6 +200,23 @@ private struct IosRegisterPushWire: Encodable {
     let type: String
     let apnsToken: String
     let appId: String
+}
+
+private struct SimpleConversationWire: Encodable {
+    let type: String
+    let conversationId: String
+}
+
+private struct SessionUpdateModelWire: Encodable {
+    let type: String
+    let sessionId: String
+    let model: String
+}
+
+private struct SessionUpdateEffortWire: Encodable {
+    let type: String
+    let sessionId: String
+    let effort: String
 }
 
 private struct SetDelegationModeWire: Encodable {
@@ -563,7 +589,8 @@ enum SidecarEvent: Sendable {
     case iosPushRegistered(apnsToken: String, success: Bool, error: String?)
     case nostrStatus(connectedRelays: Int, totalRelays: Int)
     case agentQuestionRouting(sessionId: String, questionId: String, targetAgentName: String)
-    case agentQuestionResolved(sessionId: String, questionId: String, answeredBy: String, isFallback: Bool)
+    case agentQuestionResolved(sessionId: String, questionId: String, answeredBy: String, isFallback: Bool, answer: String?)
+    case conversationCleared(conversationId: String)
     case connected
     case disconnected
 }
@@ -687,6 +714,7 @@ struct IncomingWireMessage: Codable, Sendable {
     let answeredBy: String?
     let isFallback: Bool?
     let targetAgentName: String?
+    let delegatedAnswer: String?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, text, tool, input, output, result, cost
@@ -707,6 +735,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case apnsToken, success
         case connectedRelays, totalRelays
         case timeoutSeconds, autoRouting, answeredBy, isFallback, targetAgentName
+        case delegatedAnswer = "answer"
     }
 
     func toEvent() -> SidecarEvent? {
@@ -824,7 +853,10 @@ struct IncomingWireMessage: Codable, Sendable {
             return .agentQuestionRouting(sessionId: sid, questionId: qid, targetAgentName: target)
         case "agent.question.resolved":
             guard let sid = sessionId, let qid = questionId, let answered = answeredBy else { return nil }
-            return .agentQuestionResolved(sessionId: sid, questionId: qid, answeredBy: answered, isFallback: isFallback ?? false)
+            return .agentQuestionResolved(sessionId: sid, questionId: qid, answeredBy: answered, isFallback: isFallback ?? false, answer: delegatedAnswer)
+        case "conversation.cleared":
+            guard let cid = conversationId else { return nil }
+            return .conversationCleared(conversationId: cid)
         default:
             return nil
         }

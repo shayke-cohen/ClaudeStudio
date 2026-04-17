@@ -350,6 +350,24 @@ struct ChatView: View {
     }
     /// The ID of the last assistant message produced while plan mode was active (for showing the Execute Plan action bar).
     @State private var lastPlanResponseMessageId: UUID?
+    // Slash command typeahead
+    @State private var slashGroupedSuggestions: [(group: SlashCommandGroup, commands: [SlashCommandInfo])] = []
+    @State private var slashSelectionIndex = 0
+    @State private var slashSubPickerCommand: SlashCommandInfo? = nil
+    @State private var slashSubPickerItems: [SlashSubPickerItem] = []
+    @State private var slashSubPickerSelectionIndex = 0
+    // Slash command result sheets
+    @State private var showSlashExportPicker = false
+    @State private var showSlashModelPicker = false
+    @State private var showSlashEffortPicker = false
+    @State private var showSlashModePicker = false
+    @State private var showSlashMemoryEditor = false
+    @State private var showSlashSkillsSheet = false
+    @State private var showSlashMCPSheet = false
+    @State private var showSlashPermissionsSheet = false
+    @State private var showSlashLoopSheet = false
+    @State private var showSlashBranchPicker = false
+    @State private var slashPlanModeActive = false
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
@@ -504,6 +522,14 @@ struct ChatView: View {
     private var shouldShowMentionAllSuggestion: Bool {
         guard let token = mentionAutocompleteToken else { return false }
         return token.isEmpty || ChatSendRouting.mentionAllToken.hasPrefix(token)
+    }
+
+    private var isSlashTypeaheadActive: Bool {
+        inputText.hasPrefix("/") && !inputText.hasPrefix("//") && !inputText.contains(" ")
+    }
+
+    private var slashTypeaheadQuery: String {
+        String(inputText.dropFirst())
     }
 
     private var sendingToSubtitle: String? {
@@ -790,6 +816,26 @@ struct ChatView: View {
             }
         }
         .onChange(of: windowState.autoSendText) { _, _ in consumeAutoSendText() }
+        .onChange(of: inputText) { _, new in
+            if new.hasPrefix("/"), !new.hasPrefix("//"), !new.contains(" ") {
+                let query = String(new.dropFirst())
+                let grouped = SlashCommandRegistry.groupedSuggestions(for: query)
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    slashGroupedSuggestions = grouped
+                }
+                // Reset selection when query changes
+                let flatCount = grouped.flatMap(\.commands).count
+                slashSelectionIndex = max(0, min(slashSelectionIndex, flatCount - 1))
+                slashSubPickerCommand = nil
+            } else {
+                if !slashGroupedSuggestions.isEmpty {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        slashGroupedSuggestions = []
+                    }
+                }
+                slashSubPickerCommand = nil
+            }
+        }
         .onAppear {
             consumeAutoSendText()
             restoreStreamingStateFromAppState()
@@ -864,6 +910,62 @@ struct ChatView: View {
             ScheduleEditorView(schedule: nil, draft: scheduleDraft)
                 .environmentObject(appState)
                 .environment(\.modelContext, modelContext)
+        }
+        // Slash command sheets
+        .sheet(isPresented: $showSlashMemoryEditor) {
+            MemoryEditorSheet(agent: conversation?.primarySession?.agent)
+        }
+        .sheet(isPresented: $showSlashSkillsSheet) {
+            SlashSkillsSheet(session: conversation?.primarySession)
+                .environmentObject(appState)
+                .environment(\.modelContext, modelContext)
+        }
+        .sheet(isPresented: $showSlashMCPSheet) {
+            SlashMCPSheet(session: conversation?.primarySession)
+                .environmentObject(appState)
+        }
+        .sheet(isPresented: $showSlashPermissionsSheet) {
+            SlashPermissionsSheet(session: conversation?.primarySession)
+        }
+        .sheet(isPresented: $showSlashExportPicker) {
+            SlashExportPickerSheet { format in
+                if let convo = conversation {
+                    exportTranscript(format: format, convo: convo)
+                }
+                showSlashExportPicker = false
+            }
+        }
+        .sheet(isPresented: $showSlashModelPicker) {
+            SlashModelPickerSheet(currentModel: conversation?.primarySession?.agent?.model ?? "") { model in
+                appState.sendToSidecar(.sessionUpdateModel(
+                    sessionId: conversation?.primarySession?.id.uuidString ?? "",
+                    model: model
+                ))
+                showSlashModelPicker = false
+            }
+        }
+        .sheet(isPresented: $showSlashEffortPicker) {
+            SlashEffortPickerSheet { effort in
+                appState.sendToSidecar(.sessionUpdateEffort(
+                    sessionId: conversation?.primarySession?.id.uuidString ?? "",
+                    effort: effort
+                ))
+                showSlashEffortPicker = false
+            }
+        }
+        .sheet(isPresented: $showSlashModePicker) {
+            SlashModePicker(currentMode: conversation?.primarySession?.mode ?? .interactive) { mode in
+                applyExecutionModeChange(mode)
+                showSlashModePicker = false
+            }
+        }
+        .sheet(isPresented: $showSlashBranchPicker) {
+            SlashBranchPickerSheet { action in
+                if let convo = conversation {
+                    sendPromptInjection(branchPrompt(for: action), in: convo)
+                }
+                showSlashBranchPicker = false
+            }
         }
         .alert("Slash Commands", isPresented: $showSlashHelp) {
             Button("Dismiss", role: .cancel) {}
@@ -1829,6 +1931,44 @@ struct ChatView: View {
                 pendingAttachmentStrip
             }
 
+            if isSlashTypeaheadActive && !slashGroupedSuggestions.isEmpty {
+                Group {
+                    if let subCmd = slashSubPickerCommand {
+                        SlashSubPickerView(
+                            command: subCmd,
+                            items: slashSubPickerItems,
+                            selectedIndex: slashSubPickerSelectionIndex,
+                            onSelect: { item in
+                                applySlashSubPickerSelection(command: subCmd, item: item)
+                            },
+                            onBack: {
+                                slashSubPickerCommand = nil
+                            }
+                        )
+                    } else {
+                        SlashCommandDropdown(
+                            groupedSuggestions: slashGroupedSuggestions,
+                            selectedIndex: slashSelectionIndex,
+                            onSelect: { cmd in
+                                if cmd.hasSubPicker {
+                                    openSlashSubPicker(for: cmd)
+                                } else {
+                                    inputText = "/\(cmd.name)"
+                                    sendMessage()
+                                }
+                            },
+                            onDismiss: {
+                                slashGroupedSuggestions = []
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 4)
+                .padding(.bottom, 2)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .xrayId("chat.slashCommandDropdown")
+            }
+
             if shouldShowMentionAllSuggestion || !mentionAutocompleteAgents.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -1884,7 +2024,27 @@ struct ChatView: View {
                     pendingAttachments.append((id: UUID(), data: data, mediaType: mediaType, fileName: "pasted.png"))
                 },
                 onSubmit: { if canSend { sendMessage() } },
-                canSubmitOnReturn: { canSend }
+                canSubmitOnReturn: { canSend },
+                onNavigationKey: { direction in
+                    guard isSlashTypeaheadActive && !slashGroupedSuggestions.isEmpty else { return false }
+                    let flat = slashGroupedSuggestions.flatMap(\.commands)
+                    if direction == 0 { // Esc
+                        if slashSubPickerCommand != nil {
+                            slashSubPickerCommand = nil
+                        } else {
+                            withAnimation { slashGroupedSuggestions = [] }
+                            inputText = "/"
+                        }
+                        return true
+                    }
+                    if slashSubPickerCommand != nil {
+                        let count = slashSubPickerItems.count
+                        slashSubPickerSelectionIndex = (slashSubPickerSelectionIndex + direction + count) % count
+                    } else {
+                        slashSelectionIndex = (slashSelectionIndex + direction + flat.count) % flat.count
+                    }
+                    return true
+                }
             )
             .frame(height: inputHeight)
             .xrayId("chat.messageInput")
@@ -2931,6 +3091,286 @@ struct ChatView: View {
         return draft
     }
 
+    // MARK: - Slash Command Handling
+
+    private func handleSlashCommand(_ slash: ChatSlashCommand, in convo: Conversation) {
+        switch slash {
+        // --- existing ---
+        case .help:
+            showSlashHelp = true
+        case .topic(let title):
+            let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { convo.topic = t; try? modelContext.save() }
+        case .agents:
+            showAddAgentsSheet = true
+        // --- session ---
+        case .clear:
+            showClearConfirmation = true
+        case .compact:
+            sendPromptInjection(
+                "Compact the current conversation context: summarize all prior turns into a concise system-level summary, then continue from there.",
+                in: convo
+            )
+        case .export(let fmt):
+            if fmt == nil {
+                showSlashExportPicker = true
+            } else {
+                exportTranscript(format: fmt ?? "md", convo: convo)
+            }
+        case .resume:
+            showSlashHelp = true // fallback; sub-picker handles the real path
+        // --- model ---
+        case .model(let m):
+            if let m {
+                appState.sendToSidecar(.sessionUpdateModel(
+                    sessionId: convo.primarySession?.id.uuidString ?? "",
+                    model: m
+                ))
+            } else {
+                showSlashModelPicker = true
+            }
+        case .effort(let e):
+            if let e {
+                appState.sendToSidecar(.sessionUpdateEffort(
+                    sessionId: convo.primarySession?.id.uuidString ?? "",
+                    effort: e
+                ))
+            } else {
+                showSlashEffortPicker = true
+            }
+        case .fast:
+            appState.sendToSidecar(.sessionUpdateEffort(
+                sessionId: convo.primarySession?.id.uuidString ?? "",
+                effort: "low"
+            ))
+        // --- memory & skills ---
+        case .memory:
+            showSlashMemoryEditor = true
+        case .skills:
+            showSlashSkillsSheet = true
+        // --- agents ---
+        case .mode(let m):
+            if let m {
+                applyExecutionModeChange(m == "autonomous" ? .autonomous : m == "worker" ? .worker : .interactive)
+            } else {
+                showSlashModePicker = true
+            }
+        case .plan:
+            slashPlanModeActive.toggle()
+        // --- tools ---
+        case .mcp:
+            showSlashMCPSheet = true
+        case .permissions:
+            showSlashPermissionsSheet = true
+        // --- git ---
+        case .review:
+            sendPromptInjection("""
+                Review the current git changes in this workspace.
+                Run `git diff HEAD` and `git status`, then:
+                1. Summarize what changed and why
+                2. Flag any concerns (bugs, security, style)
+                3. Suggest specific improvements
+                Keep it concise and actionable.
+                """, in: convo)
+        case .diff:
+            sendPromptInjection(
+                "Run `git diff HEAD` in the current workspace and show me the changes. Format the output clearly with file names as headers.",
+                in: convo
+            )
+        case .branch(let action):
+            if let action {
+                sendPromptInjection(branchPrompt(for: action), in: convo)
+            } else {
+                showSlashBranchPicker = true
+            }
+        case .initialize:
+            sendPromptInjection("""
+                Initialize this project for Odyssey agent use:
+                1. Scan the codebase structure (key dirs, languages, frameworks)
+                2. Create a CLAUDE.md at the project root with:
+                   - Project overview (1-2 sentences)
+                   - Key architecture decisions
+                   - Build/run commands
+                   - Important conventions
+                3. Confirm what was created.
+                """, in: convo)
+        // --- workflow ---
+        case .loop:
+            showSlashLoopSheet = true
+        case .schedule:
+            showingScheduleEditor = true
+        // --- info ---
+        case .context:
+            appendInfoMessage(contextSummary(for: convo), in: convo)
+        case .cost:
+            appendInfoMessage(costSummary(for: convo), in: convo)
+        // --- fallback ---
+        case .unknown(let name):
+            unknownSlashName = name
+            showUnknownSlash = true
+        }
+    }
+
+    private func sendPromptInjection(_ text: String, in convo: Conversation) {
+        guard let session = convo.primarySession else { return }
+        appState.sendToSidecar(.sessionMessage(
+            sessionId: session.id.uuidString,
+            text: text,
+            attachments: [],
+            planMode: slashPlanModeActive
+        ))
+    }
+
+    private func appendInfoMessage(_ text: String, in convo: Conversation) {
+        let msg = ConversationMessage(
+            conversationId: convo.id,
+            type: .text,
+            content: text,
+            role: .assistant,
+            senderName: "Odyssey"
+        )
+        convo.messages.append(msg)
+        try? modelContext.save()
+    }
+
+    private func contextSummary(for convo: Conversation) -> String {
+        guard let session = convo.primarySession,
+              let live = appState.activeSessions[session.id] else {
+            return "No active session."
+        }
+        let tokens = live.tokenCount
+        let maxTokens = modelContextWindow(model: session.agent?.model ?? "")
+        let pct = maxTokens > 0 ? Int(Double(tokens) / Double(maxTokens) * 100) : 0
+        return "**Context:** \(pct)% used (\(tokens.formatted()) / \(maxTokens.formatted()) tokens)"
+    }
+
+    private func costSummary(for convo: Conversation) -> String {
+        guard let session = convo.primarySession,
+              let live = appState.activeSessions[session.id] else {
+            return "No active session."
+        }
+        return "**Session cost:** $\(String(format: "%.4f", live.cost))  (\(live.tokenCount.formatted()) tokens, \(live.toolCallCount) tool calls)"
+    }
+
+    private func modelContextWindow(model: String) -> Int {
+        let lower = model.lowercased()
+        if lower.contains("opus") { return 200_000 }
+        if lower.contains("sonnet") { return 200_000 }
+        if lower.contains("haiku") { return 200_000 }
+        return 200_000
+    }
+
+    private func branchPrompt(for action: String) -> String {
+        switch action.lowercased() {
+        case "create":
+            return "Create a new git branch. Ask me for the branch name, then run `git checkout -b <name>` and confirm."
+        case "switch":
+            return "List all git branches (`git branch -a`) and switch to whichever one I choose."
+        case "list":
+            return "List all git branches with `git branch -a` and format the output clearly."
+        default:
+            return "Help me with git branches. Show options: create, switch, list."
+        }
+    }
+
+    private func exportTranscript(format: String, convo: Conversation) {
+        Task {
+            let transcript = ChatTranscriptExport.export(conversation: convo, format: format)
+            let ext = format == "html" ? "html" : format == "json" ? "json" : "md"
+            let name = (convo.topic ?? "conversation") + ".\(ext)"
+            if let url = await ChatExportPresenters.runSavePanel(suggestedFileName: name, allowedTypes: []) {
+                try? transcript.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    private func openSlashSubPicker(for cmd: SlashCommandInfo) {
+        slashSubPickerCommand = cmd
+        slashSubPickerSelectionIndex = 0
+        switch cmd.id {
+        case "model":
+            let currentModel = conversation?.primarySession?.agent?.model ?? ""
+            slashSubPickerItems = [
+                .init(id: "claude-opus-4-7",   label: "claude-opus-4-7",   detail: "Most capable",   isCurrent: currentModel.contains("opus-4-7")),
+                .init(id: "claude-sonnet-4-6", label: "claude-sonnet-4-6", detail: "Fast · balanced", isCurrent: currentModel.contains("sonnet-4-6")),
+                .init(id: "claude-haiku-4-5",  label: "claude-haiku-4-5",  detail: "Fastest",        isCurrent: currentModel.contains("haiku")),
+            ]
+        case "effort":
+            slashSubPickerItems = [
+                .init(id: "low",    label: "low",    detail: "Minimal thinking"),
+                .init(id: "medium", label: "medium", detail: "Balanced"),
+                .init(id: "high",   label: "high",   detail: "Thorough"),
+                .init(id: "max",    label: "max",    detail: "Maximum quality"),
+            ]
+        case "mode":
+            let current = conversation?.primarySession?.mode.rawValue ?? ""
+            slashSubPickerItems = [
+                .init(id: "interactive",  label: "interactive",  detail: "Confirm before acting",  isCurrent: current == "interactive"),
+                .init(id: "autonomous",   label: "autonomous",   detail: "Act independently",       isCurrent: current == "autonomous"),
+                .init(id: "worker",       label: "worker",       detail: "Headless task execution", isCurrent: current == "worker"),
+            ]
+        case "export":
+            slashSubPickerItems = [
+                .init(id: "md",   label: "Markdown",    detail: ".md"),
+                .init(id: "html", label: "HTML",        detail: ".html"),
+                .init(id: "json", label: "JSON",        detail: ".json"),
+            ]
+        case "branch":
+            slashSubPickerItems = [
+                .init(id: "create", label: "Create branch", detail: "git checkout -b"),
+                .init(id: "switch", label: "Switch branch",  detail: "git checkout"),
+                .init(id: "list",   label: "List branches",  detail: "git branch -a"),
+            ]
+        case "loop":
+            slashSubPickerItems = [
+                .init(id: "5",   label: "Every 5 minutes"),
+                .init(id: "15",  label: "Every 15 minutes"),
+                .init(id: "30",  label: "Every 30 minutes"),
+                .init(id: "60",  label: "Every hour"),
+            ]
+        default:
+            slashSubPickerItems = []
+        }
+    }
+
+    private func applySlashSubPickerSelection(command: SlashCommandInfo, item: SlashSubPickerItem) {
+        guard let convo = conversation else { return }
+        switch command.id {
+        case "model":
+            appState.sendToSidecar(.sessionUpdateModel(
+                sessionId: convo.primarySession?.id.uuidString ?? "",
+                model: item.id
+            ))
+        case "effort":
+            appState.sendToSidecar(.sessionUpdateEffort(
+                sessionId: convo.primarySession?.id.uuidString ?? "",
+                effort: item.id
+            ))
+        case "mode":
+            applyExecutionModeChange(item.id == "autonomous" ? .autonomous : item.id == "worker" ? .worker : .interactive)
+        case "export":
+            exportTranscript(format: item.id, convo: convo)
+        case "branch":
+            sendPromptInjection(branchPrompt(for: item.id), in: convo)
+        case "loop":
+            let minutes = Int(item.id) ?? 15
+            createLoopMission(everyMinutes: minutes, convo: convo)
+        default:
+            break
+        }
+        slashSubPickerCommand = nil
+        slashGroupedSuggestions = []
+        inputText = ""
+    }
+
+    private func createLoopMission(everyMinutes: Int, convo: Conversation) {
+        let draft = ScheduledMissionDraft()
+        draft.prompt = convo.topic ?? "Continue the current task"
+        draft.intervalMinutes = everyMinutes
+        scheduleDraft = draft
+        showingScheduleEditor = true
+    }
+
     // MARK: - Send Message
 
     private func sendMessage() {
@@ -2956,26 +3396,11 @@ struct ChatView: View {
         guard !text.isEmpty || !attachments.isEmpty else { return }
 
         if text.first == "/", !text.hasPrefix("//"), let slash = ChatSendRouting.parseSlashCommand(rawInput) {
-            switch slash {
-            case .help:
-                showSlashHelp = true
-            case .topic(let title):
-                let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !t.isEmpty {
-                    convo.topic = t
-                    try? modelContext.save()
-                }
-            case .agents:
-                showAddAgentsSheet = true
-            case .unknown(let name):
-                unknownSlashName = name
-                showUnknownSlash = true
-            }
-            if case .topic = slash, text.split(separator: " ").count <= 1, slash != .help {
-                // /topic with no title — still consume input? skip clear
-            }
+            handleSlashCommand(slash, in: convo)
             inputText = ""
             pendingAttachments = []
+            slashGroupedSuggestions = []
+            slashSubPickerCommand = nil
             return
         }
 

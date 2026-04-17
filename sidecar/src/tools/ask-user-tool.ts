@@ -221,6 +221,7 @@ export function createAskUserTool(ctx: ToolContext, callingSessionId: string, on
                   questionId,
                   answeredBy: targetName,
                   isFallback: true,
+                  answer: agentAnswer ?? undefined,
                 });
 
                 resolve({

@@ -1,9 +1,40 @@
 import Foundation
 
 enum ChatSlashCommand: Equatable {
+    // existing
     case help
     case topic(String)
     case agents
+    // session
+    case clear
+    case compact
+    case export(format: String?)
+    case resume
+    // model
+    case model(String?)
+    case effort(String?)
+    case fast
+    // memory & skills
+    case memory
+    case skills
+    // agents
+    case mode(String?)
+    case plan
+    // tools
+    case mcp
+    case permissions
+    // git
+    case review
+    case diff
+    case branch(action: String?)
+    case initialize
+    // workflow
+    case loop(interval: Int?)
+    case schedule
+    // info
+    case context
+    case cost
+    // fallback
     case unknown(String)
 }
 
@@ -21,14 +52,66 @@ enum ChatSendRouting {
         let parts = firstLine.dropFirst().split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
         let cmd = parts.first.map(String.init)?.lowercased() ?? ""
 
+        let arg = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
+
         switch cmd {
         case "help", "?":
             return .help
         case "topic", "rename":
-            let rest = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : ""
-            return .topic(rest)
+            return .topic(arg ?? "")
         case "agents":
             return .agents
+        // session
+        case "clear":
+            return .clear
+        case "compact":
+            return .compact
+        case "export":
+            return .export(format: arg)
+        case "resume":
+            return .resume
+        // model
+        case "model":
+            return .model(arg)
+        case "effort":
+            return .effort(arg)
+        case "fast":
+            return .fast
+        // memory & skills
+        case "memory":
+            return .memory
+        case "skills":
+            return .skills
+        // agents
+        case "mode":
+            return .mode(arg)
+        case "plan":
+            return .plan
+        // tools
+        case "mcp":
+            return .mcp
+        case "permissions":
+            return .permissions
+        // git
+        case "review":
+            return .review
+        case "diff":
+            return .diff
+        case "branch":
+            return .branch(action: arg)
+        case "init":
+            return .initialize
+        // workflow
+        case "loop":
+            let interval = arg.flatMap { Int($0) }
+            return .loop(interval: interval)
+        case "schedule":
+            return .schedule
+        // info
+        case "context":
+            return .context
+        case "cost":
+            return .cost
         default:
             return .unknown(cmd)
         }

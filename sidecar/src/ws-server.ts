@@ -352,6 +352,29 @@ export class WsServer {
         logger.info("ws", `conversation.setDelegationMode: session=${command.sessionId} mode=${command.mode} target=${command.targetAgentName ?? "none"}`);
         break;
       }
+
+      case "conversation.clear": {
+        this.ctx.conversationStore.clearMessages(command.conversationId);
+        logger.info("ws", `conversation.clear: conversationId=${command.conversationId}`);
+        this.ctx.broadcast({ type: "conversation.cleared", conversationId: command.conversationId });
+        break;
+      }
+
+      case "session.updateModel": {
+        this.ctx.sessions.updateConfig(command.sessionId, { model: command.model });
+        logger.info("ws", `session.updateModel: sessionId=${command.sessionId} model=${command.model}`);
+        break;
+      }
+
+      case "session.updateEffort": {
+        const effortToTokens: Record<string, number> = {
+          low: 0, medium: 8_000, high: 32_000, max: 100_000,
+        };
+        const maxThinkingTokens = effortToTokens[command.effort] ?? 32_000;
+        this.ctx.sessions.updateConfig(command.sessionId, { maxThinkingTokens });
+        logger.info("ws", `session.updateEffort: sessionId=${command.sessionId} effort=${command.effort} tokens=${maxThinkingTokens}`);
+        break;
+      }
     }
   }
 

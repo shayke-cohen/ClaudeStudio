@@ -41,7 +41,10 @@ export type SidecarCommand =
   | { type: "conversation.messageAppend"; conversationId: string; message: MessageWire }
   | { type: "conversation.setDelegationMode"; sessionId: string; mode: DelegationMode; targetAgentName?: string }
   | { type: "project.sync"; projects: ProjectSummaryWire[] }
-  | { type: "ios.registerPush"; apnsToken: string; appId: string };
+  | { type: "ios.registerPush"; apnsToken: string; appId: string }
+  | { type: "conversation.clear"; conversationId: string }
+  | { type: "session.updateModel"; sessionId: string; model: string }
+  | { type: "session.updateEffort"; sessionId: string; effort: "low" | "medium" | "high" | "max" };
 
 export interface PeerAgentWire {
   name: string;
@@ -222,7 +225,7 @@ export type SidecarEvent =
   | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig; timeoutSeconds?: number; autoRouting?: boolean }
   | { type: "agent.confirmation"; sessionId: string; confirmationId: string; action: string; reason: string; riskLevel: "low" | "medium" | "high"; details?: string }
   | { type: "agent.question.routing"; sessionId: string; questionId: string; targetAgentName: string }
-  | { type: "agent.question.resolved"; sessionId: string; questionId: string; answeredBy: string; isFallback: boolean }
+  | { type: "agent.question.resolved"; sessionId: string; questionId: string; answeredBy: string; isFallback: boolean; answer?: string }
   | { type: "stream.richContent"; sessionId: string; format: "html" | "mermaid" | "markdown"; title?: string; content: string; height?: number }
   | { type: "stream.progress"; sessionId: string; progressId: string; title: string; steps: ProgressStep[] }
   | { type: "stream.suggestions"; sessionId: string; suggestions: SuggestionItem[] }
@@ -235,7 +238,8 @@ export type SidecarEvent =
   | { type: "connector.statusChanged"; connection: ConnectorConfig }
   | { type: "connector.audit"; sessionId?: string; connectionId: string; provider: ConnectorProvider; action: string; outcome: string; summary: string }
   | { type: "ios.pushRegistered"; apnsToken: string; success: boolean; error?: string }
-  | { type: "nostr.status"; connectedRelays: number; totalRelays: number };
+  | { type: "nostr.status"; connectedRelays: number; totalRelays: number }
+  | { type: "conversation.cleared"; conversationId: string };
 
 export interface QuestionOption {
   label: string;

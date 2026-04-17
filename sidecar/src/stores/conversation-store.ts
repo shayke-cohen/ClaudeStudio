@@ -82,6 +82,10 @@ export class ConversationStore {
     return this.conversations.has(id);
   }
 
+  clearMessages(conversationId: string): void {
+    this.messages.set(conversationId, []);
+  }
+
   /** Create a minimal conversation entry for iOS-initiated sessions that don't originate from Mac SwiftData. */
   ensureConversation(id: string, topic: string): void {
     if (!this.conversations.has(id)) {
