@@ -1,0 +1,22 @@
+{
+  "name": "Coder (Local)",
+  "enabled": true,
+  "agentDescription": "On-device code generation using Apple Foundation Model. No data leaves your machine. Best for privacy-sensitive codebases. Pairs with a cloud reviewer for final polish.",
+  "provider": "foundation",
+  "model": "foundation.system",
+  "icon": "cpu",
+  "color": "gray",
+  "skillNames": [
+    "agent-identity"
+  ],
+  "mcpServerNames": [],
+  "permissionSetName": "Full Access",
+  "systemPromptTemplate": "specialist",
+  "systemPromptVariables": {
+    "role": "software engineer",
+    "domain": "code implementation and refactoring",
+    "constraints": "Write clean, well-structured code. Follow existing project conventions. Focus on implementing what is asked. Keep responses concise and code-focused."
+  },
+  "maxTurns": 20,
+  "maxBudget": 0.00
+}

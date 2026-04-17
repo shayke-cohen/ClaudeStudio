@@ -97,19 +97,6 @@ enum DefaultsSeeder {
                 ]
             ),
             GroupSpec(
-                name: "Code Review Pair",
-                description: "Fast pair review loop.",
-                icon: "🔍", color: "green",
-                instruction: "This is a focused code review session. Coder proposes changes, Reviewer provides actionable critique. Iterate until quality is met.",
-                defaultMission: nil,
-                agentNames: ["Coder", "Reviewer"],
-                sortOrder: 1,
-                workflowAgentNames: [
-                    (agent: "Coder", instruction: "Implement the requested changes or propose a solution.", label: "Code", autoAdvance: true, condition: nil, artifactGate: nil),
-                    (agent: "Reviewer", instruction: "Review the code critically. Approve if quality is met, or list specific changes needed.", label: "Review", autoAdvance: false, condition: nil, artifactGate: nil),
-                ]
-            ),
-            GroupSpec(
                 name: "Full Stack Team",
                 description: "Complete engineering team with DevOps.",
                 icon: "🏗️", color: "purple",
@@ -246,16 +233,76 @@ enum DefaultsSeeder {
                 ]
             ),
             GroupSpec(
-                name: "Full Ensemble",
-                description: "All ten agents working together.",
-                icon: "🌐", color: "purple",
-                instruction: "All agents are present. Collaborate, divide work by expertise, and coordinate via the blackboard. Each agent should contribute from their specialty.",
+                name: "Dual Coder Debate",
+                description: "Same problem, two models. Pick the best solution.",
+                icon: "🥊", color: "blue",
+                instruction: "Each coder proposes an independent solution using their respective model. The Reviewer compares both implementations and recommends the best approach or a synthesis of the two.",
                 defaultMission: nil,
-                agentNames: ["Orchestrator", "Coder", "Reviewer", "Researcher", "Tester", "DevOps", "Writer", "Product Manager", "Analyst", "Designer"],
+                agentNames: ["Coder (Codex)", "Coder", "Reviewer"],
                 sortOrder: 11,
+                workflowAgentNames: [
+                    (agent: "Coder (Codex)", instruction: "Implement a solution to the task using your approach. Do not reference what the other Coder writes.", label: "Codex Solution", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Coder", instruction: "Implement a solution to the same task independently. Take your own approach without referencing the previous implementation.", label: "Claude Solution", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Reviewer", instruction: "Compare both implementations. Evaluate correctness, performance, readability, and maintainability. Recommend the best approach or a synthesis of the two.", label: "Judge", autoAdvance: false, condition: nil, artifactGate: nil),
+                ],
+                roles: ["Reviewer": "coordinator"]
+            ),
+            GroupSpec(
+                name: "Codex Build + Claude Review",
+                description: "OpenAI generates, Claude scrutinizes.",
+                icon: "⚡", color: "orange",
+                instruction: "Codex handles implementation for speed and code fluency. Claude Reviewer provides deep analysis and catches issues. Claude Tester writes comprehensive tests.",
+                defaultMission: nil,
+                agentNames: ["Coder (Codex)", "Reviewer", "Tester"],
+                sortOrder: 12,
+                workflowAgentNames: [
+                    (agent: "Coder (Codex)", instruction: "Implement the requested feature or fix. Write complete, runnable code.", label: "Build", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Reviewer", instruction: "Review the Codex implementation thoroughly. Check for correctness, edge cases, security issues, and style. List all findings.", label: "Review", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Tester", instruction: "Write comprehensive tests targeting the implementation and the issues flagged by the Reviewer.", label: "Test", autoAdvance: false, condition: nil, artifactGate: nil),
+                ],
+                roles: ["Reviewer": "coordinator"]
+            ),
+            GroupSpec(
+                name: "Cost-Tiered Squad",
+                description: "Opus plans, Sonnet builds, Haiku tests. Max value per dollar.",
+                icon: "💸", color: "green",
+                instruction: "Use each model where it adds the most value: Orchestrator (Opus) for planning and synthesis, Coder (Sonnet) for implementation, Tester (Haiku) for fast validation. Minimize expensive model usage for routine tasks.",
+                defaultMission: nil,
+                agentNames: ["Orchestrator", "Coder (Sonnet)", "Tester (Haiku)"],
+                sortOrder: 13,
+                workflowAgentNames: [
+                    (agent: "Orchestrator", instruction: "Break down the task into a clear implementation plan. Persist it to the blackboard. Delegate to Coder once the plan is ready.", label: "Plan", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "implementation-plan", approvalRequired: false, publishRepoDoc: false, blockedDownstreamAgentNames: ["Coder (Sonnet)"])),
+                    (agent: "Coder (Sonnet)", instruction: "Implement the plan from the previous step. Follow each step in order.", label: "Implement", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Tester (Haiku)", instruction: "Write and run tests to validate the implementation. Report pass/fail with a clear summary.", label: "Test", autoAdvance: false, condition: nil, artifactGate: nil),
+                ],
                 roles: ["Orchestrator": "coordinator"],
                 autonomousCapable: true,
                 coordinatorAgentName: "Orchestrator"
+            ),
+            GroupSpec(
+                name: "Local First",
+                description: "Draft on-device, review in cloud. Privacy-first workflow.",
+                icon: "🔒", color: "gray",
+                instruction: "Coder (Local) generates code entirely on-device — no data leaves your machine. Messages go to Coder (Local) by default. Use @Reviewer to explicitly route output to the cloud for review.",
+                defaultMission: nil,
+                agentNames: ["Coder (Local)", "Reviewer"],
+                sortOrder: 14,
+                roles: ["Coder (Local)": "coordinator"]
+            ),
+            GroupSpec(
+                name: "Red Team",
+                description: "Build it, then try to break it.",
+                icon: "🎯", color: "red",
+                instruction: "Coder builds the feature. Attacker immediately looks for ways to break, exploit, or bypass it. Tester formalizes findings as regression tests. Expect adversarial feedback — that is the point.",
+                defaultMission: nil,
+                agentNames: ["Coder", "Attacker", "Tester"],
+                sortOrder: 15,
+                workflowAgentNames: [
+                    (agent: "Coder", instruction: "Implement the requested feature or component. Write production-quality code.", label: "Build", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Attacker", instruction: "Try to break the implementation. Look for vulnerabilities, edge cases, auth bypasses, injection points, and logical flaws. Be adversarial. Report all findings.", label: "Attack", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Tester", instruction: "Convert the Attacker's findings into regression tests. Each finding should become a test that validates the implementation is hardened against it.", label: "Harden", autoAdvance: false, condition: nil, artifactGate: nil),
+                ],
+                roles: ["Attacker": "coordinator"]
             ),
         ]
 
@@ -474,6 +521,8 @@ enum DefaultsSeeder {
                 "API Designer",
                 "Analyst",
                 "Coder",
+                "Coder (Codex)",
+                "Coder (Sonnet)",
                 "Designer",
                 "DevOps",
                 "Documentation Lead",
@@ -485,15 +534,16 @@ enum DefaultsSeeder {
                 "Technical Lead",
                 "Technical Writer",
                 "Tester",
+                "Tester (Haiku)",
                 "UX Designer",
                 "Writer"
             ]
         case "product-artifact-gate":
             return ["Product Manager"]
         case "github-workflow":
-            return ["Coder", "Reviewer", "DevOps", "Product Manager", "Orchestrator", "Release Manager", "Tester"]
+            return ["Coder", "Coder (Codex)", "Coder (Sonnet)", "Reviewer", "DevOps", "Product Manager", "Orchestrator", "Release Manager", "Tester", "Tester (Haiku)"]
         case "peer-collaboration", "blackboard-patterns", "agent-identity":
-            return ["Coder", "Reviewer", "DevOps", "Product Manager", "Orchestrator", "Tester", "Researcher", "Writer", "Designer", "Analyst"]
+            return ["Coder", "Coder (Codex)", "Coder (Sonnet)", "Attacker", "Reviewer", "DevOps", "Product Manager", "Orchestrator", "Tester", "Tester (Haiku)", "Researcher", "Writer", "Designer", "Analyst"]
         default:
             return []
         }
@@ -569,7 +619,7 @@ enum DefaultsSeeder {
         skills: [String: Skill],
         templates: [String: String]
     ) {
-        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent", "friday"]
+        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent", "friday", "coder-codex", "attacker-codex", "coder-sonnet", "tester-haiku", "coder-local"]
 
         for fileName in agentFiles {
             guard let data = loadAgentResource(name: fileName) else {
@@ -587,6 +637,7 @@ enum DefaultsSeeder {
                 name: dto.name,
                 agentDescription: dto.agentDescription,
                 systemPrompt: systemPrompt,
+                provider: dto.provider ?? ProviderSelection.system.rawValue,
                 model: dto.model,
                 icon: dto.icon,
                 color: dto.color
@@ -634,6 +685,7 @@ enum DefaultsSeeder {
     private struct AgentDTO: Decodable {
         let name: String
         let agentDescription: String
+        let provider: String?
         let model: String
         let icon: String
         let color: String
