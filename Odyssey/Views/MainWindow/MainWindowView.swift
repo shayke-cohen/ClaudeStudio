@@ -172,12 +172,6 @@ struct MainWindowView: View {
                 }
             }
         }
-        .sheet(isPresented: $ws.showNewSessionSheet) {
-            NewSessionSheet(initialStartKind: .agents)
-        }
-        .sheet(isPresented: $ws.showNewGroupThreadSheet) {
-            NewSessionSheet(initialStartKind: .groups)
-        }
         .sheet(isPresented: $ws.showScheduleLibrary) {
             ScheduleLibraryView()
                 .frame(minWidth: 900, minHeight: 560)

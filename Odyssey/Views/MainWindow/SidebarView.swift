@@ -562,7 +562,7 @@ struct SidebarView: View {
 
             let newSession = SidebarBottomBarItem.newSession
             Button {
-                windowState.showNewSessionSheet = true
+                showAgentPopover = true
             } label: {
                 Image(systemName: newSession.icon)
                     .font(.caption)

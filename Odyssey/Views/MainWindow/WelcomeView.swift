@@ -166,7 +166,7 @@ struct WelcomeView: View {
                 color: .purple,
                 identifier: "welcome.quickAction.newSession"
             ) {
-                windowState.showNewSessionSheet = true
+                onQuickChat()
             }
             quickActionCard(
                 title: "Browse Agents",
