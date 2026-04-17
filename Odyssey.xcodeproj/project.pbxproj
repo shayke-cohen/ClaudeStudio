@@ -202,6 +202,7 @@
 		C44E8543523504A3EC967F1A /* AgentPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8085DB553C61A9910886A2 /* AgentPreviewCard.swift */; };
 		C501E7B4FF6DA5EF93B98EB5 /* SharedRoomInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7D02959EBB59C190BD138E /* SharedRoomInviteSheet.swift */; };
 		C5263057246CFD534E574D67 /* ScheduleRunCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50772C4077BF40542C2672AF /* ScheduleRunCoordinatorTests.swift */; };
+		C7A838A43C8C61129A0922C5 /* PromptTemplateCreationSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F37E03165B6B7F270ACD1B /* PromptTemplateCreationSheetTests.swift */; };
 		C7E04ED21BAE8762652B422A /* OllamaCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */; };
 		C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A35177758E37FD646639BFB /* AgentActivityBar.swift */; };
 		CDEF4AD317D07A2EB11AC966 /* OdysseyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 00DF31B8DD35DAB899D426E8 /* OdysseyCore */; };
@@ -216,6 +217,7 @@
 		D3EE412E764DC961363DB66A /* RemoteSidecarManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63263BABF78A5A722099C0D5 /* RemoteSidecarManagerTests.swift */; };
 		D409143ACC195A5A8214D679 /* AgentDefaultsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E93CEB5CBA69F7F880A4E8E /* AgentDefaultsTests.swift */; };
 		D44BB61DBF73A94785AB7B9B /* BlackboardSnapshotClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A5CC3B8FB27A5C32C71FEA /* BlackboardSnapshotClient.swift */; };
+		D4895D020150B52E464F96B4 /* PromptTemplateCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274CB252A458C2690A798C76 /* PromptTemplateCreationSheet.swift */; };
 		D499D740BF66FDAF98B17443 /* NATTraversalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 555BB4B0C308663516AF0D15 /* NATTraversalManager.swift */; };
 		D4BFCFF77E3FF58D002B8961 /* DefaultPromptTemplates in Resources */ = {isa = PBXBuildFile; fileRef = 09936B3E044A42B326D74F44 /* DefaultPromptTemplates */; };
 		D5B4CD21F2230C9A85121879 /* NATTraversalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30424480B105E123B571324 /* NATTraversalTests.swift */; };
@@ -332,6 +334,7 @@
 		26CF7029F510BF9FFC9598C3 /* FileSystemServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemServiceTests.swift; sourceTree = "<group>"; };
 		271950E160680DCBF9B6D1FC /* MemoryEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryEditorSheet.swift; sourceTree = "<group>"; };
 		27202D7BC01AF900E69E64D2 /* OdysseyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OdysseyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		274CB252A458C2690A798C76 /* PromptTemplateCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptTemplateCreationSheet.swift; sourceTree = "<group>"; };
 		2770BA2281FFCAB6B442C451 /* iOSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSSettingsView.swift; sourceTree = "<group>"; };
 		2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationSheetTests.swift; sourceTree = "<group>"; };
 		29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesSettingsTab.swift; sourceTree = "<group>"; };
@@ -356,6 +359,7 @@
 		3C4A253344C11D2521E88D0C /* ScheduleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEngineTests.swift; sourceTree = "<group>"; };
 		3D667133088DCC6D9B55AC48 /* iOSAgentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSAgentListView.swift; sourceTree = "<group>"; };
 		3D86828EF91EA2BA1CA9EFF0 /* PeerNetworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNetworkView.swift; sourceTree = "<group>"; };
+		40F37E03165B6B7F270ACD1B /* PromptTemplateCreationSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptTemplateCreationSheetTests.swift; sourceTree = "<group>"; };
 		421BD35AD8A7D15F8F0F18F9 /* InstanceConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceConfig.swift; sourceTree = "<group>"; };
 		42D8204B8DFB4612FBE0BD59 /* GroupWorkflowEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupWorkflowEngine.swift; sourceTree = "<group>"; };
 		4497313C9A1F5C757FD3B0F5 /* TaskCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCreationSheet.swift; sourceTree = "<group>"; };
@@ -860,6 +864,7 @@
 			isa = PBXGroup;
 			children = (
 				2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */,
+				40F37E03165B6B7F270ACD1B /* PromptTemplateCreationSheetTests.swift */,
 				FDBA2B3C88639506802E9B17 /* SkillCreationSheetTests.swift */,
 			);
 			path = Configuration;
@@ -907,6 +912,7 @@
 			isa = PBXGroup;
 			children = (
 				B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */,
+				274CB252A458C2690A798C76 /* PromptTemplateCreationSheet.swift */,
 				8B0E22E44DF18FDEFEE6E36C /* SkillCreationSheet.swift */,
 			);
 			path = Configuration;
@@ -1382,6 +1388,7 @@
 				7C7B93621F68BB54BB2AC6FD /* OllamaCatalogServiceTests.swift in Sources */,
 				3395077A3A96CF4451AF6DF4 /* PeerChannelMessageTests.swift in Sources */,
 				CFDE3032A714FCE874B3DB67 /* ProjectRecordMigrationTests.swift in Sources */,
+				C7A838A43C8C61129A0922C5 /* PromptTemplateCreationSheetTests.swift in Sources */,
 				D9AEF1DB2003CC591A618CF2 /* PromptTemplateTests.swift in Sources */,
 				5DFEE19FC88F984C1B3A9CF8 /* ResidentAgentTests.swift in Sources */,
 				14063390403284F30E292921 /* RichChatComponentTests.swift in Sources */,
@@ -1538,6 +1545,7 @@
 				7B3195669831085550F16A04 /* PeerWireModels.swift in Sources */,
 				DB4CBB0970FF15A4782A984A /* PermissionSet.swift in Sources */,
 				4A9EF5119AE6FB66324C3D03 /* PromptTemplate.swift in Sources */,
+				D4895D020150B52E464F96B4 /* PromptTemplateCreationSheet.swift in Sources */,
 				7BF0DBA4953DC785545FE378 /* PromptTemplateEditorSheet.swift in Sources */,
 				D727B0495A0CA51047853613 /* RecentDirectories.swift in Sources */,
 				4AF9054731A78C6D7D9014C8 /* ResidentAgentSupport.swift in Sources */,

@@ -115,14 +115,13 @@ struct TemplatesSettingsTab: View {
             )
         }
         .sheet(isPresented: $showingNewSheet) {
-            PromptTemplateEditorSheet(
-                mode: .create(ownerLabel: selectionTitle),
-                onSave: { name, prompt in
-                    createTemplate(name: name, prompt: prompt)
-                    showingNewSheet = false
-                },
-                onCancel: { showingNewSheet = false }
-            )
+            PromptTemplateCreationSheet(
+                ownerAgent: selectedAgent,
+                ownerGroup: selectedGroup,
+                existingTemplate: nil
+            ) { newTemplate in
+                showingNewSheet = false
+            }
         }
         .xrayId("settings.templates.root")
     }
@@ -357,47 +356,6 @@ struct TemplatesSettingsTab: View {
     }
 
     // MARK: - Mutations
-
-    private func createTemplate(name: String, prompt: String) {
-        guard let owner = selectedOwner else { return }
-        let ownerKind: PromptTemplateOwnerKindOnDisk
-        let ownerSlug: String
-        let ownerAgent: Agent?
-        let ownerGroup: AgentGroup?
-        switch owner {
-        case .agent(let id):
-            guard let agent = enabledAgents.first(where: { $0.id == id }) else { return }
-            ownerAgent = agent
-            ownerGroup = nil
-            ownerKind = .agents
-            ownerSlug = agent.configSlug ?? ConfigFileManager.slugify(agent.name)
-        case .group(let id):
-            guard let group = enabledGroups.first(where: { $0.id == id }) else { return }
-            ownerAgent = nil
-            ownerGroup = group
-            ownerKind = .groups
-            ownerSlug = group.configSlug ?? ConfigFileManager.slugify(group.name)
-        }
-
-        let templateSlug = ConfigFileManager.uniquePromptTemplateSlug(
-            baseName: name, ownerKind: ownerKind, ownerSlug: ownerSlug
-        )
-        let configSlug = "\(ownerKind.rawValue)/\(ownerSlug)/\(templateSlug)"
-        let existingMaxSort = templatesForSelection.map(\.sortOrder).max() ?? 0
-
-        let template = PromptTemplate(
-            name: name,
-            prompt: prompt,
-            sortOrder: existingMaxSort + 1,
-            isBuiltin: false,
-            agent: ownerAgent,
-            group: ownerGroup,
-            configSlug: configSlug
-        )
-        modelContext.insert(template)
-        try? modelContext.save()
-        appState.configSyncService?.writeBack(promptTemplate: template)
-    }
 
     private func updateTemplate(_ template: PromptTemplate, name: String, prompt: String) {
         template.name = name
