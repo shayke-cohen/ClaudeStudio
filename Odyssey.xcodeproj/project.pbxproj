@@ -128,6 +128,7 @@
 		81916B0235EECCF5432D86C6 /* DefaultMCPs.json in Resources */ = {isa = PBXBuildFile; fileRef = B0AF535FFB97A018FDF5CE70 /* DefaultMCPs.json */; };
 		81C95B0A72E17D80CD2F84B1 /* TURNAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B724D409EFAEE01DDC826E /* TURNAllocator.swift */; };
 		826B023429A708501C91D46B /* ConfigFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB47CB1FF7ECC13A7E4F60C4 /* ConfigFileManager.swift */; };
+		13A2092C45254F0FA442AD40 /* ConfigFileDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */; };
 		84DEA88B2E3F0B1D2097F49C /* InlineHTMLView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0767BDA0E45E895D8CBC2D /* InlineHTMLView.swift */; };
 		86F3EA0D9EA3076ED5F0A908 /* DefaultSkills in Resources */ = {isa = PBXBuildFile; fileRef = F25E68993F1578F447F078C1 /* DefaultSkills */; };
 		8837504C0988F54F3AE831CA /* SidecarProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36601B02576E1AAA2B2A323D /* SidecarProtocol.swift */; };
@@ -362,6 +363,7 @@
 		555BB4B0C308663516AF0D15 /* NATTraversalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NATTraversalManager.swift; sourceTree = "<group>"; };
 		558615E63E7CD517950BA9C3 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSyncService.swift; sourceTree = "<group>"; };
+		53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFileDTOs.swift; sourceTree = "<group>"; };
 		5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeManager.swift; sourceTree = "<group>"; };
 		591274642A5865F01227951C /* SidebarSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSectionTests.swift; sourceTree = "<group>"; };
 		5934F4DE08F615C09AB5CEF7 /* AgentDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDefaults.swift; sourceTree = "<group>"; };
@@ -927,6 +929,7 @@
 				E1CD9576CD43CDC2384E3BE8 /* ChatSessionWatchdog.swift */,
 				E7C0A9DC8953F9D383C308B0 /* ChatTranscriptExport.swift */,
 				FB47CB1FF7ECC13A7E4F60C4 /* ConfigFileManager.swift */,
+				53098ABF8CAE480A9C8A47AB /* ConfigFileDTOs.swift */,
 				55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */,
 				78F1DC54EF71599B30FD4FA9 /* ConnectionVault.swift */,
 				17ACBDA18387A1FE2CBB6C55 /* ConnectorCatalog.swift */,
@@ -1392,6 +1395,7 @@
 				EC7DF5261937DE6DD9291993 /* CodeBlockView.swift in Sources */,
 				98DCB062B28189240A60ACD5 /* ColorExtension.swift in Sources */,
 				826B023429A708501C91D46B /* ConfigFileManager.swift in Sources */,
+				13A2092C45254F0FA442AD40 /* ConfigFileDTOs.swift in Sources */,
 				B5A85727EB4EFCB322806746 /* ConfigSyncService.swift in Sources */,
 				FD3DE50783210491E451A6D0 /* Connection.swift in Sources */,
 				684D7C1879D3EEA3F97BC4BA /* ConnectionVault.swift in Sources */,

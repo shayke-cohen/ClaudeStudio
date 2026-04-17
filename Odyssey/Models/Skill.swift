@@ -70,7 +70,7 @@ final class Skill {
         self.catalogId = nil
         self.isEnabled = true
         self.configSlug = nil
-        self.sourceKind = "custom"
+        self.sourceKind = "filesystem"
         self.sourceValue = nil
     }
 }
