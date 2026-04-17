@@ -64,6 +64,7 @@
 		34715526FCCF55256574533E /* SharedRoomModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BC3E6DC20B8963BCDD635 /* SharedRoomModelTests.swift */; };
 		368823DB07364B3B89DFF6E6 /* PeerCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2C170AA2F56532C715364E /* PeerCredentialStore.swift */; };
 		3734F59B8CBB6260F2D1BEC1 /* SlashCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3329B9007D93114D6F50FA /* SlashCommandRegistry.swift */; };
+		38EE6567EC824720D4A7CF77 /* AgentCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */; };
 		3BC013B7B29FFA2E33F97B72 /* QRScannerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F2CFDDCA2CB893AB1C115A /* QRScannerSheet.swift */; };
 		3CF6997B5C173AEFD687350A /* ConnectorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ACBDA18387A1FE2CBB6C55 /* ConnectorCatalog.swift */; };
 		3D05E11181C3A327112FE5C0 /* SlashCommandSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD057175EDA6E77CA73A7B /* SlashCommandSheets.swift */; };
@@ -222,6 +223,7 @@
 		D8328A2D82FD09A1E9B3EF91 /* AgentGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D135ADEF5D0F6923E77C6AD /* AgentGroup.swift */; };
 		D87E3D25F31FC7E0EFEB8E04 /* GroupAssemblerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00B92569519C2B0C0BBBE48 /* GroupAssemblerTests.swift */; };
 		D9AEF1DB2003CC591A618CF2 /* PromptTemplateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA088D5A139382AA58446704 /* PromptTemplateTests.swift */; };
+		D9C7D20C06E3ADBAE1696AC5 /* AgentCreationSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */; };
 		DA5878A806724AC08A2B64C2 /* AddAgentsToChatSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814FD4B416442C6237EB2CB3 /* AddAgentsToChatSheet.swift */; };
 		DB4CBB0970FF15A4782A984A /* PermissionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFE61F38DD7B9E57DF10B0B5 /* PermissionSet.swift */; };
 		DB83A2142A011F0A770A4208 /* UserInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEC0BB543D3FAA525D63B4E /* UserInviteSheet.swift */; };
@@ -329,6 +331,7 @@
 		271950E160680DCBF9B6D1FC /* MemoryEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryEditorSheet.swift; sourceTree = "<group>"; };
 		27202D7BC01AF900E69E64D2 /* OdysseyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OdysseyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2770BA2281FFCAB6B442C451 /* iOSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSSettingsView.swift; sourceTree = "<group>"; };
+		2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationSheetTests.swift; sourceTree = "<group>"; };
 		29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesSettingsTab.swift; sourceTree = "<group>"; };
 		2B4A8439FA6BF28913E45057 /* LocalFileReferenceSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileReferenceSupportTests.swift; sourceTree = "<group>"; };
 		2CA8A42772131656447E14DA /* WindowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowState.swift; sourceTree = "<group>"; };
@@ -451,6 +454,7 @@
 		B05B1BA91E58FAB813F115C0 /* LocalFileReferenceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileReferenceSupport.swift; sourceTree = "<group>"; };
 		B0AF535FFB97A018FDF5CE70 /* DefaultMCPs.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultMCPs.json; sourceTree = "<group>"; };
 		B28E92529E4209BE458AE21E /* P2PNetworkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PNetworkManager.swift; sourceTree = "<group>"; };
+		B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationSheet.swift; sourceTree = "<group>"; };
 		B4D275D926FA0A8CCDDF578E /* MatrixClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatrixClient.swift; sourceTree = "<group>"; };
 		B597F7491414D478622B1344 /* BlackboardEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackboardEntry.swift; sourceTree = "<group>"; };
 		B7333AE73C0663A0A85F8F9A /* SidebarActivityIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarActivityIndicator.swift; sourceTree = "<group>"; };
@@ -689,6 +693,7 @@
 				8581B0AE2CA3EDFAA4087EBA /* AgentLibrary */,
 				458C7F95005EF059F7124F5C /* Catalog */,
 				8B85E1CA0941286C130AF94F /* Components */,
+				AF07D40D122E38A17BC6971A /* Configuration */,
 				63DBF8459C038CDF546E1CD7 /* Debug */,
 				8257F8B4B1B540B35E4479D6 /* GroupLibrary */,
 				107BD40BD3361D61B1EB5632 /* MainWindow */,
@@ -847,6 +852,14 @@
 			path = Sheets;
 			sourceTree = "<group>";
 		};
+		A439B1A9CB113D11175EF08B /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
 		A5BFC1BFD2CA900728867704 /* Workshop */ = {
 			isa = PBXGroup;
 			children = (
@@ -883,6 +896,14 @@
 				725E90B449DC3E4C8B034DB3 /* OdysseyiOS.entitlements */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		AF07D40D122E38A17BC6971A /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */,
+			);
+			path = Configuration;
 			sourceTree = "<group>";
 		};
 		B40D55946B5950B108D849F6 /* Models */ = {
@@ -1062,6 +1083,7 @@
 				332A252E798B0EFA2812F488 /* TransportManagerTests.swift */,
 				33D8A314CF6803BBED0193BB /* WindowStateInspectorTests.swift */,
 				CCD859B7B5CDE79F6F2E65E9 /* WorkshopViewTests.swift */,
+				A439B1A9CB113D11175EF08B /* Configuration */,
 			);
 			path = OdysseyTests;
 			sourceTree = "<group>";
@@ -1317,6 +1339,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D9C7D20C06E3ADBAE1696AC5 /* AgentCreationSheetTests.swift in Sources */,
 				D409143ACC195A5A8214D679 /* AgentDefaultsTests.swift in Sources */,
 				9E431E795FADF9969DC53648 /* AgentProvisionerTests.swift in Sources */,
 				0C585689669EE1F714F14325 /* AppStateEventTests.swift in Sources */,
@@ -1392,6 +1415,7 @@
 				C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */,
 				B1B2CB96F5753ABEECB46244 /* AgentCardView.swift in Sources */,
 				5D580021219F9CAC623D1B81 /* AgentCommsView.swift in Sources */,
+				38EE6567EC824720D4A7CF77 /* AgentCreationSheet.swift in Sources */,
 				B0EF64FAC9508BBA574E1902 /* AgentDefaults.swift in Sources */,
 				3E2D846CC011B6213728F6C9 /* AgentEditorView.swift in Sources */,
 				0C41298B8A21D0CA6A270FBC /* AgentFromPromptSheet.swift in Sources */,
