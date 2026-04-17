@@ -582,15 +582,21 @@ export class WsServer {
 
   /** Single-turn generation via the Agent SDK (uses Claude Code auth, no API key needed). */
   private async queryOnce(systemInstructions: string, userRequest: string, model: string): Promise<string> {
-    const fullPrompt = `${systemInstructions}\n\n---\n\nUser request: ${userRequest}\n\nRespond with ONLY valid JSON as specified above. No markdown, no code fences.`;
+    const prompt = `${userRequest}\n\nRespond with ONLY valid JSON as specified above. No markdown, no code fences.`;
     const options: Record<string, any> = {
       model,
       maxTurns: 1,
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
+      cwd: process.cwd(),
+      systemPrompt: {
+        type: "preset",
+        preset: "claude_code",
+        append: systemInstructions,
+      },
     };
     if (_claudeCodeCliPath) options.pathToClaudeCodeExecutable = _claudeCodeCliPath;
-    const stream = query({ prompt: fullPrompt, options });
+    const stream = query({ prompt, options });
     let resultText = "";
     for await (const message of stream) {
       const msg = message as any;
