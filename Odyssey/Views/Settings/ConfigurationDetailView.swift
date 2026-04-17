@@ -331,6 +331,11 @@ struct ConfigurationDetailView: View {
         .xrayId("settings.configuration.detail.revealButton")
     }
 
+    private var canEdit: Bool {
+        if case .permission = item { return false }
+        return true
+    }
+
     private var editButton: some View {
         Button {
             openEditor()
@@ -338,7 +343,8 @@ struct ConfigurationDetailView: View {
             Label("Edit", systemImage: "pencil")
         }
         .buttonStyle(.borderedProminent)
-        .help("Edit this item")
+        .disabled(!canEdit)
+        .help(canEdit ? "Edit this item" : "No editor available for this item type")
         .xrayId("settings.configuration.detail.editButton")
     }
 

@@ -399,7 +399,8 @@ private struct ConfigItemRow: View {
 
     private var resolvedSystemIcon: String {
         if useSystemIcon { return icon }
-        // Icon may be an emoji or SF Symbol name; fall back if it starts with an emoji
+        // Heuristic: SF Symbol names start with an ASCII letter; emoji start with high codepoints.
+        // Works for all current data; edge case: icon names starting with digits (e.g. "42.circle") would be treated as emoji.
         if icon.unicodeScalars.first.map({ CharacterSet.letters.contains($0) }) == true {
             return icon
         }
