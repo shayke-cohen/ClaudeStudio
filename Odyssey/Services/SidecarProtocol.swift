@@ -35,7 +35,7 @@ enum SidecarCommand: Sendable {
     case projectSync(projects: [ProjectSummaryWire])
     case iosRegisterPush(apnsToken: String, appId: String)
     case setDelegationMode(sessionId: String, mode: DelegationMode, targetAgentName: String?)
-    case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?)
+    case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?, sessionIds: [String])
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -184,18 +184,20 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 SetDelegationModeWire(type: "conversation.setDelegationMode", sessionId: sessionId, mode: mode.rawValue, targetAgentName: targetAgentName)
             )
-        case .conversationEvaluate(let conversationId, let goal, let coordinatorSessionId):
+        case .conversationEvaluate(let conversationId, let goal, let coordinatorSessionId, let sessionIds):
             struct ConversationEvaluateWire: Codable {
                 let type: String
                 let conversationId: String
                 let goal: String?
                 let coordinatorSessionId: String?
+                let sessionIds: [String]
             }
             return try encoder.encode(ConversationEvaluateWire(
                 type: "conversation.evaluate",
                 conversationId: conversationId,
                 goal: goal,
-                coordinatorSessionId: coordinatorSessionId
+                coordinatorSessionId: coordinatorSessionId,
+                sessionIds: sessionIds
             ))
         }
     }

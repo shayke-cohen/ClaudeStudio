@@ -40,7 +40,7 @@ export type SidecarCommand =
   | { type: "conversation.sync"; conversations: ConversationSummaryWire[] }
   | { type: "conversation.messageAppend"; conversationId: string; message: MessageWire }
   | { type: "conversation.setDelegationMode"; sessionId: string; mode: DelegationMode; targetAgentName?: string }
-  | { type: "conversation.evaluate"; conversationId: string; goal?: string; coordinatorSessionId?: string }
+  | { type: "conversation.evaluate"; conversationId: string; goal?: string; coordinatorSessionId?: string; sessionIds?: string[] }
   | { type: "project.sync"; projects: ProjectSummaryWire[] }
   | { type: "ios.registerPush"; apnsToken: string; appId: string };
 

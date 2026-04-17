@@ -447,6 +447,47 @@ export class SessionManager {
     );
   }
 
+  async evaluateSession(
+    sessionId: string,
+    prompt: string,
+  ): Promise<{ status: "complete" | "needsMore" | "failed"; reason: string } | null> {
+    const config = this.registry.getConfig(sessionId);
+    const state = this.registry.get(sessionId);
+    if (!config || !state?.claudeSessionId) {
+      logger.warn("session", `evaluateSession: no config or claudeSessionId for ${sessionId}`);
+      return null;
+    }
+
+    try {
+      const result = await this.sendWithProviderTimeout(
+        this.runtimeFor(config),
+        {
+          sessionId,
+          config,
+          backendSessionId: state.claudeSessionId,
+          text: prompt,
+          attachments: undefined,
+          planMode: false,
+          abortController: new AbortController(),
+        },
+      );
+
+      const text = result.resultText;
+      const statusMatch = text.match(/STATUS:\s*(COMPLETE|NEEDS_MORE|FAILED)/i);
+      const reasonMatch = text.match(/REASON:\s*(.+)/i);
+      if (!statusMatch) return null;
+
+      const raw = statusMatch[1].toUpperCase();
+      const status: "complete" | "needsMore" | "failed" =
+        raw === "COMPLETE" ? "complete" : raw === "NEEDS_MORE" ? "needsMore" : "failed";
+      const reason = reasonMatch?.[1]?.trim() ?? "";
+      return { status, reason };
+    } catch (err) {
+      logger.error("session", `evaluateSession error for ${sessionId}: ${String(err)}`);
+      return null;
+    }
+  }
+
   private runtimeFor(config: AgentConfig): ProviderRuntime {
     return this.runtimes[config.provider ?? "claude"];
   }

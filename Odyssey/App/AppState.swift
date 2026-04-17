@@ -1015,7 +1015,8 @@ final class AppState: ObservableObject {
             self.sendToSidecar(.conversationEvaluate(
                 conversationId: convId,
                 goal: conversation.goal,
-                coordinatorSessionId: coordinatorSessionId
+                coordinatorSessionId: coordinatorSessionId,
+                sessionIds: conversation.sessions.map { $0.id.uuidString }
             ))
         }
     }

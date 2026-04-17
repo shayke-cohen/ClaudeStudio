@@ -5,6 +5,7 @@ import type { ToolContext } from "./tools/tool-context.js";
 import { resolveQuestion } from "./tools/ask-user-tool.js";
 import { logger } from "./logger.js";
 import { probeConnector } from "./connectors/provider-runtime.js";
+import { ConversationEvaluator } from "./conversation-evaluator.js";
 
 export interface WsServerOptions {
   token?: string;
@@ -18,11 +19,13 @@ export class WsServer {
   private ctx: ToolContext;
   private server: ReturnType<typeof Bun.serve> | null = null;
   private options: WsServerOptions = {};
+  private readonly conversationEvaluator: ConversationEvaluator;
 
   constructor(port: number, sessionManager: SessionManager, ctx: ToolContext, options: WsServerOptions = {}) {
     this.sessionManager = sessionManager;
     this.ctx = ctx;
     this.options = options;
+    this.conversationEvaluator = new ConversationEvaluator(this.sessionManager);
 
     // Load TLS config; fall back to plain WS if the cert/key can't be parsed
     // (macOS Security.framework can produce explicit-params EC certs that Bun/BoringSSL rejects)
@@ -350,6 +353,11 @@ export class WsServer {
           targetAgentName: command.targetAgentName,
         });
         logger.info("ws", `conversation.setDelegationMode: session=${command.sessionId} mode=${command.mode} target=${command.targetAgentName ?? "none"}`);
+        break;
+      }
+
+      case "conversation.evaluate": {
+        await this.conversationEvaluator.evaluate(command, this.broadcast.bind(this));
         break;
       }
     }
