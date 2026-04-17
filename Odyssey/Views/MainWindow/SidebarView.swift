@@ -185,7 +185,13 @@ struct SidebarView: View {
         List {
             utilitySection
 
-            // Hidden global button — registers ⌘⇧N shortcut at all times (Fix 2)
+            // Hidden global buttons — register ⌘N, ⌘⌥N, and ⌘⇧N shortcuts at all times
+            Button("") { showAgentPopover = true }
+                .keyboardShortcut("n", modifiers: .command)
+                .hidden()
+            Button("") { showGroupPopover = true }
+                .keyboardShortcut("n", modifiers: [.command, .option])
+                .hidden()
             Button("") { showAgentPopover = true }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .opacity(0)
