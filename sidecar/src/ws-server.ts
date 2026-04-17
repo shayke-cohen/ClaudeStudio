@@ -583,12 +583,18 @@ export class WsServer {
   /** Single-turn generation via the Agent SDK (uses Claude Code auth, no API key needed). */
   private async queryOnce(systemInstructions: string, userRequest: string, model: string): Promise<string> {
     const prompt = `${userRequest}\n\nRespond with ONLY valid JSON as specified above. No markdown, no code fences.`;
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) {
+      if (typeof v === "string") env[k] = v;
+    }
+    delete env.CLAUDECODE; // prevent "nested session" rejection
     const options: Record<string, any> = {
       model,
       maxTurns: 1,
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       cwd: process.cwd(),
+      env,
       systemPrompt: {
         type: "preset",
         preset: "claude_code",
