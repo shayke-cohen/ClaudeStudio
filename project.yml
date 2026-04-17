@@ -19,6 +19,9 @@ packages:
   secp256k1:
     url: https://github.com/GigaBitcoin/secp256k1.swift
     from: "0.15.0"
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -54,6 +57,7 @@ targets:
       - package: OdysseyCore
       - package: secp256k1
         product: P256K
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.shaycohen.odyssey

@@ -159,10 +159,10 @@ struct WelcomeView: View {
                 onQuickChat()
             }
             quickActionCard(
-                title: "New Session",
-                subtitle: "Pick an agent and start",
+                title: "New Thread",
+                subtitle: "Freeform chat, no agent",
                 icon: "plus.bubble",
-                shortcut: "\u{2318}N",
+                shortcut: nil,
                 color: .purple,
                 identifier: "welcome.quickAction.newSession"
             ) {
