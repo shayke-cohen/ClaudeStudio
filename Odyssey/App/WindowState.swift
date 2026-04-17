@@ -313,6 +313,8 @@ final class WindowState {
     var showSharedRoomInbox = false
     var showWorkshop = false
     var activeRoute: WindowContentRoute = .workspace
+    var pendingConfigSection: ConfigSection? = nil
+    var pendingConfigSlug: String? = nil
     var sharedRoomInviteConversationId: UUID?
 
     var launchError: String?
@@ -383,6 +385,12 @@ final class WindowState {
     }
 
     func openSettings() {
+        activeRoute = .settings
+    }
+
+    func openConfiguration(section: ConfigSection, slug: String? = nil) {
+        pendingConfigSection = section
+        pendingConfigSlug = slug
         activeRoute = .settings
     }
 

@@ -67,6 +67,13 @@ struct ConfigurationSettingsTab: View {
     @State private var selectedItem: ConfigSelectedItem?
     @State private var searchText: String = ""
 
+    private let initialSlug: String?
+
+    init(initialSection: ConfigSection? = nil, initialSlug: String? = nil) {
+        _selectedSection = State(initialValue: initialSection ?? .agents)
+        self.initialSlug = initialSlug
+    }
+
     // Creation sheet state
     @State private var showingNewAgent = false
     @State private var showingNewGroup = false
@@ -117,6 +124,23 @@ struct ConfigurationSettingsTab: View {
         .onChange(of: selectedSection) { _, _ in
             selectedItem = nil
             searchText = ""
+        }
+        .onAppear {
+            guard let slug = initialSlug else { return }
+            switch selectedSection {
+            case .agents:
+                if let match = agents.first(where: { $0.configSlug == slug }) { selectedItem = .agent(match) }
+            case .groups:
+                if let match = groups.first(where: { $0.configSlug == slug }) { selectedItem = .group(match) }
+            case .skills:
+                if let match = skills.first(where: { $0.configSlug == slug }) { selectedItem = .skill(match) }
+            case .mcps:
+                if let match = mcps.first(where: { $0.configSlug == slug }) { selectedItem = .mcp(match) }
+            case .permissions:
+                if let match = permissions.first(where: { $0.configSlug == slug }) { selectedItem = .permission(match) }
+            case .templates:
+                break
+            }
         }
         .xrayId("settings.configuration.root")
     }

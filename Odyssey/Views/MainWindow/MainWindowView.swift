@@ -43,7 +43,12 @@ struct MainWindowView: View {
         @Bindable var ws = windowState
         Group {
             if ws.activeRoute == .settings {
-                SettingsView {
+                SettingsView(
+                    pendingConfigSection: ws.pendingConfigSection,
+                    pendingConfigSlug: ws.pendingConfigSlug
+                ) {
+                    ws.pendingConfigSection = nil
+                    ws.pendingConfigSlug = nil
                     ws.closeSettings()
                 }
                 .environmentObject(appState)

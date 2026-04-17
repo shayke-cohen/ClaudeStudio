@@ -354,6 +354,8 @@ struct ChatView: View {
 
     @Query private var allAgents: [Agent]
     @Query private var allGroups: [AgentGroup]
+    @Query private var allSkills: [Skill]
+    @Query private var allMCPs: [MCPServer]
     @Query(sort: \Session.startedAt) private var allSessions: [Session]
 
     private let autoScrollThreshold: CGFloat = 120
@@ -1002,6 +1004,85 @@ struct ChatView: View {
     }
 
     @ViewBuilder
+    private var headerChips: some View {
+        let agent = primarySession?.agent
+        let sourceGroupId = conversation?.sourceGroupId
+        let sourceGroup = sourceGroupId.flatMap { id in allGroups.first { $0.id == id } }
+
+        let agentSkills: [Skill] = agent.map { a in
+            allSkills.filter { a.skillIds.contains($0.id) }
+        } ?? []
+
+        let agentMCPs: [MCPServer] = agent.map { a in
+            allMCPs.filter { a.extraMCPServerIds.contains($0.id) }
+        } ?? []
+
+        if agentSkills.isEmpty && agentMCPs.isEmpty && sourceGroup == nil {
+            EmptyView()
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    // Skill chips
+                    ForEach(agentSkills) { skill in
+                        Button {
+                            windowState.openConfiguration(section: .skills, slug: skill.configSlug)
+                        } label: {
+                            Text("⚡ \(skill.name)")
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.green.opacity(0.12), in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .xrayId("chat.skillChip.\(skill.id.uuidString)")
+                    }
+
+                    // MCP chips
+                    ForEach(agentMCPs) { mcp in
+                        Button {
+                            windowState.openConfiguration(section: .mcps, slug: mcp.configSlug)
+                        } label: {
+                            Text("🔧 \(mcp.name)")
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange.opacity(0.12), in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .xrayId("chat.mcpChip.\(mcp.id.uuidString)")
+                    }
+
+                    // Group role chips
+                    if let group = sourceGroup {
+                        let memberAgents = group.agentIds.compactMap { id in
+                            conversation?.sessions.first { $0.agent?.id == id }?.agent
+                        }
+                        ForEach(memberAgents, id: \.id) { member in
+                            let role = group.roleFor(agentId: member.id)
+                            if role != .participant {
+                                Button {
+                                    windowState.openConfiguration(section: .groups, slug: group.configSlug)
+                                } label: {
+                                    Text("\(role.emoji) \(member.name)")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.purple.opacity(0.12), in: Capsule())
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .xrayId("chat.roleChip.\(member.id.uuidString)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private var simplifiedChatHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
@@ -1041,6 +1122,8 @@ struct ChatView: View {
                     simplifiedSessionMenu(convo)
                 }
             }
+
+            headerChips
 
             simplifiedMissionSection
 

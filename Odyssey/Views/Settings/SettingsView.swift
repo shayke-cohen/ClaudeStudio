@@ -89,6 +89,8 @@ struct SettingsView: View {
     @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
     @AppStorage(FeatureFlags.devModeKey, store: AppSettings.store) private var devModeFlag = false
 
+    private let pendingConfigSection: ConfigSection?
+    private let pendingConfigSlug: String?
     private let onBackToApp: (() -> Void)?
 
     private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
@@ -109,9 +111,13 @@ struct SettingsView: View {
 
     init(
         initialSection: SettingsSection = .general,
+        pendingConfigSection: ConfigSection? = nil,
+        pendingConfigSlug: String? = nil,
         onBackToApp: (() -> Void)? = nil
     ) {
-        _selectedSection = State(initialValue: initialSection)
+        _selectedSection = State(initialValue: pendingConfigSection != nil ? .configuration : initialSection)
+        self.pendingConfigSection = pendingConfigSection
+        self.pendingConfigSlug = pendingConfigSlug
         self.onBackToApp = onBackToApp
     }
 
@@ -219,7 +225,10 @@ struct SettingsView: View {
             case .chatDisplay:
                 ChatDisplaySettingsTab()
             case .configuration:
-                ConfigurationSettingsTab()
+                ConfigurationSettingsTab(
+                    initialSection: pendingConfigSection,
+                    initialSlug: pendingConfigSlug
+                )
             case .labs:
                 LabsSettingsView()
             case .developer:
