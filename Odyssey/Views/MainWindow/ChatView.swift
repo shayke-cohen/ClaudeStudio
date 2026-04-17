@@ -378,6 +378,7 @@ struct ChatView: View {
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
     @Query(sort: \Session.startedAt) private var allSessions: [Session]
+    @Query private var allTemplates: [PromptTemplate]
 
     private let autoScrollThreshold: CGFloat = 120
     private let bottomScrollAnchor = "chat.bottomAnchor"
@@ -2350,6 +2351,74 @@ struct ChatView: View {
         return AgentSuggestions.freeformSuggestions
     }
 
+    private var applicableTemplates: [PromptTemplate] {
+        if let group = sourceGroup {
+            return allTemplates
+                .filter { $0.group?.id == group.id }
+                .sorted { $0.sortOrder < $1.sortOrder }
+        } else if let agent = primarySession?.agent {
+            return allTemplates
+                .filter { $0.agent?.id == agent.id }
+                .sorted { $0.sortOrder < $1.sortOrder }
+        }
+        return []
+    }
+
+    @ViewBuilder
+    private var templateChipsView: some View {
+        let templates = applicableTemplates
+        if !templates.isEmpty {
+            VStack(spacing: 6) {
+                Text("Templates")
+                    .font(captionFont)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.tertiary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(templates.prefix(4))) { template in
+                            Button {
+                                inputText = template.prompt
+                            } label: {
+                                Text(template.name)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.purple)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Color.purple.opacity(0.08))
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().strokeBorder(Color.purple.opacity(0.25), lineWidth: 0.5)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if templates.count > 4 {
+                            Menu {
+                                ForEach(Array(templates.dropFirst(4))) { template in
+                                    Button(template.name) {
+                                        inputText = template.prompt
+                                    }
+                                }
+                            } label: {
+                                Text("+\(templates.count - 4)")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(.background.secondary)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+            }
+            .xrayId("chat.emptyState.templates")
+        }
+    }
+
     @ViewBuilder
     private var chatEmptyState: some View {
         VStack(spacing: 16) {
@@ -2394,6 +2463,10 @@ struct ChatView: View {
                         .foregroundStyle(.secondary)
                 }
                 .xrayId("chat.emptyState.freeformInfo")
+            }
+
+            if (conversation?.messages ?? []).isEmpty {
+                templateChipsView
             }
 
             let suggestions = emptyStateSuggestions
