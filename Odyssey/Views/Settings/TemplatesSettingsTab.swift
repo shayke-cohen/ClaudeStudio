@@ -250,25 +250,36 @@ struct TemplatesSettingsTab: View {
     @ViewBuilder
     private func templateRow(_ template: PromptTemplate) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(template.name)
-                    .font(.body.weight(.medium))
-                Text(previewLine(template.prompt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            Button {
+                editingTemplate = template
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(template.name)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text(previewLine(template.prompt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .help("Edit template")
+            .xrayId("settings.templates.editButton.\(template.id.uuidString)")
+            .accessibilityLabel("Edit template")
+
             HStack(spacing: 6) {
                 Button {
-                    editingTemplate = template
+                    openInEditor(template)
                 } label: {
-                    Image(systemName: "pencil")
+                    Image(systemName: "arrow.up.right.square")
                 }
                 .buttonStyle(.borderless)
-                .help("Edit template")
-                .xrayId("settings.templates.editButton.\(template.id.uuidString)")
-                .accessibilityLabel("Edit template")
+                .help("Open in editor")
+                .xrayId("settings.templates.openInEditorButton.\(template.id.uuidString)")
+                .accessibilityLabel("Open in editor")
 
                 Button(role: .destructive) {
                     deleteTemplate(template)
@@ -436,5 +447,13 @@ struct TemplatesSettingsTab: View {
         }
 
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func openInEditor(_ template: PromptTemplate) {
+        guard let slug = template.configSlug else { return }
+        let fileURL = ConfigFileManager.promptTemplatesDirectory
+            .appendingPathComponent(slug)
+            .appendingPathExtension("md")
+        NSWorkspace.shared.open(fileURL)
     }
 }
