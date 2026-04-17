@@ -674,8 +674,7 @@ private struct ModelsSettingsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 cloudAndDefaultModelsSection
-                localMLXSetupSection
-                mlxLibrarySection
+                localAndCustomModelsSection
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 28)
@@ -706,16 +705,6 @@ private struct ModelsSettingsTab: View {
 
     private var cloudAndDefaultModelsSection: some View {
         settingsContentSection("Cloud & Default Models") {
-            modelSurface {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Choose defaults and local-model fallbacks.")
-                        .font(.headline)
-                    Text("This keeps cloud providers and your default local MLX model in one place without changing the rest of session behavior.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             settingsPickerRow("Default Provider", xrayId: "settings.models.defaultProviderPicker", selection: selectedProvider) {
                 ForEach([ProviderSelection.claude, ProviderSelection.codex, ProviderSelection.foundation, ProviderSelection.mlx]) { provider in
                     Text(provider.label).tag(provider)
@@ -727,54 +716,79 @@ private struct ModelsSettingsTab: View {
                     Text(choice.label).tag(choice.id)
                 }
             }
+        }
+    }
 
-            modelSurface {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Enable Ollama-backed Claude models", isOn: $ollamaModelsEnabled)
-                        .toggleStyle(.switch)
-                        .xrayId("settings.models.ollamaEnabledToggle")
-                        .onChange(of: ollamaModelsEnabled) { _, _ in
+    private var localAndCustomModelsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 28) {
+                    ollamaSection
+                    otherProvidersSection
+                    mlxDefaultSection
+                    localMLXSetupSection
+                    mlxLibrarySection
+                }
+                .padding(.top, 14)
+            } label: {
+                Text("Local & Custom Models")
+                    .font(.title3.weight(.semibold))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var ollamaSection: some View {
+        modelSurface {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Enable Ollama-backed Claude models", isOn: $ollamaModelsEnabled)
+                    .toggleStyle(.switch)
+                    .xrayId("settings.models.ollamaEnabledToggle")
+                    .onChange(of: ollamaModelsEnabled) { _, _ in
+                        Task { await syncRunningSidecarOllamaConfig() }
+                    }
+
+                Text("When enabled, Odyssey adds downloaded Ollama models to Claude model pickers and routes those sessions through Claude Code using Ollama’s Anthropic-compatible API.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(alignment: .center, spacing: 12) {
+                    TextField("http://127.0.0.1:11434", text: $ollamaBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .xrayId("settings.models.ollamaBaseURLField")
+                        .onSubmit {
                             Task { await syncRunningSidecarOllamaConfig() }
                         }
 
-                    Text("When enabled, Odyssey adds downloaded Ollama models to Claude model pickers and routes those sessions through Claude Code using Ollama’s Anthropic-compatible API.")
+                    Button(state.isRefreshingOllama ? "Refreshing…" : "Refresh Ollama") {
+                        Task { await refreshOllama() }
+                    }
+                    .disabled(state.isRefreshingOllama || !ollamaModelsEnabled)
+                    .xrayId("settings.models.refreshOllamaButton")
+                }
+
+                settingsStatusRow(
+                    title: "Ollama",
+                    summary: localProviderReport.ollamaSummary,
+                    available: localProviderReport.ollamaAvailable,
+                    identifier: "settings.models.localProviders.ollamaStatus"
+                )
+
+                if ollamaModelsEnabled {
+                    Text(localProviderReport.ollamaModels.isEmpty
+                         ? "Downloaded Ollama models will appear here after Odyssey refreshes /api/tags."
+                         : "Downloaded models: \(localProviderReport.ollamaModels.map(\.name).joined(separator: ", "))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-
-                    HStack(alignment: .center, spacing: 12) {
-                        TextField("http://127.0.0.1:11434", text: $ollamaBaseURL)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.models.ollamaBaseURLField")
-                            .onSubmit {
-                                Task { await syncRunningSidecarOllamaConfig() }
-                            }
-
-                        Button(state.isRefreshingOllama ? "Refreshing…" : "Refresh Ollama") {
-                            Task { await refreshOllama() }
-                        }
-                        .disabled(state.isRefreshingOllama || !ollamaModelsEnabled)
-                        .xrayId("settings.models.refreshOllamaButton")
-                    }
-
-                    settingsStatusRow(
-                        title: "Ollama",
-                        summary: localProviderReport.ollamaSummary,
-                        available: localProviderReport.ollamaAvailable,
-                        identifier: "settings.models.localProviders.ollamaStatus"
-                    )
-
-                    if ollamaModelsEnabled {
-                        Text(localProviderReport.ollamaModels.isEmpty
-                             ? "Downloaded Ollama models will appear here after Odyssey refreshes /api/tags."
-                             : "Downloaded models: \(localProviderReport.ollamaModels.map(\.name).joined(separator: ", "))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .xrayId("settings.models.ollamaModelsSummary")
-                    }
+                        .textSelection(.enabled)
+                        .xrayId("settings.models.ollamaModelsSummary")
                 }
             }
+        }
+    }
 
+    private var otherProvidersSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
             settingsPickerRow("Default Codex Model", xrayId: "settings.models.defaultCodexModelPicker", selection: selectedCodexModel) {
                 ForEach(CodexModel.allCases) { model in
                     Text(model.label).tag(model)
@@ -786,63 +800,65 @@ private struct ModelsSettingsTab: View {
                     Text(model.label).tag(model)
                 }
             }
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Choose your default local model")
-                        .font(.headline)
-                    Spacer()
-                    if !installedModels.isEmpty {
-                        Text("\(installedModels.count) downloaded")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if installedModels.isEmpty {
-                    modelSurface {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Download a model below to make it selectable here.")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Once a managed MLX model is installed, it appears here as a simple default choice.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else {
-                    settingsPickerRow("MLX Default", xrayId: "settings.models.defaultMLXModelPicker", selection: defaultMLXPickerSelection) {
-                        ForEach(installedModelDescriptors) { descriptor in
-                            Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
-                        }
-                        Text("Custom repo id or local path").tag(customMLXSelectionTag)
-                    }
-
-                    Text("This dropdown only lists MLX models already downloaded on this Mac.")
-                        .font(.caption)
+    private var mlxDefaultSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Choose your default local model")
+                    .font(.headline)
+                Spacer()
+                if !installedModels.isEmpty {
+                    Text("\(installedModels.count) downloaded")
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
+            }
 
-                if let descriptor = selectedDefaultMLXDescriptor {
-                    modelDetailCard(
-                        descriptor,
-                        badgeText: defaultMLXPickerSelection.wrappedValue == customMLXSelectionTag ? "Custom Default" : "Current Default",
-                        badgeColor: .accentColor,
-                        identifier: "settings.models.currentDefaultMLXModel"
-                    )
-                }
-
-                DisclosureGroup("Use a custom MLX model id or local path", isExpanded: customDefaultDisclosure) {
+            if installedModels.isEmpty {
+                modelSurface {
                     VStack(alignment: .leading, spacing: 8) {
-                        TextField("mlx-community/Qwen3-14B-4bit or /path/to/model", text: $defaultMLXModel)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.models.defaultMLXModelField")
-
-                        Text("Downloaded models are easier to manage from Odyssey. Use a custom repo id or local path only when you need something outside the managed library.")
+                        Text("Download a model below to make it selectable here.")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Once a managed MLX model is installed, it appears here as a simple default choice.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.top, 4)
                 }
+            } else {
+                settingsPickerRow("MLX Default", xrayId: "settings.models.defaultMLXModelPicker", selection: defaultMLXPickerSelection) {
+                    ForEach(installedModelDescriptors) { descriptor in
+                        Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
+                    }
+                    Text("Custom repo id or local path").tag(customMLXSelectionTag)
+                }
+
+                Text("This dropdown only lists MLX models already downloaded on this Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let descriptor = selectedDefaultMLXDescriptor {
+                modelDetailCard(
+                    descriptor,
+                    badgeText: defaultMLXPickerSelection.wrappedValue == customMLXSelectionTag ? "Custom Default" : "Current Default",
+                    badgeColor: .accentColor,
+                    identifier: "settings.models.currentDefaultMLXModel"
+                )
+            }
+
+            DisclosureGroup("Use a custom MLX model id or local path", isExpanded: customDefaultDisclosure) {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("mlx-community/Qwen3-14B-4bit or /path/to/model", text: $defaultMLXModel)
+                        .textFieldStyle(.roundedBorder)
+                        .xrayId("settings.models.defaultMLXModelField")
+
+                    Text("Downloaded models are easier to manage from Odyssey. Use a custom repo id or local path only when you need something outside the managed library.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
             }
         }
     }
@@ -2670,238 +2686,6 @@ private struct ChatDisplaySettingsTab: View {
     }
 }
 
-// MARK: - Developer
-
-private struct DeveloperSettingsTab: View {
-    @EnvironmentObject private var appState: AppState
-    @AppStorage(AppSettings.bunPathOverrideKey, store: AppSettings.store) private var bunPathOverride = ""
-    @AppStorage(AppSettings.sidecarPathKey, store: AppSettings.store) private var sidecarPath = ""
-    @AppStorage(AppSettings.localAgentHostPathOverrideKey, store: AppSettings.store) private var localAgentHostPathOverride = ""
-    @AppStorage(AppSettings.mlxRunnerPathOverrideKey, store: AppSettings.store) private var mlxRunnerPathOverride = ""
-    @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
-    @AppStorage(AppSettings.logLevelKey, store: AppSettings.store) private var logLevel = AppSettings.defaultLogLevel
-    @AppStorage(AppSettings.builtInConfigOverridePolicyKey, store: AppSettings.store) private var builtInConfigOverridePolicy = AppSettings.defaultBuiltInConfigOverridePolicy
-    @State private var showResetConfirmation = false
-
-    private var selectedLogLevel: Binding<LogLevel> {
-        Binding(
-            get: { LogLevel(rawValue: logLevel) ?? .info },
-            set: { logLevel = $0.rawValue }
-        )
-    }
-
-    var body: some View {
-        Form {
-            Section("Paths") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Bun Path Override")
-                    HStack {
-                        TextField("Auto-detect", text: $bunPathOverride)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.developer.bunPathField")
-                        Button("Browse...") {
-                            browseBunPath()
-                        }
-                        .xrayId("settings.developer.bunPathBrowseButton")
-                    }
-                    if bunPathOverride.isEmpty {
-                        Text("Will search: /opt/homebrew/bin/bun, /usr/local/bin/bun, ~/.bun/bin/bun")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Project Path")
-                    HStack {
-                        TextField("Auto-detect", text: $sidecarPath)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.developer.sidecarPathField")
-                        Button("Browse...") {
-                            browseProjectPath()
-                        }
-                        .xrayId("settings.developer.sidecarPathBrowseButton")
-                    }
-                    Text("Root directory containing the sidecar/ folder.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Local Agent Host Override")
-                    HStack {
-                        TextField("Use bundled host when available", text: $localAgentHostPathOverride)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.developer.localAgentHostField")
-                        Button("Browse...") {
-                            browseExecutablePath(
-                                message: "Select the Odyssey local-agent host executable"
-                            ) { localAgentHostPathOverride = $0 }
-                        }
-                        .xrayId("settings.developer.localAgentHostBrowseButton")
-                    }
-                    Text("Normally the app uses the bundled local-agent host automatically.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("MLX Runner Override")
-                    HStack {
-                        TextField("Auto-detect llm-tool", text: $mlxRunnerPathOverride)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.developer.mlxRunnerField")
-                        Button("Browse...") {
-                            browseExecutablePath(
-                                message: "Select the MLX runner executable"
-                            ) { mlxRunnerPathOverride = $0 }
-                        }
-                        .xrayId("settings.developer.mlxRunnerBrowseButton")
-                    }
-                    Text("Leave blank to auto-detect `llm-tool` in PATH.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Data") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Data Directory")
-                    HStack {
-                        TextField("~/.odyssey", text: $dataDirectory)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.developer.dataDirectoryField")
-                        Button("Browse...") {
-                            browseDataDirectory()
-                        }
-                        .xrayId("settings.developer.dataDirectoryBrowseButton")
-                    }
-                    Text("Stores logs, blackboard data, repos, and sandboxes.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Logging") {
-                Picker("Log Level", selection: selectedLogLevel) {
-                    ForEach(LogLevel.allCases) { level in
-                        Text(level.label).tag(level)
-                    }
-                }
-                .xrayId("settings.developer.logLevelPicker")
-                .onChange(of: logLevel) { _, newValue in
-                    guard appState.sidecarStatus == .connected,
-                          let manager = appState.sidecarManager else { return }
-                    Task {
-                        try? await manager.send(.configSetLogLevel(level: newValue))
-                    }
-                }
-            }
-
-            Section("Built-In Config") {
-                Picker("Refresh bundled defaults on launch", selection: $builtInConfigOverridePolicy) {
-                    ForEach(BuiltInConfigOverridePolicy.allCases) { policy in
-                        Text(policy.label).tag(policy.rawValue)
-                    }
-                }
-                .xrayId("settings.developer.builtInConfigOverridePolicyPicker")
-
-                Text("Controls whether Odyssey updates bundled prompts, skills, MCPs, agents, groups, permissions, and templates in your local config directory when the app ships new built-in versions.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let selectedPolicy = BuiltInConfigOverridePolicy(rawValue: builtInConfigOverridePolicy) {
-                    Text(selectedPolicy.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                HStack {
-                    Button("Open Data Directory in Finder") {
-                        openDataDirectory()
-                    }
-                    .xrayId("settings.developer.openDataDirectoryButton")
-
-                    Spacer()
-
-                    Button("Reset All Settings", role: .destructive) {
-                        showResetConfirmation = true
-                    }
-                    .xrayId("settings.developer.resetSettingsButton")
-                    .confirmationDialog(
-                        "Reset all settings to defaults?",
-                        isPresented: $showResetConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Reset", role: .destructive) {
-                            AppSettings.resetAll()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will revert all preferences to their default values. The sidecar will need to be restarted.")
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .settingsDetailLayout()
-    }
-
-    private func browseBunPath() {
-        browseExecutablePath(
-            message: "Select the Bun executable",
-            directoryURL: URL(fileURLWithPath: "/opt/homebrew/bin")
-        ) { bunPathOverride = $0 }
-    }
-
-    private func browseExecutablePath(
-        message: String,
-        directoryURL: URL? = nil,
-        assign: (String) -> Void
-    ) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.message = message
-        panel.directoryURL = directoryURL
-        if panel.runModal() == .OK, let url = panel.url {
-            assign(url.path)
-        }
-    }
-
-    private func browseProjectPath() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select the Odyssey project directory"
-        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
-        if panel.runModal() == .OK, let url = panel.url {
-            sidecarPath = url.path
-        }
-    }
-
-    private func browseDataDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select the data directory"
-        let expandedPath = NSString(string: dataDirectory).expandingTildeInPath
-        panel.directoryURL = URL(fileURLWithPath: expandedPath)
-        if panel.runModal() == .OK, let url = panel.url {
-            dataDirectory = url.path
-        }
-    }
-
-    private func openDataDirectory() {
-        let expandedPath = NSString(string: dataDirectory).expandingTildeInPath
-        NSWorkspace.shared.open(URL(fileURLWithPath: expandedPath))
-    }
-}
 
 extension View {
     func settingsDetailLayout(maxWidth: CGFloat = 1040) -> some View {
