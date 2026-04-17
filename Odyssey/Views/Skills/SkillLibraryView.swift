@@ -66,16 +66,14 @@ struct SkillLibraryView: View {
             }
         }
         .sheet(item: $editingSkill) { skill in
-            SkillEditorView(skill: skill) { _ in
+            SkillCreationSheet(existingSkill: skill) { _ in
                 editingSkill = nil
             }
-            .frame(minWidth: 560, minHeight: 520)
         }
         .sheet(isPresented: $showingNewSkill) {
-            SkillEditorView(skill: nil) { _ in
+            SkillCreationSheet { _ in
                 showingNewSkill = false
             }
-            .frame(minWidth: 560, minHeight: 520)
         }
         .sheet(isPresented: $showCatalog) {
             CatalogBrowserView()

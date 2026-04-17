@@ -23,6 +23,8 @@ export type SidecarCommand =
   | { type: "nostr.addPeer"; name: string; pubkeyHex: string; relays: string[] }
   | { type: "nostr.removePeer"; name: string }
   | { type: "generate.agent"; requestId: string; prompt: string; availableSkills: SkillCatalogEntry[]; availableMCPs: MCPCatalogEntry[] }
+  | { type: "generate.skill"; requestId: string; prompt: string; availableCategories: string[]; availableMCPs: MCPCatalogEntry[] }
+  | { type: "generate.template"; requestId: string; intent: string; agentName: string; agentSystemPrompt: string }
   | { type: "session.questionAnswer"; sessionId: string; questionId: string; answer: string; selectedOptions?: string[] }
   | { type: "session.confirmationAnswer"; sessionId: string; confirmationId: string; approved: boolean; modifiedAction?: string }
   | { type: "session.updateCwd"; sessionId: string; workingDirectory: string }
@@ -203,6 +205,20 @@ export interface GeneratedAgentSpec {
   maxBudget?: number;
 }
 
+export interface GeneratedSkillSpec {
+  name: string;
+  description: string;
+  category: string;
+  triggers: string[];
+  matchedMCPIds: string[];
+  content: string;
+}
+
+export interface GeneratedTemplateSpec {
+  name: string;
+  prompt: string;
+}
+
 // Events from Sidecar -> Swift
 export type SidecarEvent =
   | { type: "stream.token"; sessionId: string; text: string }
@@ -222,6 +238,10 @@ export type SidecarEvent =
   | { type: "sidecar.ready"; port: number; version: string }
   | { type: "generate.agent.result"; requestId: string; spec: GeneratedAgentSpec }
   | { type: "generate.agent.error"; requestId: string; error: string }
+  | { type: "generate.skill.result"; requestId: string; spec: GeneratedSkillSpec }
+  | { type: "generate.skill.error"; requestId: string; error: string }
+  | { type: "generate.template.result"; requestId: string; spec: GeneratedTemplateSpec }
+  | { type: "generate.template.error"; requestId: string; error: string }
   | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig; timeoutSeconds?: number; autoRouting?: boolean }
   | { type: "agent.confirmation"; sessionId: string; confirmationId: string; action: string; reason: string; riskLevel: "low" | "medium" | "high"; details?: string }
   | { type: "agent.question.routing"; sessionId: string; questionId: string; targetAgentName: string }

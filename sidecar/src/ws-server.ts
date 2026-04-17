@@ -5,6 +5,7 @@ import type { ToolContext } from "./tools/tool-context.js";
 import { resolveQuestion } from "./tools/ask-user-tool.js";
 import { logger } from "./logger.js";
 import { probeConnector } from "./connectors/provider-runtime.js";
+import Anthropic from "@anthropic-ai/sdk";
 
 export interface WsServerOptions {
   token?: string;
@@ -203,6 +204,28 @@ export class WsServer {
           logger.error("ws", `generate.agent handler error: ${err}`);
           this.broadcast({
             type: "generate.agent.error",
+            requestId: command.requestId,
+            error: err.message ?? "Unknown error",
+          });
+        });
+        break;
+
+      case "generate.skill":
+        this.handleGenerateSkill(command).catch((err) => {
+          logger.error("ws", `generate.skill handler error: ${err}`);
+          this.broadcast({
+            type: "generate.skill.error",
+            requestId: command.requestId,
+            error: err.message ?? "Unknown error",
+          });
+        });
+        break;
+
+      case "generate.template":
+        this.handleGenerateTemplate(command).catch((err) => {
+          logger.error("ws", `generate.template handler error: ${err}`);
+          this.broadcast({
+            type: "generate.template.error",
             requestId: command.requestId,
             error: err.message ?? "Unknown error",
           });
@@ -647,6 +670,144 @@ ${mcpsCatalog}`;
         matchedMCPIds: Array.isArray(spec.matchedMCPIds) ? spec.matchedMCPIds : [],
         maxTurns: spec.maxTurns ?? undefined,
         maxBudget: spec.maxBudget ?? undefined,
+      },
+    });
+  }
+
+  private async handleGenerateSkill(
+    command: Extract<SidecarCommand, { type: "generate.skill" }>
+  ): Promise<void> {
+    const anthropic = new Anthropic();
+
+    const validCategories = command.availableCategories.length > 0
+      ? command.availableCategories.join(", ")
+      : "General, Security, Code Review, Architecture, Testing, DevOps";
+
+    const mcpsCatalog = command.availableMCPs.length > 0
+      ? command.availableMCPs
+          .map((m) => `- ID: ${m.id} | Name: ${m.name} | Description: ${m.description}`)
+          .join("\n")
+      : "(no MCP servers available)";
+
+    const systemPrompt = `You are a skill designer for an AI agent system. Given a user's description of a skill they want to create, generate a complete skill definition as JSON.
+
+## Output Format
+Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
+{
+  "name": "string (short, 2-4 words)",
+  "description": "string (one sentence describing what this skill teaches the agent)",
+  "category": "string (one of the available categories)",
+  "triggers": ["array of keyword strings that cause this skill to activate"],
+  "matchedMCPIds": ["array of MCP server ID strings that are relevant"],
+  "content": "string (markdown body shown to the agent at runtime, 200-600 words)"
+}
+
+## Constraints
+- category must be one of: ${validCategories}
+- triggers: 3-6 short keyword phrases
+- matchedMCPIds: only include IDs from the available MCPs catalog below
+- content: write as detailed instructions/knowledge the agent should apply. Use markdown headings and bullet points.
+
+## Available MCP Servers
+${mcpsCatalog}`;
+
+    logger.info("ws", `generate.skill: generating skill from prompt: "${command.prompt.substring(0, 100)}..."`);
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: "user", content: command.prompt }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+
+    let jsonText = textBlock.text.trim();
+    if (jsonText.startsWith("```")) {
+      jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
+
+    const spec = JSON.parse(jsonText);
+
+    if (!spec.name || !spec.content) {
+      throw new Error("Generated skill spec missing required fields (name, content)");
+    }
+
+    logger.info("ws", `generate.skill: generated "${spec.name}" in category "${spec.category}"`);
+
+    this.broadcast({
+      type: "generate.skill.result",
+      requestId: command.requestId,
+      spec: {
+        name: spec.name,
+        description: spec.description ?? "",
+        category: spec.category ?? "General",
+        triggers: Array.isArray(spec.triggers) ? spec.triggers : [],
+        matchedMCPIds: Array.isArray(spec.matchedMCPIds) ? spec.matchedMCPIds : [],
+        content: spec.content,
+      },
+    });
+  }
+
+  private async handleGenerateTemplate(
+    command: Extract<SidecarCommand, { type: "generate.template" }>
+  ): Promise<void> {
+    const anthropic = new Anthropic();
+
+    const agentContext = command.agentSystemPrompt
+      ? `\n\n## Agent System Prompt\n${command.agentSystemPrompt.substring(0, 500)}`
+      : "";
+
+    const systemPrompt = `You are a prompt template designer. Given a user's intent description, generate a concise prompt template for an AI agent named "${command.agentName}".
+
+## Output Format
+Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
+{
+  "name": "string (short action phrase, 3-6 words, e.g. 'Review PR for Security')",
+  "prompt": "string (the prompt text the user will send to the agent, 1-4 sentences)"
+}
+
+## Constraints
+- name: imperative phrase, title-cased, under 50 chars
+- prompt: clear, actionable, specific to the agent's capabilities. May include {{placeholder}} for values the user fills in at runtime.
+- Write the prompt as if the user is sending it — not as a system instruction.${agentContext}`;
+
+    logger.info("ws", `generate.template: generating template for agent "${command.agentName}"`);
+
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: "user", content: command.intent }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+
+    let jsonText = textBlock.text.trim();
+    if (jsonText.startsWith("```")) {
+      jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
+
+    const spec = JSON.parse(jsonText);
+
+    if (!spec.name || !spec.prompt) {
+      throw new Error("Generated template spec missing required fields (name, prompt)");
+    }
+
+    logger.info("ws", `generate.template: generated "${spec.name}"`);
+
+    this.broadcast({
+      type: "generate.template.result",
+      requestId: command.requestId,
+      spec: {
+        name: spec.name,
+        prompt: spec.prompt,
       },
     });
   }

@@ -39,6 +39,12 @@ final class AppState: ObservableObject {
     @Published var generatedAgentSpec: GeneratedAgentSpec?
     @Published var isGeneratingAgent: Bool = false
     @Published var generateAgentError: String?
+    @Published var generatedSkillSpec: GeneratedSkillSpec?
+    @Published var isGeneratingSkill: Bool = false
+    @Published var generateSkillError: String?
+    @Published var generatedTemplateSpec: GeneratedTemplateSpec?
+    @Published var isGeneratingTemplate: Bool = false
+    @Published var generateTemplateError: String?
     /// Set to true to open the "Add to Residents" sheet. AppXray tests use setState to set this.
     @Published var showAddResidentSheet: Bool = false
     @Published var pendingQuestions: [String: AgentQuestion] = [:]
@@ -62,6 +68,8 @@ final class AppState: ObservableObject {
 
     var createdSessions: Set<String> = []
     var generateAgentRequestId: String?
+    var generateSkillRequestId: String?
+    var generateTemplateRequestId: String?
 
     /// Session IDs for shared-room sessions created via the test API (no ChatView to persist responses).
     /// AppState auto-persists agent messages for sessions in this set on `sessionResult`.
@@ -856,6 +864,34 @@ final class AppState: ObservableObject {
         ))
     }
 
+    func requestSkillGeneration(prompt: String, categories: [String], mcps: [MCPCatalogEntry]) {
+        let requestId = UUID().uuidString
+        generateSkillRequestId = requestId
+        isGeneratingSkill = true
+        generateSkillError = nil
+        generatedSkillSpec = nil
+        sendToSidecar(.generateSkill(
+            requestId: requestId,
+            prompt: prompt,
+            availableCategories: categories,
+            availableMCPs: mcps
+        ))
+    }
+
+    func requestTemplateGeneration(requestId: String? = nil, intent: String, agentName: String, agentSystemPrompt: String) {
+        let rid = requestId ?? UUID().uuidString
+        generateTemplateRequestId = rid
+        isGeneratingTemplate = true
+        generateTemplateError = nil
+        generatedTemplateSpec = nil
+        sendToSidecar(.generateTemplate(
+            requestId: rid,
+            intent: intent,
+            agentName: agentName,
+            agentSystemPrompt: agentSystemPrompt
+        ))
+    }
+
     private func clearPendingUserInput(for sessionId: String) {
         pendingQuestions.removeValue(forKey: sessionId)
         pendingConfirmations.removeValue(forKey: sessionId)
@@ -1165,6 +1201,32 @@ final class AppState: ObservableObject {
             isGeneratingAgent = false
             generateAgentRequestId = nil
             Log.appState.error("Agent generation error: \(error, privacy: .public)")
+
+        case .generatedSkill(let requestId, let spec):
+            guard requestId == generateSkillRequestId else { return }
+            generatedSkillSpec = spec
+            isGeneratingSkill = false
+            generateSkillRequestId = nil
+
+        case .generateSkillError(let requestId, let error):
+            guard requestId == generateSkillRequestId else { return }
+            generateSkillError = error
+            isGeneratingSkill = false
+            generateSkillRequestId = nil
+            Log.appState.error("Skill generation error: \(error, privacy: .public)")
+
+        case .generatedTemplate(let requestId, let spec):
+            guard requestId == generateTemplateRequestId else { return }
+            generatedTemplateSpec = spec
+            isGeneratingTemplate = false
+            generateTemplateRequestId = nil
+
+        case .generateTemplateError(let requestId, let error):
+            guard requestId == generateTemplateRequestId else { return }
+            generateTemplateError = error
+            isGeneratingTemplate = false
+            generateTemplateRequestId = nil
+            Log.appState.error("Template generation error: \(error, privacy: .public)")
 
         case .planComplete(let sessionId, let plan, let allowedPrompts):
             flushStreamingContent(sessionId: sessionId)

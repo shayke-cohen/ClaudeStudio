@@ -16,6 +16,8 @@ enum SidecarCommand: Sendable {
     case nostrAddPeer(name: String, pubkeyHex: String, relays: [String])
     case nostrRemovePeer(name: String)
     case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
+    case generateSkill(requestId: String, prompt: String, availableCategories: [String], availableMCPs: [MCPCatalogEntry])
+    case generateTemplate(requestId: String, intent: String, agentName: String, agentSystemPrompt: String)
     case questionAnswer(sessionId: String, questionId: String, answer: String, selectedOptions: [String]?)
     case confirmationAnswer(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
@@ -109,6 +111,14 @@ enum SidecarCommand: Sendable {
         case .generateAgent(let requestId, let prompt, let skills, let mcps):
             return try encoder.encode(
                 GenerateAgentWire(type: "generate.agent", requestId: requestId, prompt: prompt, availableSkills: skills, availableMCPs: mcps)
+            )
+        case .generateSkill(let requestId, let prompt, let availableCategories, let mcps):
+            return try encoder.encode(
+                GenerateSkillWire(type: "generate.skill", requestId: requestId, prompt: prompt, availableCategories: availableCategories, availableMCPs: mcps)
+            )
+        case .generateTemplate(let requestId, let intent, let agentName, let agentSystemPrompt):
+            return try encoder.encode(
+                GenerateTemplateWire(type: "generate.template", requestId: requestId, intent: intent, agentName: agentName, agentSystemPrompt: agentSystemPrompt)
             )
         case .questionAnswer(let sessionId, let questionId, let answer, let selectedOptions):
             return try encoder.encode(
@@ -395,6 +405,22 @@ private struct GenerateAgentWire: Encodable {
     let availableMCPs: [MCPCatalogEntry]
 }
 
+private struct GenerateSkillWire: Encodable {
+    let type: String
+    let requestId: String
+    let prompt: String
+    let availableCategories: [String]
+    let availableMCPs: [MCPCatalogEntry]
+}
+
+private struct GenerateTemplateWire: Encodable {
+    let type: String
+    let requestId: String
+    let intent: String
+    let agentName: String
+    let agentSystemPrompt: String
+}
+
 struct SkillCatalogEntry: Codable, Sendable {
     let id: String
     let name: String
@@ -408,7 +434,7 @@ struct MCPCatalogEntry: Codable, Sendable {
     let description: String
 }
 
-struct GeneratedAgentSpec: Codable, Sendable {
+struct GeneratedAgentSpec: Codable, Sendable, Equatable {
     let name: String
     let description: String
     let systemPrompt: String
@@ -419,6 +445,20 @@ struct GeneratedAgentSpec: Codable, Sendable {
     let matchedMCPIds: [String]
     let maxTurns: Int?
     let maxBudget: Double?
+}
+
+struct GeneratedSkillSpec: Codable, Sendable, Equatable {
+    let name: String
+    let description: String
+    let category: String
+    let triggers: [String]
+    let matchedMCPIds: [String]
+    let content: String
+}
+
+struct GeneratedTemplateSpec: Codable, Sendable, Equatable {
+    let name: String
+    let prompt: String
 }
 
 struct TaskWireSwift: Codable, Sendable {
@@ -570,6 +610,10 @@ enum SidecarEvent: Sendable {
     case sessionReused(originalSessionId: String, reusedSessionId: String)
     case generatedAgent(requestId: String, spec: GeneratedAgentSpec)
     case generateAgentError(requestId: String, error: String)
+    case generatedSkill(requestId: String, spec: GeneratedSkillSpec)
+    case generateSkillError(requestId: String, error: String)
+    case generatedTemplate(requestId: String, spec: GeneratedTemplateSpec)
+    case generateTemplateError(requestId: String, error: String)
     case agentQuestion(sessionId: String, questionId: String, question: String, options: [QuestionOption]?, multiSelect: Bool, isPrivate: Bool, inputType: String?, inputConfig: QuestionInputConfig?, timeoutSeconds: Int?, autoRouting: Bool?)
     case agentConfirmation(sessionId: String, confirmationId: String, action: String, reason: String, riskLevel: String, details: String?)
     case streamRichContent(sessionId: String, format: String, title: String?, content: String, height: Int?)
@@ -671,6 +715,8 @@ struct IncomingWireMessage: Codable, Sendable {
     let fileName: String?
     let requestId: String?
     let spec: GeneratedAgentSpec?
+    let skillSpec: GeneratedSkillSpec?
+    let templateSpec: GeneratedTemplateSpec?
     let questionId: String?
     let question: String?
     let options: [QuestionOption]?
@@ -723,7 +769,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case error, channelId, from, to, message, key, value, writtenBy
         case parentSessionId, childSessionId, originalSessionId, reusedSessionId
         case imageData, mediaType, filePath, fileType, fileName
-        case requestId, spec, questionId, question, options, multiSelect
+        case requestId, spec, skillSpec, templateSpec, questionId, question, options, multiSelect
         case `private`, inputType, inputConfig
         case confirmationId, action, reason, riskLevel, details
         case format, title, content, height, progressId, steps, suggestions
@@ -789,6 +835,18 @@ struct IncomingWireMessage: Codable, Sendable {
         case "generate.agent.error":
             guard let rid = requestId else { return nil }
             return .generateAgentError(requestId: rid, error: error ?? "Unknown error")
+        case "generate.skill.result":
+            guard let rid = requestId, let s = skillSpec else { return nil }
+            return .generatedSkill(requestId: rid, spec: s)
+        case "generate.skill.error":
+            guard let rid = requestId else { return nil }
+            return .generateSkillError(requestId: rid, error: error ?? "Unknown error")
+        case "generate.template.result":
+            guard let rid = requestId, let s = templateSpec else { return nil }
+            return .generatedTemplate(requestId: rid, spec: s)
+        case "generate.template.error":
+            guard let rid = requestId else { return nil }
+            return .generateTemplateError(requestId: rid, error: error ?? "Unknown error")
         case "agent.question":
             guard let sid = sessionId, let qid = questionId, let q = question else { return nil }
             return .agentQuestion(sessionId: sid, questionId: qid, question: q, options: options, multiSelect: multiSelect ?? false, isPrivate: `private` ?? true, inputType: inputType, inputConfig: inputConfig, timeoutSeconds: timeoutSeconds, autoRouting: autoRouting)

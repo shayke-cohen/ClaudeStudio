@@ -80,22 +80,19 @@ struct AgentLibraryView: View {
             }
         }
         .sheet(item: $editingAgent) { agent in
-            AgentEditorView(agent: agent) { _ in
+            AgentCreationSheet(existingAgent: agent) { _ in
                 editingAgent = nil
             }
-            .frame(minWidth: 600, minHeight: 500)
         }
         .sheet(isPresented: $showingNewAgent) {
-            AgentEditorView(agent: nil) { _ in
+            AgentCreationSheet { _ in
                 showingNewAgent = false
             }
-            .frame(minWidth: 600, minHeight: 500)
         }
         .sheet(isPresented: $showingFromPrompt) {
-            AgentFromPromptSheet(onSave: { _ in
+            AgentCreationSheet { _ in
                 showingFromPrompt = false
-            })
-            .frame(minWidth: 560, minHeight: 400)
+            }
         }
         .sheet(isPresented: $showCatalog) {
             CatalogBrowserView()
