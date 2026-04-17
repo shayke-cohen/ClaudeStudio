@@ -40,6 +40,7 @@ export type SidecarCommand =
   | { type: "conversation.sync"; conversations: ConversationSummaryWire[] }
   | { type: "conversation.messageAppend"; conversationId: string; message: MessageWire }
   | { type: "conversation.setDelegationMode"; sessionId: string; mode: DelegationMode; targetAgentName?: string }
+  | { type: "conversation.evaluate"; conversationId: string; goal?: string; coordinatorSessionId?: string }
   | { type: "project.sync"; projects: ProjectSummaryWire[] }
   | { type: "ios.registerPush"; apnsToken: string; appId: string };
 
@@ -228,6 +229,8 @@ export type SidecarEvent =
   | { type: "stream.suggestions"; sessionId: string; suggestions: SuggestionItem[] }
   | { type: "conversation.inviteAgent"; sessionId: string; agentName: string }
   | { type: "session.planComplete"; sessionId: string; plan: string | null; allowedPrompts?: { tool: string; prompt: string }[] }
+  | { type: "conversation.idle"; conversationId: string }
+  | { type: "conversation.idleResult"; conversationId: string; status: "complete" | "needsMore" | "failed"; reason: string }
   | { type: "task.created"; sessionId?: string; task: TaskWire }
   | { type: "task.updated"; sessionId?: string; task: TaskWire }
   | { type: "task.list.result"; tasks: TaskWire[] }

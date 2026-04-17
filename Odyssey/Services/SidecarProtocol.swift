@@ -35,6 +35,7 @@ enum SidecarCommand: Sendable {
     case projectSync(projects: [ProjectSummaryWire])
     case iosRegisterPush(apnsToken: String, appId: String)
     case setDelegationMode(sessionId: String, mode: DelegationMode, targetAgentName: String?)
+    case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -183,6 +184,19 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 SetDelegationModeWire(type: "conversation.setDelegationMode", sessionId: sessionId, mode: mode.rawValue, targetAgentName: targetAgentName)
             )
+        case .conversationEvaluate(let conversationId, let goal, let coordinatorSessionId):
+            struct ConversationEvaluateWire: Codable {
+                let type: String
+                let conversationId: String
+                let goal: String?
+                let coordinatorSessionId: String?
+            }
+            return try encoder.encode(ConversationEvaluateWire(
+                type: "conversation.evaluate",
+                conversationId: conversationId,
+                goal: goal,
+                coordinatorSessionId: coordinatorSessionId
+            ))
         }
     }
 }
@@ -566,6 +580,8 @@ enum SidecarEvent: Sendable {
     case agentQuestionResolved(sessionId: String, questionId: String, answeredBy: String, isFallback: Bool)
     case connected
     case disconnected
+    case conversationIdle(conversationId: String)
+    case conversationIdleResult(conversationId: String, status: ConversationIdleResult.Status, reason: String)
 }
 
 struct QuestionOption: Codable, Sendable, Identifiable {
@@ -615,6 +631,8 @@ struct PlanAllowedPrompt: Codable, Sendable, Identifiable {
 struct IncomingWireMessage: Codable, Sendable {
     let type: String
     let sessionId: String?
+    let conversationId: String?
+    let status: String?
     let text: String?
     let tool: String?
     let input: String?
@@ -689,7 +707,7 @@ struct IncomingWireMessage: Codable, Sendable {
     let targetAgentName: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, sessionId, text, tool, input, output, result, cost
+        case type, sessionId, conversationId, status, text, tool, input, output, result, cost
         case inputTokens, outputTokens, numTurns, toolCallCount
         case error, channelId, from, to, message, key, value, writtenBy
         case parentSessionId, childSessionId, originalSessionId, reusedSessionId
@@ -825,6 +843,13 @@ struct IncomingWireMessage: Codable, Sendable {
         case "agent.question.resolved":
             guard let sid = sessionId, let qid = questionId, let answered = answeredBy else { return nil }
             return .agentQuestionResolved(sessionId: sid, questionId: qid, answeredBy: answered, isFallback: isFallback ?? false)
+        case "conversation.idle":
+            guard let cid = conversationId else { return nil }
+            return .conversationIdle(conversationId: cid)
+        case "conversation.idleResult":
+            guard let cid = conversationId, let statusRaw = status,
+                  let s = ConversationIdleResult.Status(rawValue: statusRaw) else { return nil }
+            return .conversationIdleResult(conversationId: cid, status: s, reason: reason ?? "")
         default:
             return nil
         }
