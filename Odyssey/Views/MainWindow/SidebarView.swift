@@ -2047,6 +2047,8 @@ struct SidebarView: View {
             let fallback = targetProject?.rootPath ?? windowState.projectDirectory
             if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
                 session.workingDirectory = residentDir
+                let expanded = (residentDir as NSString).expandingTildeInPath
+                ResidentAgentSupport.prepareVaultForSession(in: expanded, agentName: agent.name)
             } else if !fallback.isEmpty {
                 session.workingDirectory = fallback
             }
@@ -2229,7 +2231,7 @@ private struct AddResidentSheet: View {
                         agent.defaultWorkingDirectory = Agent.defaultHomePath(for: agent.name)
                     }
                     let expanded = (agent.defaultWorkingDirectory! as NSString).expandingTildeInPath
-                    ResidentAgentSupport.seedMemoryFileIfNeeded(in: expanded, agentName: agent.name)
+                    ResidentAgentSupport.seedVaultIfNeeded(in: expanded, agentName: agent.name)
                     try? ctx.save()
                 } label: {
                     HStack(spacing: 10) {
