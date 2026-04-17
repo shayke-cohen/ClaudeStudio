@@ -12,11 +12,6 @@ struct OdysseyApp: App {
     @StateObject private var p2pNetworkManager = P2PNetworkManager()
     @StateObject private var sharedRoomService: SharedRoomService
     @StateObject private var sharedRoomTestAPIService: SharedRoomTestAPIService
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
-        updaterDelegate: nil,
-        userDriverDelegate: nil
-    )
     @State private var configSyncService = ConfigSyncService()
     @AppStorage(AppSettings.appearanceKey, store: AppSettings.store) private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppSettings.textSizeKey, store: AppSettings.store) private var textSize = AppSettings.defaultTextSize
@@ -27,6 +22,13 @@ struct OdysseyApp: App {
 
     let modelContainer: ModelContainer
     private let launchIntent: LaunchIntent?
+
+    // MARK: - Auto Update
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     init() {
         let appState = AppState()
@@ -180,6 +182,7 @@ struct OdysseyApp: App {
                     updaterController.updater.checkForUpdates()
                 }
                 .disabled(!updaterController.updater.canCheckForUpdates)
+                .accessibilityIdentifier("appMenu.checkForUpdates")
             }
         }
 
