@@ -120,9 +120,7 @@ struct ConfigurationSettingsTab: View {
             GroupEditorView(group: nil)
         }
         .sheet(isPresented: $showingNewSkill) {
-            SkillEditorView(skill: nil) { newSkill in
-                modelContext.insert(newSkill)
-                do { try modelContext.save() } catch { print("ConfigurationSettingsTab: save failed: \(error)") }
+            SkillCreationSheet { newSkill in
                 selectedItem = .skill(newSkill)
                 showingNewSkill = false
             }

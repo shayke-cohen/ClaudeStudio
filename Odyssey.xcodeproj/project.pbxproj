@@ -25,6 +25,7 @@
 		0C41298B8A21D0CA6A270FBC /* AgentFromPromptSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE324FA49C7C7D10EC6C355 /* AgentFromPromptSheet.swift */; };
 		0C50246276E0803214E74658 /* iOSSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2770BA2281FFCAB6B442C451 /* iOSSettingsView.swift */; };
 		0C585689669EE1F714F14325 /* AppStateEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1FF3D26D4AC987D059BFFFA /* AppStateEventTests.swift */; };
+		0CFDDE01547D86CFEB9B43BD /* SkillCreationSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBA2B3C88639506802E9B17 /* SkillCreationSheetTests.swift */; };
 		0D5CDDC9E3BDD37CA2C9EC4C /* CatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F86B99E423BFFA56B8DFFC /* CatalogService.swift */; };
 		0D7A5BE525843D851635E419 /* AttachmentThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2F7D42C94A92A46E86CFD71 /* AttachmentThumbnail.swift */; };
 		0F36C22BC773A908B011855A /* WorkshopEntityBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB5DE1F584713BED7EF97D97 /* WorkshopEntityBrowser.swift */; };
@@ -190,6 +191,7 @@
 		BD6B9E6A00EBCE70148DBA29 /* OdysseyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9B339B45BF1075DFDFD04C47 /* OdysseyCore */; };
 		BD79AC381C559F8B01DFC0CF /* AutoAssembleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8D12553E2B55D63FE8835A /* AutoAssembleSheet.swift */; };
 		BF0FC6E56BB42381E1BE02C4 /* FileExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3230CC7D10A04D7F16841F79 /* FileExplorerView.swift */; };
+		BF5AA126482FAE86C2D68DDD /* SkillCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0E22E44DF18FDEFEE6E36C /* SkillCreationSheet.swift */; };
 		BFD29E858CE515DD4400DC7D /* TerminalOutputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F25E50586F2AB1558EC46B /* TerminalOutputView.swift */; };
 		C0D49CDE03A48C61F90158A3 /* DefaultAgents in Resources */ = {isa = PBXBuildFile; fileRef = FC838BC44A44F32877CBFB19 /* DefaultAgents */; };
 		C27D781988D0C6FF39D8D1BC /* InlineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B6D25343D34D77AC95F302 /* InlineDiffView.swift */; };
@@ -418,6 +420,7 @@
 		8608F80F90E94DFDDBF60AC0 /* AgentPickerPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPickerPopover.swift; sourceTree = "<group>"; };
 		88B3B3EEAD46AD1834476DAA /* WorkflowEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowEditorView.swift; sourceTree = "<group>"; };
 		8983F57EE0BBBE41EAA97B17 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
+		8B0E22E44DF18FDEFEE6E36C /* SkillCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillCreationSheet.swift; sourceTree = "<group>"; };
 		8BEB8D636248016971CCC64D /* OdysseyCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OdysseyCore; path = Packages/OdysseyCore; sourceTree = SOURCE_ROOT; };
 		8C076EE7155BC94347BF407B /* GroupPeerFanOutContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupPeerFanOutContext.swift; sourceTree = "<group>"; };
 		8CA9D1C5B7EC3E586E8A60C4 /* GroupRoutingPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupRoutingPlannerTests.swift; sourceTree = "<group>"; };
@@ -559,6 +562,7 @@
 		FC7EB47F4E11E4C2FF10879E /* CoreModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModelTests.swift; sourceTree = "<group>"; };
 		FC838BC44A44F32877CBFB19 /* DefaultAgents */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DefaultAgents; path = Odyssey/Resources/DefaultAgents; sourceTree = SOURCE_ROOT; };
 		FC8979D181AC6DCC086E79F1 /* BlackboardSnapshotClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackboardSnapshotClientTests.swift; sourceTree = "<group>"; };
+		FDBA2B3C88639506802E9B17 /* SkillCreationSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillCreationSheetTests.swift; sourceTree = "<group>"; };
 		FEB62C74A43DCE83306BBC94 /* WorkflowStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowStep.swift; sourceTree = "<group>"; };
 		FF255538B3F627624F6BE5B8 /* ScheduledMissionDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMissionDraft.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -856,6 +860,7 @@
 			isa = PBXGroup;
 			children = (
 				2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */,
+				FDBA2B3C88639506802E9B17 /* SkillCreationSheetTests.swift */,
 			);
 			path = Configuration;
 			sourceTree = "<group>";
@@ -902,6 +907,7 @@
 			isa = PBXGroup;
 			children = (
 				B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */,
+				8B0E22E44DF18FDEFEE6E36C /* SkillCreationSheet.swift */,
 			);
 			path = Configuration;
 			sourceTree = "<group>";
@@ -1388,6 +1394,7 @@
 				566E00D4E13E0864C796EE45 /* SidebarSectionTests.swift in Sources */,
 				ACC89F1523329B59DC888AB3 /* SidecarManagerTests.swift in Sources */,
 				5AB9ED02D5B9DBEFA0ED31B6 /* SidecarProtocolTests.swift in Sources */,
+				0CFDDE01547D86CFEB9B43BD /* SkillCreationSheetTests.swift in Sources */,
 				A3DF9ADAF20095834FB2EFE2 /* TransportManagerTests.swift in Sources */,
 				BBED523CD245162D7C30D53B /* WindowStateInspectorTests.swift in Sources */,
 				40A4A7B48EEBD25B89037CE8 /* WorkshopViewTests.swift in Sources */,
@@ -1558,6 +1565,7 @@
 				E4DB4B6053B64D616682841F /* SidecarManager.swift in Sources */,
 				8DB8FC4E586ACF79DBA5B24B /* SidecarProtocol.swift in Sources */,
 				B45AFCFED8E5EA6F0DCB47A8 /* Skill.swift in Sources */,
+				BF5AA126482FAE86C2D68DDD /* SkillCreationSheet.swift in Sources */,
 				A64D8D0842AE38943CA7E0A9 /* SkillEditorView.swift in Sources */,
 				59E48DF62FD5E42D3D40F81A /* SkillLibraryView.swift in Sources */,
 				C2EBCFA6AD5C2DB295FD2239 /* SlashCommandDropdown.swift in Sources */,
