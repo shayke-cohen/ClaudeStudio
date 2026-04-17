@@ -179,6 +179,7 @@ struct SidebarView: View {
     @State private var isResidentActiveExpanded = true
     @State private var isResidentHistoryExpanded = false
     @AppStorage("sidebar.residentsExpanded") private var isResidentsSectionExpanded: Bool = true
+    @AppStorage("sidebar.nonResidentAgentsExpanded") private var isNonResidentAgentsExpanded: Bool = false
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
 
     private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
@@ -190,30 +191,9 @@ struct SidebarView: View {
         List {
             utilitySection
 
-            Section {
-                if isResidentsSectionExpanded {
-                    ForEach(residentAgents) { agent in
-                        residentRows(agent)
-                    }
-                    // "Add" row — uses appXrayTapProxy so AppXray's NSButton click fires reliably
-                    Button {
-                        appState.showAddResidentSheet = true
-                    } label: {
-                        Label(residentAgents.isEmpty ? "Add agents to Residents…" : "Add more…",
-                              systemImage: "plus")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add agent to Residents")
-                    .appXrayTapProxy(id: "sidebar.residentAgents.addButton") {
-                        appState.showAddResidentSheet = true
-                    }
-                }
-            } header: {
-                residentAgentsHeader
-                    .stableXrayId("sidebar.residentAgentsSection")
-            }
+            agentsSection
+
+            groupsSection
 
             if sortedProjects.isEmpty {
                 emptyState
@@ -270,10 +250,6 @@ struct SidebarView: View {
         }
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationSheet()
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $appState.showAddResidentSheet) {
-            addResidentSheet
                 .environmentObject(appState)
         }
         .sheet(item: $editingTask) { task in
@@ -1681,6 +1657,11 @@ struct SidebarView: View {
                     Button("Duplicate") { duplicateGroup(group) }
                         .xrayId("sidebar.groupContext.duplicate.\(group.id.uuidString)")
                     Divider()
+                    Button("Open in Configuration") {
+                        windowState.openLibrary(.build)
+                    }
+                    .xrayId("sidebar.groupContext.openConfig.\(group.id.uuidString)")
+                    Divider()
                     Button("Delete", role: .destructive) { deleteGroup(group) }
                         .xrayId("sidebar.groupContext.delete.\(group.id.uuidString)")
                 }
@@ -1707,37 +1688,99 @@ struct SidebarView: View {
 
     // MARK: - Agents Section
 
+    private var agentsSectionHeader: some View {
+        HStack {
+            Text("Agents")
+            Spacer()
+            Button {
+                // Opens Configuration settings — stub: open agents library for now
+                windowState.openLibrary(.build, buildSection: .agents)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .xrayId("sidebar.agentsSection.addButton")
+            .accessibilityLabel("Add agent")
+            .contentShape(Rectangle())
+        }
+    }
+
     @ViewBuilder
     private var agentsSection: some View {
-        Section("Agents") {
-            ForEach(agents.filter { $0.isEnabled }) { agent in
-                AgentSidebarRowView(
-                    agent: agent,
-                    conversations: conversationsForAgent(agent),
-                    isExpanded: Binding(
-                        get: { expandedAgentIds.contains(agent.id) },
-                        set: { expanded in
-                            if expanded { expandedAgentIds.insert(agent.id) }
-                            else { expandedAgentIds.remove(agent.id) }
-                        }
-                    ),
-                    onNewChat: { startSession(with: agent) },
-                    onSelectConversation: { conv in
-                        windowState.selectedConversationId = conv.id
-                    },
-                    onSelectAgent: {
-                        selectOrCreateAgentChat(agent)
-                    },
-                    selectedConversationId: windowState.selectedConversationId,
-                    hasActiveSession: agentHasActiveSession(agent)
-                )
-                .contextMenu {
-                    Button("Start Session") {
-                        startSession(with: agent)
-                    }
-                    .xrayId("sidebar.agentRow.startSession.\(agent.id.uuidString)")
-                }
+        Section {
+            // 1. Resident (pinned) agents — always shown
+            ForEach(residentAgents) { agent in
+                agentSidebarRow(agent, isPinned: true)
             }
+
+            // 2. Non-resident agents — collapsed under "N more agents..."
+            if !nonResidentAgents.isEmpty {
+                if isNonResidentAgentsExpanded {
+                    ForEach(nonResidentAgents) { agent in
+                        agentSidebarRow(agent, isPinned: false)
+                    }
+                }
+                Button {
+                    isNonResidentAgentsExpanded.toggle()
+                } label: {
+                    Label(
+                        isNonResidentAgentsExpanded
+                            ? "Show fewer"
+                            : "\u{25B8} \(nonResidentAgents.count) more agent\(nonResidentAgents.count == 1 ? "" : "s")\u{2026}",
+                        systemImage: isNonResidentAgentsExpanded ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .xrayId("sidebar.agents.showMore")
+            }
+        } header: {
+            agentsSectionHeader
+        }
+        .stableXrayId("sidebar.agentsSection")
+    }
+
+    @ViewBuilder
+    private func agentSidebarRow(_ agent: Agent, isPinned: Bool) -> some View {
+        AgentSidebarRowView(
+            agent: agent,
+            conversations: conversationsForAgent(agent),
+            isExpanded: Binding(
+                get: { expandedAgentIds.contains(agent.id) },
+                set: { expanded in
+                    if expanded { expandedAgentIds.insert(agent.id) }
+                    else { expandedAgentIds.remove(agent.id) }
+                }
+            ),
+            onNewChat: { startSession(with: agent) },
+            onSelectConversation: { conv in
+                windowState.selectedConversationId = conv.id
+            },
+            onSelectAgent: {
+                selectOrCreateAgentChat(agent)
+            },
+            selectedConversationId: windowState.selectedConversationId,
+            hasActiveSession: agentHasActiveSession(agent)
+        )
+        .contextMenu {
+            Button("New Session") {
+                startSession(with: agent)
+            }
+            .xrayId("sidebar.agentRow.newSession.\(agent.id.uuidString)")
+            Divider()
+            Button(isPinned ? "Unpin from Sidebar" : "Pin to Sidebar") {
+                agent.isResident = !isPinned
+                try? modelContext.save()
+            }
+            .xrayId("sidebar.agentRow.togglePin.\(agent.id.uuidString)")
+            Divider()
+            Button("Open in Configuration") {
+                windowState.openLibrary(.build)
+            }
+            .xrayId("sidebar.agentRow.openConfig.\(agent.id.uuidString)")
         }
     }
 
@@ -2066,7 +2109,16 @@ struct SidebarView: View {
     }
 
     private func conversationsForProject(_ project: Project) -> [Conversation] {
-        conversations.filter { $0.projectId == project.id }
+        let agentSessionConversationIds = Set(
+            allSessions
+                .filter { $0.agent != nil }
+                .flatMap { $0.conversations.map { $0.id } }
+        )
+        return conversations.filter {
+            $0.projectId == project.id
+            && $0.sourceGroupId == nil
+            && !agentSessionConversationIds.contains($0.id)
+        }
     }
 
     private func projectForConversation(_ convo: Conversation) -> Project? {
