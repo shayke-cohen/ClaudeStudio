@@ -2480,42 +2480,44 @@ struct ChatView: View {
                 templateChipsView
             }
 
-            let suggestions = emptyStateSuggestions
+            if applicableTemplates.isEmpty {
+                let suggestions = emptyStateSuggestions
 
-            VStack(spacing: 8) {
-                Text("Try asking")
-                    .font(captionFont)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.tertiary)
+                VStack(spacing: 8) {
+                    Text("Try asking")
+                        .font(captionFont)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.tertiary)
 
-                VStack(spacing: 6) {
-                    ForEach(Array(suggestions.starters.prefix(4).enumerated()), id: \.offset) { index, prompt in
-                        Button {
-                            inputText = prompt
-                        } label: {
-                            HStack {
-                                Text(prompt)
-                                    .font(.callout)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(captionFont)
-                                    .foregroundStyle(.tertiary)
+                    VStack(spacing: 6) {
+                        ForEach(Array(suggestions.starters.prefix(4).enumerated()), id: \.offset) { index, prompt in
+                            Button {
+                                inputText = prompt
+                            } label: {
+                                HStack {
+                                    Text(prompt)
+                                        .font(.callout)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right")
+                                        .font(captionFont)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(.background)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 1))
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(.background)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 1))
+                            .buttonStyle(.plain)
+                            .xrayId("chat.emptyState.starter.\(index)")
                         }
-                        .buttonStyle(.plain)
-                        .xrayId("chat.emptyState.starter.\(index)")
                     }
+                    .frame(maxWidth: 440)
                 }
-                .frame(maxWidth: 440)
+                .xrayId("chat.emptyState.suggestions")
             }
-            .xrayId("chat.emptyState.suggestions")
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)
