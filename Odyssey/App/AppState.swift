@@ -1100,7 +1100,7 @@ final class AppState: ObservableObject {
         case .streamFileCard(let sessionId, let filePath, let fileType, let fileName):
             streamingFileCards[sessionId, default: []].append((path: filePath, type: fileType, name: fileName))
 
-        case .agentQuestion(let sessionId, let questionId, let question, let options, let multiSelect, let isPrivate, let inputType, let inputConfig):
+        case .agentQuestion(let sessionId, let questionId, let question, let options, let multiSelect, let isPrivate, let inputType, let inputConfig, _, _):
             flushStreamingContent(sessionId: sessionId)
             pendingQuestions[sessionId] = AgentQuestion(
                 id: questionId,
@@ -1208,6 +1208,12 @@ final class AppState: ObservableObject {
             // call sidecarManager?.send(.nostrAddPeer(name:pubkeyHex:relays:)) after
             // successfully verifying an accepted InvitePayload that contains nostrPubkey.
             // The iOS side sends invites; the Mac side currently only generates them.
+
+        case .agentQuestionRouting:
+            _ = event
+
+        case .agentQuestionResolved:
+            _ = event
 
         case .connected:
             sidecarStatus = .connected

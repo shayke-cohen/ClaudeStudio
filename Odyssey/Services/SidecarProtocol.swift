@@ -34,6 +34,7 @@ enum SidecarCommand: Sendable {
     case conversationMessageAppend(conversationId: String, message: MessageWire)
     case projectSync(projects: [ProjectSummaryWire])
     case iosRegisterPush(apnsToken: String, appId: String)
+    case setDelegationMode(sessionId: String, mode: DelegationMode, targetAgentName: String?)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -178,6 +179,10 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 IosRegisterPushWire(type: "ios.registerPush", apnsToken: apnsToken, appId: appId)
             )
+        case .setDelegationMode(let sessionId, let mode, let targetAgentName):
+            return try encoder.encode(
+                SetDelegationModeWire(type: "conversation.setDelegationMode", sessionId: sessionId, mode: mode.rawValue, targetAgentName: targetAgentName)
+            )
         }
     }
 }
@@ -186,6 +191,20 @@ private struct IosRegisterPushWire: Encodable {
     let type: String
     let apnsToken: String
     let appId: String
+}
+
+private struct SetDelegationModeWire: Encodable {
+    let type: String
+    let sessionId: String
+    let mode: String
+    let targetAgentName: String?
+}
+
+enum DelegationMode: String, Codable, CaseIterable, Sendable {
+    case off
+    case byAgents = "by_agents"
+    case specificAgent = "specific_agent"
+    case coordinator
 }
 
 private struct ConversationSyncWire: Encodable {
@@ -516,7 +535,7 @@ enum SidecarEvent: Sendable {
     case sessionReused(originalSessionId: String, reusedSessionId: String)
     case generatedAgent(requestId: String, spec: GeneratedAgentSpec)
     case generateAgentError(requestId: String, error: String)
-    case agentQuestion(sessionId: String, questionId: String, question: String, options: [QuestionOption]?, multiSelect: Bool, isPrivate: Bool, inputType: String?, inputConfig: QuestionInputConfig?)
+    case agentQuestion(sessionId: String, questionId: String, question: String, options: [QuestionOption]?, multiSelect: Bool, isPrivate: Bool, inputType: String?, inputConfig: QuestionInputConfig?, timeoutSeconds: Int?, autoRouting: Bool?)
     case agentConfirmation(sessionId: String, confirmationId: String, action: String, reason: String, riskLevel: String, details: String?)
     case streamRichContent(sessionId: String, format: String, title: String?, content: String, height: Int?)
     case streamProgress(sessionId: String, progressId: String, title: String, steps: [ProgressStep])
@@ -534,6 +553,8 @@ enum SidecarEvent: Sendable {
     case agentInvited(sessionId: String, invitedAgent: String, invitedBy: String)
     case iosPushRegistered(apnsToken: String, success: Bool, error: String?)
     case nostrStatus(connectedRelays: Int, totalRelays: Int)
+    case agentQuestionRouting(sessionId: String, questionId: String, targetAgentName: String)
+    case agentQuestionResolved(sessionId: String, questionId: String, answeredBy: String, isFallback: Bool)
     case connected
     case disconnected
 }
@@ -652,6 +673,11 @@ struct IncomingWireMessage: Codable, Sendable {
     let success: Bool?
     let connectedRelays: Int?
     let totalRelays: Int?
+    let timeoutSeconds: Int?
+    let autoRouting: Bool?
+    let answeredBy: String?
+    let isFallback: Bool?
+    let targetAgentName: String?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, text, tool, input, output, result, cost
@@ -671,6 +697,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case invitedAgent, invitedBy
         case apnsToken, success
         case connectedRelays, totalRelays
+        case timeoutSeconds, autoRouting, answeredBy, isFallback, targetAgentName
     }
 
     func toEvent() -> SidecarEvent? {
@@ -724,7 +751,7 @@ struct IncomingWireMessage: Codable, Sendable {
             return .generateAgentError(requestId: rid, error: error ?? "Unknown error")
         case "agent.question":
             guard let sid = sessionId, let qid = questionId, let q = question else { return nil }
-            return .agentQuestion(sessionId: sid, questionId: qid, question: q, options: options, multiSelect: multiSelect ?? false, isPrivate: `private` ?? true, inputType: inputType, inputConfig: inputConfig)
+            return .agentQuestion(sessionId: sid, questionId: qid, question: q, options: options, multiSelect: multiSelect ?? false, isPrivate: `private` ?? true, inputType: inputType, inputConfig: inputConfig, timeoutSeconds: timeoutSeconds, autoRouting: autoRouting)
         case "agent.confirmation":
             guard let sid = sessionId, let cid = confirmationId, let act = action, let rsn = reason, let rl = riskLevel else { return nil }
             return .agentConfirmation(sessionId: sid, confirmationId: cid, action: act, reason: rsn, riskLevel: rl, details: details)
@@ -783,6 +810,12 @@ struct IncomingWireMessage: Codable, Sendable {
             let connected = connectedRelays ?? 0
             let total = totalRelays ?? 0
             return .nostrStatus(connectedRelays: connected, totalRelays: total)
+        case "agent.question.routing":
+            guard let sid = sessionId, let qid = questionId, let target = targetAgentName else { return nil }
+            return .agentQuestionRouting(sessionId: sid, questionId: qid, targetAgentName: target)
+        case "agent.question.resolved":
+            guard let sid = sessionId, let qid = questionId, let answered = answeredBy else { return nil }
+            return .agentQuestionResolved(sessionId: sid, questionId: qid, answeredBy: answered, isFallback: isFallback ?? false)
         default:
             return nil
         }
