@@ -461,40 +461,6 @@ private struct ModelsSettingsTab: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject var state: ModelsSettingsState
 
-    private var selectedProvider: Binding<ProviderSelection> {
-        Binding(
-            get: { ProviderSelection(rawValue: defaultProvider) ?? .claude },
-            set: { defaultProvider = $0.rawValue }
-        )
-    }
-
-    private var selectedClaudeModel: Binding<String> {
-        Binding(
-            get: {
-                let normalized = AgentDefaults.normalizedModelSelection(defaultClaudeModel)
-                if availableClaudeDefaultChoices.contains(where: { $0.id == normalized }) {
-                    return normalized
-                }
-                return availableClaudeDefaultChoices.first?.id ?? AppSettings.defaultClaudeModel
-            },
-            set: { defaultClaudeModel = AgentDefaults.normalizedModelSelection($0) }
-        )
-    }
-
-    private var selectedCodexModel: Binding<CodexModel> {
-        Binding(
-            get: { CodexModel(rawValue: AgentDefaults.normalizedModelSelection(defaultCodexModel)) ?? .gpt5Codex },
-            set: { defaultCodexModel = $0.rawValue }
-        )
-    }
-
-    private var selectedFoundationModel: Binding<FoundationModel> {
-        Binding(
-            get: { FoundationModel(rawValue: AgentDefaults.normalizedModelSelection(defaultFoundationModel)) ?? .system },
-            set: { defaultFoundationModel = $0.rawValue }
-        )
-    }
-
     private var localProviderReport: LocalProviderStatusReport {
         LocalProviderSupport.statusReport(
             projectRootOverride: sidecarPath.isEmpty ? nil : sidecarPath,
@@ -540,30 +506,8 @@ private struct ModelsSettingsTab: View {
             }
     }
 
-    private var selectedDefaultMLXDescriptor: MLXModelDescriptor? {
-        installedModelDescriptors.first(where: { $0.defaultSelectionValue == defaultMLXModel })
-            ?? descriptor(for: defaultMLXModel)
-    }
-
     private var isUsingDownloadedDefaultMLXModel: Bool {
         installedModelDescriptors.contains(where: { $0.defaultSelectionValue == defaultMLXModel })
-    }
-
-    private var defaultMLXPickerSelection: Binding<String> {
-        Binding(
-            get: { isUsingDownloadedDefaultMLXModel ? defaultMLXModel : customMLXSelectionTag },
-            set: { newValue in
-                guard newValue != customMLXSelectionTag else { return }
-                defaultMLXModel = newValue
-            }
-        )
-    }
-
-    private var customDefaultDisclosure: Binding<Bool> {
-        Binding(
-            get: { state.showCustomDefaultMLXInput || !isUsingDownloadedDefaultMLXModel || installedModels.isEmpty },
-            set: { state.showCustomDefaultMLXInput = $0 }
-        )
     }
 
     private var recommendedModelDescriptors: [MLXModelDescriptor] {
@@ -701,18 +645,184 @@ private struct ModelsSettingsTab: View {
     }
 
     private var cloudAndDefaultModelsSection: some View {
-        settingsContentSection("Cloud & Default Models") {
-            settingsPickerRow("Default Provider", xrayId: "settings.models.defaultProviderPicker", selection: selectedProvider) {
+        settingsContentSection("Default Provider & Model") {
+            VStack(spacing: 0) {
                 ForEach([ProviderSelection.claude, ProviderSelection.codex, ProviderSelection.foundation, ProviderSelection.mlx]) { provider in
-                    Text(provider.label).tag(provider)
+                    providerModelRow(provider)
+                    if provider != .mlx {
+                        Divider().padding(.leading, 16)
+                    }
                 }
             }
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+            )
+        }
+    }
 
-            settingsPickerRow("Default Claude Model", xrayId: "settings.models.defaultClaudeModelPicker", selection: selectedClaudeModel) {
+    @ViewBuilder
+    private func providerModelRow(_ provider: ProviderSelection) -> some View {
+        let isActive = defaultProvider == provider.rawValue
+        HStack(spacing: 10) {
+            Circle()
+                .fill(providerColor(provider))
+                .frame(width: 8, height: 8)
+
+            Text(provider.label)
+                .font(.body)
+                .foregroundStyle(isActive ? Color.primary : Color.secondary)
+
+            if isActive {
+                Text("default")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            Spacer()
+
+            modelPickerForRow(provider)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(isActive ? Color.accentColor.opacity(0.06) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                defaultProvider = provider.rawValue
+            }
+        }
+        .accessibilityIdentifier("settings.models.providerRow.\(provider.rawValue)")
+    }
+
+    @ViewBuilder
+    private func modelPickerForRow(_ provider: ProviderSelection) -> some View {
+        switch provider {
+        case .claude:
+            Picker("Claude model", selection: claudeRowBinding()) {
                 ForEach(availableClaudeDefaultChoices) { choice in
                     Text(choice.label).tag(choice.id)
                 }
             }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(minWidth: 180)
+            .accessibilityIdentifier("settings.models.claudeModelRowPicker")
+        case .codex:
+            Picker("Codex model", selection: codexRowBinding()) {
+                ForEach(CodexModel.allCases) { model in
+                    Text(model.label).tag(model)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(minWidth: 180)
+            .accessibilityIdentifier("settings.models.codexModelRowPicker")
+        case .foundation:
+            Picker("Foundation model", selection: foundationRowBinding()) {
+                ForEach(FoundationModel.allCases) { model in
+                    Text(model.label).tag(model)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(minWidth: 180)
+            .accessibilityIdentifier("settings.models.foundationModelRowPicker")
+        case .mlx:
+            mlxRowPicker()
+        case .system:
+            EmptyView()
+        }
+    }
+
+    private func claudeRowBinding() -> Binding<String> {
+        Binding(
+            get: {
+                let normalized = AgentDefaults.normalizedModelSelection(defaultClaudeModel)
+                if availableClaudeDefaultChoices.contains(where: { $0.id == normalized }) {
+                    return normalized
+                }
+                return availableClaudeDefaultChoices.first?.id ?? AppSettings.defaultClaudeModel
+            },
+            set: {
+                defaultClaudeModel = AgentDefaults.normalizedModelSelection($0)
+                defaultProvider = ProviderSelection.claude.rawValue
+            }
+        )
+    }
+
+    private func codexRowBinding() -> Binding<CodexModel> {
+        Binding(
+            get: { CodexModel(rawValue: AgentDefaults.normalizedModelSelection(defaultCodexModel)) ?? .gpt5Codex },
+            set: {
+                defaultCodexModel = $0.rawValue
+                defaultProvider = ProviderSelection.codex.rawValue
+            }
+        )
+    }
+
+    private func foundationRowBinding() -> Binding<FoundationModel> {
+        Binding(
+            get: { FoundationModel(rawValue: AgentDefaults.normalizedModelSelection(defaultFoundationModel)) ?? .system },
+            set: {
+                defaultFoundationModel = $0.rawValue
+                defaultProvider = ProviderSelection.foundation.rawValue
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func mlxRowPicker() -> some View {
+        if installedModels.isEmpty {
+            let label = defaultMLXModel.isEmpty
+                ? "No model"
+                : (defaultMLXModel.split(separator: "/").last.map(String.init) ?? defaultMLXModel)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(minWidth: 120, alignment: .trailing)
+        } else {
+            Picker("MLX model", selection: mlxRowBinding()) {
+                ForEach(installedModelDescriptors) { descriptor in
+                    Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(minWidth: 180)
+            .accessibilityIdentifier("settings.models.mlxModelRowPicker")
+        }
+    }
+
+    private func mlxRowBinding() -> Binding<String> {
+        Binding(
+            get: {
+                isUsingDownloadedDefaultMLXModel
+                    ? defaultMLXModel
+                    : (installedModelDescriptors.first?.defaultSelectionValue ?? defaultMLXModel)
+            },
+            set: {
+                defaultMLXModel = $0
+                defaultProvider = ProviderSelection.mlx.rawValue
+            }
+        )
+    }
+
+    private func providerColor(_ provider: ProviderSelection) -> Color {
+        switch provider {
+        case .claude: .orange
+        case .codex: .green
+        case .foundation: .indigo
+        case .mlx: .cyan
+        case .system: .gray
         }
     }
 
@@ -721,8 +831,6 @@ private struct ModelsSettingsTab: View {
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 28) {
                     ollamaSection
-                    otherProvidersSection
-                    mlxDefaultSection
                     localMLXSetupSection
                     mlxLibrarySection
                 }
@@ -780,82 +888,6 @@ private struct ModelsSettingsTab: View {
                         .textSelection(.enabled)
                         .xrayId("settings.models.ollamaModelsSummary")
                 }
-            }
-        }
-    }
-
-    private var otherProvidersSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            settingsPickerRow("Default Codex Model", xrayId: "settings.models.defaultCodexModelPicker", selection: selectedCodexModel) {
-                ForEach(CodexModel.allCases) { model in
-                    Text(model.label).tag(model)
-                }
-            }
-
-            settingsPickerRow("Default Foundation Model", xrayId: "settings.models.defaultFoundationModelPicker", selection: selectedFoundationModel) {
-                ForEach(FoundationModel.allCases) { model in
-                    Text(model.label).tag(model)
-                }
-            }
-        }
-    }
-
-    private var mlxDefaultSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Choose your default local model")
-                    .font(.headline)
-                Spacer()
-                if !installedModels.isEmpty {
-                    Text("\(installedModels.count) downloaded")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if installedModels.isEmpty {
-                modelSurface {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Download a model below to make it selectable here.")
-                            .font(.subheadline.weight(.semibold))
-                        Text("Once a managed MLX model is installed, it appears here as a simple default choice.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } else {
-                settingsPickerRow("MLX Default", xrayId: "settings.models.defaultMLXModelPicker", selection: defaultMLXPickerSelection) {
-                    ForEach(installedModelDescriptors) { descriptor in
-                        Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
-                    }
-                    Text("Custom repo id or local path").tag(customMLXSelectionTag)
-                }
-
-                Text("This dropdown only lists MLX models already downloaded on this Mac.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let descriptor = selectedDefaultMLXDescriptor {
-                modelDetailCard(
-                    descriptor,
-                    badgeText: defaultMLXPickerSelection.wrappedValue == customMLXSelectionTag ? "Custom Default" : "Current Default",
-                    badgeColor: .accentColor,
-                    identifier: "settings.models.currentDefaultMLXModel"
-                )
-            }
-
-            DisclosureGroup("Use a custom MLX model id or local path", isExpanded: customDefaultDisclosure) {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("mlx-community/Qwen3-14B-4bit or /path/to/model", text: $defaultMLXModel)
-                        .textFieldStyle(.roundedBorder)
-                        .xrayId("settings.models.defaultMLXModelField")
-
-                    Text("Downloaded models are easier to manage from Odyssey. Use a custom repo id or local path only when you need something outside the managed library.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.top, 4)
             }
         }
     }
