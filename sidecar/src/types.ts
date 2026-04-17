@@ -4,6 +4,9 @@ import type { ProjectSummaryWire } from "./stores/project-store.js";
 export type { ConversationSummaryWire, MessageWire, ParticipantWire } from "./stores/conversation-store.js";
 export type { ProjectSummaryWire } from "./stores/project-store.js";
 
+// Delegation modes for agent question routing
+export type DelegationMode = "off" | "by_agents" | "specific_agent" | "coordinator";
+
 // Commands from Swift -> Sidecar
 export type SidecarCommand =
   | { type: "session.create"; conversationId: string; agentConfig: AgentConfig }
@@ -36,6 +39,7 @@ export type SidecarCommand =
   | { type: "config.setLogLevel"; level: string }
   | { type: "conversation.sync"; conversations: ConversationSummaryWire[] }
   | { type: "conversation.messageAppend"; conversationId: string; message: MessageWire }
+  | { type: "conversation.setDelegationMode"; sessionId: string; mode: DelegationMode; targetAgentName?: string }
   | { type: "project.sync"; projects: ProjectSummaryWire[] }
   | { type: "ios.registerPush"; apnsToken: string; appId: string };
 
@@ -215,8 +219,10 @@ export type SidecarEvent =
   | { type: "sidecar.ready"; port: number; version: string }
   | { type: "generate.agent.result"; requestId: string; spec: GeneratedAgentSpec }
   | { type: "generate.agent.error"; requestId: string; error: string }
-  | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig }
+  | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig; timeoutSeconds?: number; autoRouting?: boolean }
   | { type: "agent.confirmation"; sessionId: string; confirmationId: string; action: string; reason: string; riskLevel: "low" | "medium" | "high"; details?: string }
+  | { type: "agent.question.routing"; sessionId: string; questionId: string; targetAgentName: string }
+  | { type: "agent.question.resolved"; sessionId: string; questionId: string; answeredBy: string; isFallback: boolean }
   | { type: "stream.richContent"; sessionId: string; format: "html" | "mermaid" | "markdown"; title?: string; content: string; height?: number }
   | { type: "stream.progress"; sessionId: string; progressId: string; title: string; steps: ProgressStep[] }
   | { type: "stream.suggestions"; sessionId: string; suggestions: SuggestionItem[] }
