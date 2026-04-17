@@ -646,6 +646,23 @@ private struct ModelsSettingsTab: View {
 
     private var cloudAndDefaultModelsSection: some View {
         settingsContentSection("Default Provider & Model") {
+            settingsPickerRow(
+                "Default Provider",
+                xrayId: "settings.models.defaultProviderPicker",
+                selection: Binding(
+                    get: { ProviderSelection(rawValue: defaultProvider) ?? .claude },
+                    set: { defaultProvider = $0.rawValue }
+                )
+            ) {
+                ForEach([ProviderSelection.claude, ProviderSelection.codex, ProviderSelection.foundation, ProviderSelection.mlx]) { provider in
+                    Text(provider.label).tag(provider)
+                }
+            }
+
+            Text("Agents set to \"System Default\" will use this provider.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             VStack(spacing: 0) {
                 ForEach([ProviderSelection.claude, ProviderSelection.codex, ProviderSelection.foundation, ProviderSelection.mlx]) { provider in
                     providerModelRow(provider)
