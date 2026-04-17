@@ -185,6 +185,12 @@ struct SidebarView: View {
         List {
             utilitySection
 
+            // Hidden global button — registers ⌘⇧N shortcut at all times (Fix 2)
+            Button("") { showAgentPopover = true }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .opacity(0)
+                .frame(width: 0, height: 0)
+
             agentsSection
 
             groupsSection
@@ -355,69 +361,68 @@ struct SidebarView: View {
 
     private var utilitySection: some View {
         Section {
-            Menu {
-                Button {
-                    showAgentPopover = true
-                } label: {
-                    Label("Chat with Agent", systemImage: "cpu")
-                }
-                .keyboardShortcut("n", modifiers: .command)
+            ZStack {
+                // Popover anchors — invisible, sit behind the Menu
+                Button("") { }
+                    .frame(width: 0, height: 0)
+                    .popover(isPresented: $showAgentPopover, arrowEdge: .bottom) {
+                        AgentPickerPopover(
+                            projectId: windowState.selectedProjectId,
+                            projectDirectory: windowState.projectDirectory,
+                            isPresented: $showAgentPopover
+                        )
+                        .environmentObject(appState)
+                        .environment(windowState)
+                    }
 
-                Button {
-                    showGroupPopover = true
-                } label: {
-                    Label("Chat with Group", systemImage: "person.3.fill")
-                }
-                .keyboardShortcut("n", modifiers: [.command, .option])
+                Button("") { }
+                    .frame(width: 0, height: 0)
+                    .popover(isPresented: $showGroupPopover, arrowEdge: .bottom) {
+                        GroupPickerPopover(
+                            projectId: windowState.selectedProjectId,
+                            projectDirectory: windowState.projectDirectory,
+                            isPresented: $showGroupPopover
+                        )
+                        .environmentObject(appState)
+                        .environment(windowState)
+                    }
 
-                Button {
-                    showAgentPopover = true
+                // The actual Menu button (no popover modifiers on it)
+                Menu {
+                    Button { showAgentPopover = true } label: {
+                        Label("Chat with Agent", systemImage: "cpu")
+                    }
+                    .keyboardShortcut("n", modifiers: .command)
+
+                    Button { showGroupPopover = true } label: {
+                        Label("Chat with Group", systemImage: "person.3.fill")
+                    }
+                    .keyboardShortcut("n", modifiers: [.command, .option])
                 } label: {
-                    Label("Quick Chat", systemImage: "plus.message")
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 18, height: 18)
+                            .foregroundStyle(.primary)
+                        Text("New")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(.primary)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .modifier(SidebarChromeButtonModifier(tint: .accentColor))
+                    .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(width: 18, height: 18)
-                        .foregroundStyle(.primary)
-                    Text("New")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(.primary)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .modifier(SidebarChromeButtonModifier(tint: .accentColor))
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .help("Start a new chat with an agent or group")
-            .xrayId("sidebar.utility.newMenu")
-            .accessibilityLabel("New")
-            .popover(isPresented: $showAgentPopover) {
-                AgentPickerPopover(
-                    projectId: windowState.selectedProjectId,
-                    projectDirectory: windowState.projectDirectory,
-                    isPresented: $showAgentPopover
-                )
-                .environmentObject(appState)
-                .environment(windowState)
-            }
-            .popover(isPresented: $showGroupPopover) {
-                GroupPickerPopover(
-                    projectId: windowState.selectedProjectId,
-                    projectDirectory: windowState.projectDirectory,
-                    isPresented: $showGroupPopover
-                )
-                .environmentObject(appState)
-                .environment(windowState)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .help("Start a new chat with an agent or group")
+                .xrayId("sidebar.utility.newMenu")
+                .accessibilityLabel("New")
             }
 
             Button {

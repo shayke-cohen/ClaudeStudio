@@ -1737,8 +1737,7 @@ struct ChatView: View {
                                     onScheduleFromMessage: {
                                         scheduleDraft = makeScheduleDraft(from: message)
                                         showingScheduleEditor = true
-                                    },
-                                    delegationTag: resolvedDelegationTags[message.id]
+                                    }
                                 )
                                 .id(message.id)
                                 .background(
@@ -1800,6 +1799,30 @@ struct ChatView: View {
                                         QuestionRoutingPillView(targetAgentName: resolved.answeredBy, isFallback: resolved.isFallback)
                                             .padding(.leading, 32)
                                             .transition(.opacity)
+                                        // Synthetic delegated-answer bubble
+                                        if let answerText = resolved.answer {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                HStack(spacing: 4) {
+                                                    Text(resolved.answeredBy)
+                                                        .font(.system(size: 10, weight: .semibold))
+                                                        .foregroundColor(.secondary)
+                                                    Text(resolved.isFallback ? "fallback answer" : "answered for you")
+                                                        .font(.system(size: 9, weight: .medium))
+                                                        .padding(.horizontal, 5).padding(.vertical, 1)
+                                                        .background(resolved.isFallback ? Color.orange.opacity(0.12) : Color.accentColor.opacity(0.12))
+                                                        .foregroundColor(resolved.isFallback ? .orange : .accentColor)
+                                                        .overlay(RoundedRectangle(cornerRadius: 3).stroke(resolved.isFallback ? Color.orange.opacity(0.3) : Color.accentColor.opacity(0.3)))
+                                                        .cornerRadius(3)
+                                                }
+                                                Text(answerText)
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.primary)
+                                                    .padding(.horizontal, 11).padding(.vertical, 7)
+                                                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                                                    .cornerRadius(10)
+                                            }
+                                            .padding(.leading, 32)
+                                        }
                                     }
                                 }
                             }
@@ -2679,33 +2702,6 @@ struct ChatView: View {
         return convo.sessions.compactMap { session in
             appState.pendingQuestions[session.id.uuidString]
         }
-    }
-
-    /// Maps message IDs to delegation resolution info for attribution tags.
-    /// For each resolved question, finds the most recent chat message from the answering agent.
-    private var resolvedDelegationTags: [UUID: ResolvedQuestionInfo] {
-        guard let convo = conversation, !convo.resolvedQuestions.isEmpty else { return [:] }
-        var result: [UUID: ResolvedQuestionInfo] = [:]
-        let chatMessages = convo.messages
-            .filter { $0.type == .chat }
-            .sorted { $0.timestamp < $1.timestamp }
-        for (_, info) in convo.resolvedQuestions {
-            // Find the participant whose displayName matches answeredBy
-            let answererParticipant = convo.participants.first { p in
-                if let sessionId = p.typeSessionId,
-                   let session = convo.sessions.first(where: { $0.id == sessionId }),
-                   let agent = session.agent {
-                    return agent.name == info.answeredBy
-                }
-                return p.displayName == info.answeredBy
-            }
-            guard let participantId = answererParticipant?.id else { continue }
-            // Tag the most recent chat message from that participant
-            if let lastMsg = chatMessages.last(where: { $0.senderParticipantId == participantId }) {
-                result[lastMsg.id] = info
-            }
-        }
-        return result
     }
 
     private func agentNameForQuestion(_ question: AppState.AgentQuestion) -> String {

@@ -715,6 +715,7 @@ struct IncomingWireMessage: Codable, Sendable {
     let isFallback: Bool?
     let targetAgentName: String?
     let delegatedAnswer: String?
+    let conversationId: String?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, text, tool, input, output, result, cost
@@ -736,6 +737,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case connectedRelays, totalRelays
         case timeoutSeconds, autoRouting, answeredBy, isFallback, targetAgentName
         case delegatedAnswer = "answer"
+        case conversationId
     }
 
     func toEvent() -> SidecarEvent? {
