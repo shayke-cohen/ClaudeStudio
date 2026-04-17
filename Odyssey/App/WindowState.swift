@@ -395,6 +395,8 @@ final class WindowState {
     }
 
     func closeSettings() {
+        pendingConfigSection = nil
+        pendingConfigSlug = nil
         activeRoute = .workspace
     }
 

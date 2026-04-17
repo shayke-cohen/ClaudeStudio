@@ -352,10 +352,12 @@ struct ChatView: View {
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
-    @Query private var allAgents: [Agent]
-    @Query private var allGroups: [AgentGroup]
+    // Unfiltered queries for chip display. Acceptable for typical catalog sizes (< a few hundred items).
+    // If performance becomes an issue, filter by agent.skillIds / agent.extraMCPServerIds at query time.
     @Query private var allSkills: [Skill]
     @Query private var allMCPs: [MCPServer]
+    @Query private var allGroups: [AgentGroup]
+    @Query private var allAgents: [Agent]
     @Query(sort: \Session.startedAt) private var allSessions: [Session]
 
     private let autoScrollThreshold: CGFloat = 120
@@ -1057,7 +1059,7 @@ struct ChatView: View {
                     // Group role chips
                     if let group = sourceGroup {
                         let memberAgents = group.agentIds.compactMap { id in
-                            conversation?.sessions.first { $0.agent?.id == id }?.agent
+                            allAgents.first { $0.id == id }
                         }
                         ForEach(memberAgents, id: \.id) { member in
                             let role = group.roleFor(agentId: member.id)
