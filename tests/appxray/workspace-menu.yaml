@@ -1,0 +1,186 @@
+name: Workspace Menu — Toolbar Dropdown
+description: |
+  Tests for the Workspace Menu — a toolbar Menu button that provides access to
+  Schedules, Agent Comms, and conditionally Invites, Peer Network, and Debug Log.
+
+  The menu button (mainWindow.workspaceMenu) appears in the window toolbar when
+  the active route is not Settings. Menu items are conditionally rendered based
+  on feature flags (showFederation, showPeerNetwork, showDebugLogs).
+
+  Prerequisites:
+    - Odyssey DEBUG build running (AppXray on port 19480 or auto-discovered)
+    - The main window must be open on a non-Settings route (e.g. a thread or library)
+
+  Key accessibility identifiers:
+    - mainWindow.workspaceMenu                        — the toolbar Menu button ("Workspace")
+    - mainWindow.workspaceMenu.schedulesButton        — "Schedules" menu item (always present)
+    - mainWindow.workspaceMenu.agentCommsButton       — "Agent Comms" menu item (always present)
+    - mainWindow.workspaceMenu.invitesButton          — "Invites" item (only when federation enabled)
+    - mainWindow.workspaceMenu.peerNetworkButton      — "Peer Network" item (only when peers feature enabled)
+    - mainWindow.workspaceMenu.debugLogButton         — "Debug Log" item (only in DEBUG builds)
+
+  Notes:
+    - mainWindow.workspaceMenu has accessibilityLabel "Workspace"
+    - Schedules shortcut: ⌘⇧S  |  Agent Comms: ⌘⇧A
+    - In DEBUG builds, Debug Log is always shown via showDebugLogs flag
+
+tests:
+
+  # ─── SETUP ────────────────────────────────────────────────────────────────
+
+  - name: "WM-0: Workspace menu button is present in toolbar (setup)"
+    description: |
+      Verify the Workspace toolbar button (mainWindow.workspaceMenu) is present.
+      This button only appears when the active route is not .settings.
+      Navigate away from Settings if needed before running this test.
+    steps:
+      - interact:
+          action: screenshot
+          label: "toolbar-initial"
+      - interact:
+          action: find
+          selector: '@testId("mainWindow.workspaceMenu")'
+    assert:
+      - element_exists: '@testId("mainWindow.workspaceMenu")'
+
+  # ─── MENU BUTTON ─────────────────────────────────────────────────────────
+
+  - name: "WM-1: Workspace menu button has correct accessibility label"
+    description: |
+      The menu button has .accessibilityLabel("Workspace"), making it reachable
+      via @label selector for VoiceOver and AppXray.
+    steps:
+      - interact:
+          action: find
+          selector: '@label("Workspace")'
+    assert:
+      - element_exists: '@label("Workspace")'
+
+  # ─── MENU ITEMS ───────────────────────────────────────────────────────────
+
+  - name: "WM-2: Opening the menu reveals Schedules and Agent Comms"
+    description: |
+      Tapping mainWindow.workspaceMenu opens the dropdown. The Schedules and
+      Agent Comms items are always present (not behind feature flags).
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "menu-open"
+    assert:
+      - element_exists: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+      - element_exists: '@testId("mainWindow.workspaceMenu.agentCommsButton")'
+      - screenshot_contains: "Schedules"
+      - screenshot_contains: "Agent Comms"
+
+  - name: "WM-3: Schedules button is present in menu"
+    description: |
+      mainWindow.workspaceMenu.schedulesButton must be findable after the menu
+      is open. Tapping it sets windowState.showScheduleLibrary = true.
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+      - interact:
+          action: screenshot
+          label: "schedules-item"
+    assert:
+      - element_exists: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+
+  - name: "WM-4: Agent Comms button is present in menu"
+    description: |
+      mainWindow.workspaceMenu.agentCommsButton must be findable after the menu
+      is open. Tapping it sets windowState.showAgentComms = true.
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("mainWindow.workspaceMenu.agentCommsButton")'
+      - interact:
+          action: screenshot
+          label: "agent-comms-item"
+    assert:
+      - element_exists: '@testId("mainWindow.workspaceMenu.agentCommsButton")'
+
+  - name: "WM-5: Debug Log button is present in DEBUG builds"
+    description: |
+      In DEBUG builds the showDebugLogs flag is true, so the Debug Log item
+      (mainWindow.workspaceMenu.debugLogButton) must appear in the menu.
+      This test is expected to pass only in DEBUG builds.
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("mainWindow.workspaceMenu.debugLogButton")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "debug-log-item"
+    assert:
+      - element_exists: '@testId("mainWindow.workspaceMenu.debugLogButton")'
+      - screenshot_contains: "Debug Log"
+
+  # ─── NAVIGATION ───────────────────────────────────────────────────────────
+
+  - name: "WM-6: Tapping Schedules opens the schedule library"
+    description: |
+      Tapping the Schedules item sets windowState.showScheduleLibrary = true,
+      which presents the schedule library sheet. Verify the schedules UI appears.
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+          timeout: 3000
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu.schedulesButton")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@text("Schedules")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "schedules-opened"
+    assert:
+      - screenshot_contains: "Schedules"
+
+  - name: "WM-7: Tapping Agent Comms opens the agent comms view"
+    description: |
+      Tapping the Agent Comms item sets windowState.showAgentComms = true,
+      presenting the AgentCommsView sheet. Verify comms UI appears.
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("mainWindow.workspaceMenu.agentCommsButton")'
+          timeout: 3000
+      - interact:
+          action: tap
+          selector: '@testId("mainWindow.workspaceMenu.agentCommsButton")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@text("Agent Comms")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "agent-comms-opened"
+    assert:
+      - screenshot_contains: "Agent Comms"

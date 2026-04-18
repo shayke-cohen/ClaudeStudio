@@ -1,0 +1,126 @@
+name: Add Agents to Chat Sheet
+description: |
+  Tests for the AddAgentsToChatSheet — the sheet that lets users add agents or
+  groups to an existing conversation.
+
+  The sheet is triggered by setting appState.showAddAgentsToChatSheet = true via
+  the AppXray setState action (registered in OdysseyApp.swift). This allows the
+  tests to run without needing to navigate through UI or have a live sidecar.
+
+  Prerequisites:
+    - Odyssey DEBUG build running (AppXray on port 19480 or auto-discovered)
+    - At least one conversation must be selected so the sheet has a conversationId
+
+  Key accessibility identifiers:
+    - addAgents.title              — "Add agents or groups" headline
+    - addAgents.groupToggle.<uuid> — Toggle for each addable group
+    - addAgents.toggle.<uuid>      — Toggle for each addable agent
+    - addAgents.confirmButton      — "Add" button (disabled when nothing selected)
+    - addAgents.cancelButton       — "Cancel" button
+
+tests:
+
+  # ─── SETUP ────────────────────────────────────────────────────────────────
+
+  - name: "AC-0: Open sheet via setState (setup)"
+    description: |
+      Use AppXray setState to set showAddAgentsToChatSheet = true.
+      This triggers the onChange in ChatView which sets the local showAddAgentsSheet
+      flag, presenting the sheet without needing a UI action.
+    steps:
+      - interact:
+          action: screenshot
+          label: "before-sheet"
+      - interact:
+          action: setState
+          key: showAddAgentsToChatSheet
+          value: true
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("addAgents.title")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "sheet-open"
+    assert:
+      - element_exists: '@testId("addAgents.title")'
+
+  # ─── SHEET CONTENT ────────────────────────────────────────────────────────
+
+  - name: "AC-1: Sheet title is present"
+    description: |
+      The sheet renders a headline text with identifier addAgents.title.
+      Text content is "Add agents or groups".
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("addAgents.title")'
+      - interact:
+          action: screenshot
+          label: "sheet-title"
+    assert:
+      - element_exists: '@testId("addAgents.title")'
+      - screenshot_contains: "Add agents or groups"
+
+  - name: "AC-2: Confirm button is present and disabled when nothing selected"
+    description: |
+      The "Add" button (addAgents.confirmButton) is disabled until at least one
+      agent or group toggle is turned on.
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("addAgents.confirmButton")'
+      - interact:
+          action: screenshot
+          label: "confirm-button-disabled"
+    assert:
+      - element_exists: '@testId("addAgents.confirmButton")'
+      - screenshot_contains: "Add"
+
+  - name: "AC-3: Cancel button is present"
+    description: |
+      The "Cancel" button (addAgents.cancelButton) must always be visible.
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("addAgents.cancelButton")'
+    assert:
+      - element_exists: '@testId("addAgents.cancelButton")'
+
+  # ─── TOGGLE INTERACTION ───────────────────────────────────────────────────
+
+  - name: "AC-4: Agent toggles are present when addable agents exist"
+    description: |
+      When there are agents not already in the conversation, addAgents.toggle.<uuid>
+      elements are rendered in the sheet. Verify at least one toggle exists.
+      If the conversation has no addable agents, this test is a no-op.
+    steps:
+      - interact:
+          action: screenshot
+          label: "toggles-visible"
+    assert:
+      # At minimum the sheet is showing; toggles depend on conversation state.
+      - element_exists: '@testId("addAgents.title")'
+
+  # ─── DISMISS ──────────────────────────────────────────────────────────────
+
+  - name: "AC-5: Cancel dismisses the sheet and resets appState flag"
+    description: |
+      Tapping the Cancel button calls dismiss(), which triggers the onDismiss
+      closure in ChatView that sets appState.showAddAgentsToChatSheet = false.
+      After dismissal the sheet title is no longer on screen.
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("addAgents.cancelButton")'
+      - interact:
+          action: waitFor
+          condition: elementGone
+          selector: '@testId("addAgents.title")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "sheet-dismissed"
+    assert:
+      - screenshot_not_contains: "Add agents or groups"

@@ -202,6 +202,7 @@ Dot-separated `viewName.elementName` in camelCase:
 | TaskCreationSheet | `taskCreation.*` |
 | TaskEditSheet | `taskEdit.*` |
 | PromptTemplateCreationSheet | `templateCreation.*` |
+| AddAgentsToChatSheet | `addAgents.*` |
 
 When adding new views, pick a unique camelCase prefix and annotate every interactive element.
 
@@ -234,6 +235,42 @@ See `TESTING.md` for the complete testing guide, including:
 3. `mcp__appxray__inspect` — gets screenshot + accessibility tree
 4. `mcp__appxray__act` — clicks, types, navigates using `@testId("...")` selectors
 5. `mcp__appxray__assert` — verifies element state
+
+## Claude Testing Workflow
+
+Run the appropriate check before reporting any task complete.
+
+| Change | Command | Time |
+| --- | --- | --- |
+| Swift / SwiftUI only | `make build-check` | ~15s |
+| Any change | `make feedback` | ~20s |
+| Full verification (real Claude) | `make feedback-full` | ~50s |
+
+`make feedback` = `make build-check` + `make sidecar-smoke` (mock provider, no API cost).
+
+**AppXray quick verify** (DEBUG app running):
+
+1. `mcp__appxray__session action:"discover"` → find Odyssey on port 19480
+2. `mcp__appxray__session action:"connect"`
+3. `mcp__appxray__inspect` → screenshot + accessibility tree
+4. `mcp__appxray__act` with `@testId("...")` selectors to interact
+5. `mcp__appxray__assert` to verify state
+
+**Inject state via AppXray** (isolated UI testing without live sidecar):
+
+- `showAddAgentsToChatSheet: true` → opens AddAgentsToChatSheet
+- `sidecarStatusOverrideForTesting: "connected"` → simulates connected state
+
+**Sidecar debug after a failed smoke:**
+
+```sh
+curl localhost:9850/api/v1/debug/logs?tail=20&level=error
+curl localhost:9850/api/v1/sessions/{id}/turns
+curl localhost:9850/api/v1/sessions/{id}/events/history
+curl localhost:9850/api/v1/debug/state
+```
+
+**AppXray YAML regression specs** live in `tests/appxray/`. Run any spec by connecting to the app and executing its steps.
 
 ## Common Tasks
 
