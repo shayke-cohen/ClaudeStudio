@@ -59,6 +59,15 @@ enum GitService {
         return FileManager.default.fileExists(atPath: gitDir.path)
     }
 
+    /// Runs `git init` in the given directory if it is not already a git repository.
+    /// Safe to call multiple times — no-op when a repo already exists.
+    @discardableResult
+    static func initIfNeeded(at directory: URL) -> Bool {
+        guard !isGitRepo(at: directory) else { return false }
+        guard FileManager.default.fileExists(atPath: directory.path) else { return false }
+        return runGit(["init", "-b", "main"], in: directory) != nil
+    }
+
     static func currentBranch(in directory: URL) -> String? {
         guard isGitRepo(at: directory) else { return nil }
 

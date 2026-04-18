@@ -26,6 +26,7 @@ final class AgentProvisioner {
     ) -> (AgentConfig, Session) {
         let resolvedDir = resolveWorkingDirectory(override: workingDirOverride, agent: agent)
         ensureOdysseyHomeDir(resolvedDir)
+        GitService.initIfNeeded(at: URL(fileURLWithPath: resolvedDir))
         let session = Session(
             agent: agent,
             mission: mission,
