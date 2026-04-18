@@ -2994,9 +2994,7 @@ struct ChatView: View {
             }
         }
 
-        let isGroupChat = convo.sourceGroupId != nil
-        let prefix = isGroupChat ? nil : convo.primarySession?.agent?.name
-        convo.topic = prefix.map { "\($0): \(truncated)" } ?? truncated
+        convo.topic = truncated
     }
 
     private func agentMentionHint(for agent: Agent) -> String {
