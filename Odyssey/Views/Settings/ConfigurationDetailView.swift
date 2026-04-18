@@ -44,6 +44,7 @@ struct ConfigurationDetailView: View {
                     chipsSection
                     promptSection
                     configSection
+                    sidebarSection
                 }
                 .padding(16)
             }
@@ -406,6 +407,46 @@ struct ConfigurationDetailView: View {
                 }
             }
             return lines.joined(separator: "\n")
+        }
+    }
+
+    // MARK: - Sidebar section
+
+    @ViewBuilder
+    private var sidebarSection: some View {
+        switch item {
+        case .agent(let agent):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Sidebar")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Toggle("Show in Sidebar", isOn: Binding(
+                    get: { agent.showInSidebar },
+                    set: { newValue in
+                        agent.showInSidebar = newValue
+                        try? modelContext.save()
+                    }
+                ))
+                .accessibilityIdentifier("configDetail.showInSidebarToggle")
+            }
+        case .group(let group):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Sidebar")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Toggle("Show in Sidebar", isOn: Binding(
+                    get: { group.showInSidebar },
+                    set: { newValue in
+                        group.showInSidebar = newValue
+                        try? modelContext.save()
+                    }
+                ))
+                .accessibilityIdentifier("configDetail.groupShowInSidebarToggle")
+            }
+        case .skill, .mcp, .permission:
+            EmptyView()
         }
     }
 
