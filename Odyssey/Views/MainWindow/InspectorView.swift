@@ -92,7 +92,7 @@ struct InspectorView: View {
     }
 
     private var isAgentOnlyContext: Bool {
-        windowState.projectDirectory.isEmpty
+        conversation.projectId == nil
     }
 
     private var agentWorkspaceDirectory: String? {
