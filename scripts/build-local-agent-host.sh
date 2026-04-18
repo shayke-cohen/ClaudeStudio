@@ -38,9 +38,14 @@ codesign --force --sign "$SIGN_IDENTITY" --options runtime "$OUTPUT_DIR/OdysseyL
 if [[ -x "$MANAGED_RUNNER" ]]; then
   cp "$MANAGED_RUNNER" "$OUTPUT_DIR/llm-tool"
   chmod +x "$OUTPUT_DIR/llm-tool"
+  codesign --force --sign "$SIGN_IDENTITY" --options runtime "$OUTPUT_DIR/llm-tool"
 fi
 
 if [[ -d "$MANAGED_RUNTIME" ]]; then
   rm -rf "$RUNTIME_OUTPUT_DIR/llm-tool-release"
   cp -R "$MANAGED_RUNTIME" "$RUNTIME_OUTPUT_DIR/llm-tool-release"
+  # Sign all executables in the runtime directory with hardened runtime
+  find "$RUNTIME_OUTPUT_DIR/llm-tool-release" -type f -perm +0111 | while read -r bin; do
+    codesign --force --sign "$SIGN_IDENTITY" --options runtime "$bin" 2>/dev/null || true
+  done
 fi
