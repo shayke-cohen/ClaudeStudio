@@ -52,7 +52,7 @@ enum AppSettings {
     // MARK: - Quick Actions
     static let quickActionUsageOrderKey  = "odyssey.chat.quickActionUsageOrder"
     static let quickActionUsageCountsKey = "odyssey.chat.quickActionUsageCounts"
-    static let quickActionConfigsKey     = "odyssey.chat.quickActionConfigs"    // ← add this
+    static let quickActionConfigsKey     = "odyssey.chat.quickActionConfigs"
 
     // MARK: - TURN Relay
     static let turnEnabledKey = "odyssey.turnEnabled"
