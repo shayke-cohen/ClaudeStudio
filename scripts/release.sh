@@ -76,6 +76,7 @@ xcodebuild archive \
   -scheme Odyssey \
   -archivePath "$ARCHIVE_PATH" \
   -destination "generic/platform=macOS" \
+  -skipPackagePluginValidation \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM=U6BSY4N9E3 \
   2>&1 | grep -E "(error:|warning: 'Odyssey'|ARCHIVE SUCCEEDED|ARCHIVE FAILED)" | tail -10 || true
