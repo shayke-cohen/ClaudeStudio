@@ -174,17 +174,25 @@ struct GroupSidebarRowView: View {
                 .accessibilityIdentifier("sidebar.groupArchivedSection.\(group.id.uuidString)")
             }
         } label: {
+            let tint = Color.fromAgentColor(group.color)
             HStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    Text(group.icon)
-                        .font(.body)
-                        .frame(width: 22, height: 22)
-                        .background(Color.fromAgentColor(group.color).opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(LinearGradient(
+                                colors: [tint.opacity(isSelected ? 0.22 : 0.18), tint.opacity(isSelected ? 0.10 : 0.08)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ))
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(tint.opacity(isSelected ? 0.28 : 0.16), lineWidth: 1)
+                        Text(group.icon)
+                            .font(.system(size: 16))
+                    }
+                    .frame(width: 28, height: 28)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(group.name)
-                            .font(.body)
+                            .font(isSelected ? .headline.weight(.semibold) : .headline.weight(.medium))
                             .lineLimit(1)
                         let memberNames = allAgents.filter { group.agentIds.contains($0.id) }.map(\.name).joined(separator: " · ")
                         if !memberNames.isEmpty {
@@ -267,8 +275,8 @@ struct GroupSidebarRowView: View {
                     Button {
                         onNewChat()
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.caption2)
+                        Image(systemName: "square.and.pencil")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -277,10 +285,24 @@ struct GroupSidebarRowView: View {
                 }
             }
             .stableXrayId("sidebar.groupRow.\(group.id.uuidString)")
-            .padding(.vertical, 2)
-            .padding(.horizontal, 4)
-            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        isSelected
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [tint.opacity(0.18), tint.opacity(0.08)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ))
+                        : AnyShapeStyle(Color.primary.opacity(0.04))
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? tint.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 1)
+            )
+            .shadow(color: isSelected ? tint.opacity(0.10) : .clear, radius: 8, y: 4)
             .onHover { hovering in isHeaderHovered = hovering }
             .contextMenu {
                 Button("Start Chat") { onNewChat() }
@@ -307,6 +329,18 @@ struct GroupSidebarRowView: View {
                 Button("Edit") { onEdit?() }
                     .accessibilityIdentifier("sidebar.groupContext.edit.\(group.id.uuidString)")
             }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button { onNewChat() } label: {
+                Label("Start Chat", systemImage: "square.and.pencil")
+            }
+            .tint(Color.fromAgentColor(group.color))
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { onHideFromSidebar?() } label: {
+                Label("Hide", systemImage: "eye.slash")
+            }
+            .tint(.gray)
         }
     }
 

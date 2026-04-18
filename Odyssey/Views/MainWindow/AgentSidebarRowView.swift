@@ -174,21 +174,37 @@ struct AgentSidebarRowView: View {
             }
 
         } label: {
-            HStack {
+            let tint = Color.fromAgentColor(agent.color)
+            HStack(spacing: 8) {
                 Button {
                     onSelectAgent?()
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: agent.icon)
-                            .foregroundStyle(Color.fromAgentColor(agent.color))
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [tint.opacity(isSelected ? 0.22 : 0.18), tint.opacity(isSelected ? 0.10 : 0.08)],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .stroke(tint.opacity(isSelected ? 0.28 : 0.16), lineWidth: 1)
+                            Image(systemName: agent.icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(tint)
+                        }
+                        .frame(width: 28, height: 28)
                         Text(agent.name)
+                            .font(isSelected ? .headline.weight(.semibold) : .headline.weight(.medium))
+                            .lineLimit(1)
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .stableXrayId("sidebar.agentRow.\(agent.id.uuidString).selectButton")
                 .accessibilityLabel("Open agent \(agent.name)")
+
                 Spacer()
+
                 if hasActiveSession {
                     Circle()
                         .fill(Color.blue)
@@ -206,8 +222,8 @@ struct AgentSidebarRowView: View {
                 }
                 if isPinned {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.tertiary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(tint.opacity(isSelected ? 0.9 : 0.7))
                 }
                 if isHeaderHovered {
                     Menu {
@@ -246,8 +262,8 @@ struct AgentSidebarRowView: View {
                     Button {
                         onNewChat()
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.caption2)
+                        Image(systemName: "square.and.pencil")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -256,10 +272,24 @@ struct AgentSidebarRowView: View {
                 }
             }
             .stableXrayId("sidebar.agentRow.\(agent.id.uuidString)")
-            .padding(.vertical, 2)
-            .padding(.horizontal, 4)
-            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        isSelected
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [tint.opacity(0.18), tint.opacity(0.08)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ))
+                        : AnyShapeStyle(Color.primary.opacity(0.04))
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? tint.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 1)
+            )
+            .shadow(color: isSelected ? tint.opacity(0.10) : .clear, radius: 8, y: 4)
             .onHover { hovering in isHeaderHovered = hovering }
             .contextMenu {
                 Button("New Session") { onNewChat() }
@@ -285,6 +315,18 @@ struct AgentSidebarRowView: View {
                 Button("Schedule Mission\u{2026}") { onScheduleMission?() }
                     .accessibilityIdentifier("sidebar.agentRow.schedule.\(agent.id.uuidString)")
             }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button { onNewChat() } label: {
+                Label("New Session", systemImage: "square.and.pencil")
+            }
+            .tint(Color.fromAgentColor(agent.color))
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { onHideFromSidebar?() } label: {
+                Label("Hide", systemImage: "eye.slash")
+            }
+            .tint(.gray)
         }
     }
 
