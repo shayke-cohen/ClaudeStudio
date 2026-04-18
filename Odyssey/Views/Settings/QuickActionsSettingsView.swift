@@ -43,19 +43,22 @@ struct QuickActionsSettingsView: View {
                     .accessibilityIdentifier("settings.quickActions.row.\(config.id.uuidString)")
                     .draggable(config.id.uuidString)
                     .dropDestination(for: String.self) { items, _ in
-                        MainActor.assumeIsolated {
-                            guard let draggedIdString = items.first,
-                                  let draggedId = UUID(uuidString: draggedIdString),
-                                  draggedId != config.id,
-                                  let fromIndex = store.configs.firstIndex(where: { $0.id == draggedId }),
-                                  let toIndex = store.configs.firstIndex(where: { $0.id == config.id })
-                            else { return false }
-                            store.move(
+                        guard let draggedIdString = items.first,
+                              let draggedId = UUID(uuidString: draggedIdString),
+                              draggedId != config.id
+                        else { return false }
+                        let targetId = config.id
+                        Task { @MainActor in
+                            let s = QuickActionStore.shared
+                            guard let fromIndex = s.configs.firstIndex(where: { $0.id == draggedId }),
+                                  let toIndex = s.configs.firstIndex(where: { $0.id == targetId })
+                            else { return }
+                            s.move(
                                 fromOffsets: IndexSet(integer: fromIndex),
                                 toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
                             )
-                            return true
                         }
+                        return true
                     }
                 }
 
