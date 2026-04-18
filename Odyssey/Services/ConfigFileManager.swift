@@ -449,6 +449,28 @@ enum ConfigFileManager {
         try dto.content.write(to: file, atomically: true, encoding: .utf8)
     }
 
+    // MARK: - Quick Actions
+
+    static var quickActionsFile: URL {
+        configDirectory.appendingPathComponent("quick-actions.json")
+    }
+
+    static func readQuickActions() -> [QuickActionConfig]? {
+        guard let data = try? Data(contentsOf: quickActionsFile),
+              let configs = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
+              !configs.isEmpty
+        else { return nil }
+        return configs
+    }
+
+    static func writeQuickActions(_ configs: [QuickActionConfig]) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(configs)
+        try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        try data.write(to: quickActionsFile)
+    }
+
     // MARK: - Factory Defaults
 
     /// Copy factory defaults from the app bundle to both ~/.odyssey/config/ and .factory/
