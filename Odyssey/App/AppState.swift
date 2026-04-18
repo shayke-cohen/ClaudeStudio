@@ -477,7 +477,7 @@ final class AppState: ObservableObject {
         guard !resolvedAgents.isEmpty else { return nil }
 
         let conversation = Conversation(
-            topic: executionMode == .autonomous ? "\(group.name) — Autonomous" : group.name,
+            topic: executionMode == .autonomous ? "\(group.name) — Autonomous" : nil,
             projectId: projectId,
             threadKind: executionMode == .autonomous ? .autonomous : .group
         )
