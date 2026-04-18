@@ -126,6 +126,7 @@
 		6CFDD37F950D9F75C965C6C8 /* GroupSidebarRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C56704571A2D4008A173340A /* GroupSidebarRowView.swift */; };
 		6E2C2B17ACC14A33D8F0B1B9 /* MemoryEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271950E160680DCBF9B6D1FC /* MemoryEditorSheet.swift */; };
 		6E987A7DEEC881062B8172A4 /* BlackboardSnapshotClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8979D181AC6DCC086E79F1 /* BlackboardSnapshotClientTests.swift */; };
+		6FF4F0F26A9C2ABC0D2D9AE7 /* AgentBrowseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D310729704ACF0EF77B16891 /* AgentBrowseSheet.swift */; };
 		749610DA6ADC2C8784869774 /* iOSAppStateExpandedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8051B0541F2254F67A9F71 /* iOSAppStateExpandedTests.swift */; };
 		7583DDBD3EFA996E28F2C81A /* LogAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E048E67B172A802E9D19FF /* LogAggregator.swift */; };
 		773FA86FDD477DAF9C1B465A /* GroupPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EF0EC38E5234264CD1516F /* GroupPromptBuilder.swift */; };
@@ -520,6 +521,7 @@
 		D0F51D3A20726B5110862E55 /* GroupSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSummaryCard.swift; sourceTree = "<group>"; };
 		D226D7279D998140E54DD3B3 /* Peer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Peer.swift; sourceTree = "<group>"; };
 		D2F7D42C94A92A46E86CFD71 /* AttachmentThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentThumbnail.swift; sourceTree = "<group>"; };
+		D310729704ACF0EF77B16891 /* AgentBrowseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentBrowseSheet.swift; sourceTree = "<group>"; };
 		D316A7444D5C7AF4A4C23D84 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		D3E1EC3CD0886247494C4B74 /* GroupPromptBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupPromptBuilderTests.swift; sourceTree = "<group>"; };
 		D3F86C7EFB32EDA912C906EA /* ConversationListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationListView.swift; sourceTree = "<group>"; };
@@ -633,6 +635,7 @@
 			isa = PBXGroup;
 			children = (
 				814FD4B416442C6237EB2CB3 /* AddAgentsToChatSheet.swift */,
+				D310729704ACF0EF77B16891 /* AgentBrowseSheet.swift */,
 				8608F80F90E94DFDDBF60AC0 /* AgentPickerPopover.swift */,
 				F83A88365858CD326A39D1CB /* AgentSidebarRowView.swift */,
 				44BF323F4480AEE7A090F7C3 /* AgentSuggestions.swift */,
@@ -1477,6 +1480,7 @@
 				DA5878A806724AC08A2B64C2 /* AddAgentsToChatSheet.swift in Sources */,
 				8CB469F7740C1773FB0E165A /* Agent.swift in Sources */,
 				C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */,
+				6FF4F0F26A9C2ABC0D2D9AE7 /* AgentBrowseSheet.swift in Sources */,
 				B1B2CB96F5753ABEECB46244 /* AgentCardView.swift in Sources */,
 				5D580021219F9CAC623D1B81 /* AgentCommsView.swift in Sources */,
 				38EE6567EC824720D4A7CF77 /* AgentCreationSheet.swift in Sources */,

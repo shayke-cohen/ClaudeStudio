@@ -13,8 +13,8 @@ struct WelcomeView: View {
     var onStartAgent: (Agent) -> Void
     var onStartGroup: (AgentGroup) -> Void
 
-    @State private var recentProjects: [String] = []
-    @State private var showProjectPicker = false
+    @State private var showBrowseSheet = false
+    @State private var browseInitialTab: AgentBrowseTab = .agents
 
     // MARK: - Computed
 
@@ -38,18 +38,12 @@ struct WelcomeView: View {
         allGroups.filter(\.isEnabled)
     }
 
-    /// Recent projects excluding the current one.
-    private var otherRecentProjects: [String] {
-        recentProjects.filter { $0 != windowState.projectDirectory }
-    }
-
     // MARK: - Body
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 heroSection
-                projectSection
                 quickActionsGrid
                 if !recentAgents.isEmpty {
                     recentAgentsSection
@@ -63,7 +57,15 @@ struct WelcomeView: View {
         }
         .stableXrayId("welcome.scrollView")
         .background(Color(nsColor: .controlBackgroundColor))
-        .onAppear { recentProjects = RecentDirectories.load() }
+        .sheet(isPresented: $showBrowseSheet) {
+            AgentBrowseSheet(
+                initialTab: browseInitialTab,
+                projectId: windowState.selectedProjectId,
+                projectDirectory: windowState.projectDirectory
+            )
+            .environmentObject(appState)
+            .environment(windowState)
+        }
     }
 
     // MARK: - Hero
@@ -79,7 +81,7 @@ struct WelcomeView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .xrayId("welcome.heading")
-            Text("Pick a project, start a thread, and bring in the agents or teams you need.")
+            Text("Start a thread and bring in the agents or teams you need.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -87,60 +89,6 @@ struct WelcomeView: View {
                 .xrayId("welcome.subtitle")
         }
         .padding(.top, 40)
-    }
-
-    // MARK: - Project
-
-    @ViewBuilder
-    private var projectSection: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 12) {
-                Image(systemName: isGitRepo(windowState.projectDirectory) ? "externaldrive.badge.checkmark" : "folder.fill")
-                    .font(.title2)
-                    .foregroundStyle(isGitRepo(windowState.projectDirectory) ? .green : .blue)
-                    .frame(width: 40, height: 40)
-                    .background((isGitRepo(windowState.projectDirectory) ? Color.green : Color.blue).opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Working in")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(windowState.projectName)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text(abbreviatePath(windowState.projectDirectory))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
-                Spacer()
-                Button("Change\u{2026}") {
-                    showProjectPicker = true
-                }
-                .buttonStyle(.bordered)
-                .xrayId("welcome.changeProjectButton")
-            }
-            .padding(14)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.blue.opacity(0.3), lineWidth: 1))
-            .xrayId("welcome.currentProject")
-
-            Text("Threads in this project share the root folder, and active ones can spin up their own worktrees.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-        }
-        .frame(maxWidth: 520)
-            .sheet(isPresented: $showProjectPicker) {
-                ChangeProjectSheet { path in
-                    let project = ProjectRecords.upsertProject(at: path, in: modelContext)
-                    showProjectPicker = false
-                    windowState.selectProject(project)
-                }
-            }
     }
 
     // MARK: - Quick Actions
@@ -159,16 +107,6 @@ struct WelcomeView: View {
                 onQuickChat()
             }
             quickActionCard(
-                title: "New Thread",
-                subtitle: "Freeform chat, no agent",
-                icon: "plus.bubble",
-                shortcut: nil,
-                color: .purple,
-                identifier: "welcome.quickAction.newSession"
-            ) {
-                onQuickChat()
-            }
-            quickActionCard(
                 title: "Browse Agents",
                 subtitle: "\(enabledAgents.count) available",
                 icon: "cpu",
@@ -176,7 +114,8 @@ struct WelcomeView: View {
                 color: .orange,
                 identifier: "welcome.quickAction.browseAgents"
             ) {
-                windowState.openConfiguration(section: .agents)
+                browseInitialTab = .agents
+                showBrowseSheet = true
             }
             quickActionCard(
                 title: "Browse Groups",
@@ -186,7 +125,8 @@ struct WelcomeView: View {
                 color: .teal,
                 identifier: "welcome.quickAction.browseGroups"
             ) {
-                windowState.openConfiguration(section: .groups)
+                browseInitialTab = .groups
+                showBrowseSheet = true
             }
             quickActionCard(
                 title: "Schedules",
@@ -353,25 +293,11 @@ struct WelcomeView: View {
         guard !names.isEmpty else { return "No agents" }
         return names.joined(separator: ", ")
     }
-
-    // MARK: - Helpers
-
-    private func isGitRepo(_ path: String) -> Bool {
-        FileManager.default.fileExists(atPath: (path as NSString).appendingPathComponent(".git"))
-    }
-
-    private func abbreviatePath(_ path: String) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        if path.hasPrefix(home) {
-            return "~" + path.dropFirst(home.count)
-        }
-        return path
-    }
 }
 
 // MARK: - Change Project Sheet
 
-/// Modal sheet for switching/creating projects. Shown from WelcomeView and ProjectPickerView.
+/// Modal sheet for switching/creating projects. Shown from ProjectPickerView.
 struct ChangeProjectSheet: View {
     let onSelect: (String) -> Void
 
@@ -384,7 +310,6 @@ struct ChangeProjectSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text("Choose Project")
                     .font(.headline)
@@ -398,7 +323,6 @@ struct ChangeProjectSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Browse section
                     VStack(alignment: .leading, spacing: 8) {
                         Button {
                             browseFolder()
@@ -418,7 +342,6 @@ struct ChangeProjectSheet: View {
                         .xrayId("changeProject.browseButton")
                     }
 
-                    // Clone section
                     VStack(alignment: .leading, spacing: 8) {
                         if showCloneField {
                             HStack(spacing: 8) {
@@ -477,7 +400,6 @@ struct ChangeProjectSheet: View {
                             .foregroundStyle(.red)
                     }
 
-                    // Recent projects
                     if !recentProjects.isEmpty {
                         Divider()
                         VStack(alignment: .leading, spacing: 8) {
