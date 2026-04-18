@@ -1111,8 +1111,15 @@ struct SidebarView: View {
                 )
                 .contextMenu {
                     Button("Start Chat") {
-                        expandedGroupIds.insert(group.id)
-                        selectOrCreateGroupChat(group)
+                        if let convoId = appState.startGroupChat(
+                            group: group,
+                            projectDirectory: windowState.projectDirectory,
+                            projectId: nil,
+                            modelContext: modelContext
+                        ) {
+                            expandedGroupIds.insert(group.id)
+                            windowState.selectedConversationId = convoId
+                        }
                     }
                     .accessibilityIdentifier("sidebar.groupContext.startChat.\(group.id.uuidString)")
 
