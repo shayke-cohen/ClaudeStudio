@@ -15,6 +15,8 @@ struct QuickActionsSettingsView: View {
                         Image(systemName: "line.3.horizontal")
                             .frame(width: 16)
                             .foregroundStyle(.tertiary)
+                            .accessibilityLabel("Drag to reorder \(config.name)")
+                            .accessibilityIdentifier("settings.quickActions.dragHandle.\(config.id.uuidString)")
 
                         Image(systemName: config.symbolName)
                             .frame(width: 20)
@@ -82,7 +84,7 @@ struct QuickActionsSettingsView: View {
                     set: { store.setUsageOrderEnabled($0) }
                 ))
                 .help("Reorders chips by how often you use them after \(QuickActionConfig.usageThreshold) total uses.")
-                .xrayId("settings.quickActions.usageOrderToggle")
+                .accessibilityIdentifier("settings.quickActions.usageOrderToggle")
             }
         }
         .formStyle(.grouped)
