@@ -1,15 +1,17 @@
 import SwiftUI
+import Observation
 
+@MainActor
 struct QuickActionsSettingsView: View {
-    @ObservedObject private var store = QuickActionStore.shared
     @State private var editingConfig: QuickActionConfig? = nil
     @State private var showAddSheet = false
     @State private var showResetConfirmation = false
 
     var body: some View {
-        Form {
+        let store = QuickActionStore.shared
+        return Form {
             Section {
-                ForEach(store.configs) { config in
+                ForEach(store.configs) { (config: QuickActionConfig) in
                     HStack(spacing: 10) {
                         Image(systemName: config.symbolName)
                             .frame(width: 20)
@@ -20,7 +22,7 @@ struct QuickActionsSettingsView: View {
 
                         Button("Edit") { editingConfig = config }
                             .buttonStyle(.plain)
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                             .accessibilityIdentifier("settings.quickActions.editButton.\(config.id.uuidString)")
 
                         Button {

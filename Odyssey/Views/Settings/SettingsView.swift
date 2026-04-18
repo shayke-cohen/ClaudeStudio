@@ -6,6 +6,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case models
     case connectors
     case chatDisplay
+    case quickActions
     case configuration
     case labs
     case advanced
@@ -21,6 +22,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .models: "Models"
         case .connectors: "Connectors"
         case .chatDisplay: "Chat Display"
+        case .quickActions: "Quick Actions"
         case .configuration: "Configuration"
         case .labs: "Labs"
         case .advanced: "Advanced"
@@ -36,6 +38,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .models: "Cloud defaults and local model setup"
         case .connectors: "OAuth setup, broker config, and tokens"
         case .chatDisplay: "Rendering and conversation chrome"
+        case .quickActions: "Customize the shortcut chips in the chat bar"
         case .configuration: "Manage agents, groups, skills, MCPs, templates, and permissions"
         case .labs: "Experimental and power-user feature flags"
         case .advanced: "Sidecar connection, ports, paths, and diagnostics"
@@ -51,6 +54,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .models: "cpu"
         case .connectors: "link.badge.plus"
         case .chatDisplay: "bubble.left.and.text.bubble.right"
+        case .quickActions: "rectangle.grid.1x2"
         case .configuration: "gearshape.2"
         case .labs: "flask"
         case .advanced: "wrench.and.screwdriver"
@@ -66,6 +70,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .models: "settings.tab.models"
         case .connectors: "settings.tab.connectors"
         case .chatDisplay: "settings.tab.chatDisplay"
+        case .quickActions: "settings.tab.quickActions"
         case .configuration: "settings.tab.configuration"
         case .labs: "settings.tab.labs"
         case .advanced: "settings.tab.advanced"
@@ -214,6 +219,8 @@ struct SettingsView: View {
                 ConnectorsSettingsTab()
             case .chatDisplay:
                 ChatDisplaySettingsTab()
+            case .quickActions:
+                QuickActionsSettingsView()
             case .configuration:
                 ConfigurationSettingsTab(
                     initialSection: pendingConfigSection,
@@ -253,7 +260,6 @@ private struct GeneralSettingsTab: View {
     @Query private var conversations: [Conversation]
     @AppStorage(AppSettings.appearanceKey, store: AppSettings.store) private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppSettings.textSizeKey, store: AppSettings.store) private var textSize = AppSettings.defaultTextSize
-    @AppStorage(AppSettings.quickActionUsageOrderKey, store: AppSettings.store) private var quickActionUsageOrder = true
     @AppStorage(AppSettings.defaultMaxTurnsKey, store: AppSettings.store) private var defaultMaxTurns = AppSettings.defaultMaxTurns
     @AppStorage(AppSettings.defaultMaxBudgetKey, store: AppSettings.store) private var defaultMaxBudget = AppSettings.defaultMaxBudget
     @State private var showDeleteHistoryConfirmation = false
@@ -293,12 +299,6 @@ private struct GeneralSettingsTab: View {
                 Text("Use View > Increase Text Size or the shortcuts ⌘+ / ⌘- to adjust it anytime.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            Section("Quick Actions") {
-                Toggle("Order quick actions by usage", isOn: $quickActionUsageOrder)
-                    .xrayId("settings.general.quickActionUsageOrderToggle")
-                    .help("When enabled, quick action buttons reorder based on how often you use them (after 10 uses). When disabled, uses the default popularity order.")
             }
 
             Section("Runtime Defaults") {
