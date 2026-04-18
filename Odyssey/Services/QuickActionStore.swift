@@ -9,12 +9,46 @@ final class QuickActionStore: ObservableObject {
     @Published var usageOrderEnabled: Bool
     @Published private var usageVersion: Int = 0
 
+    let configDirectory: URL
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = AppSettings.store) {
+    private var watchFileDescriptor: Int32 = -1
+    private var watchSource: DispatchSourceFileSystemObject?
+    private var reloadWorkItem: DispatchWorkItem?
+
+    init(
+        configDirectory: URL = ConfigFileManager.configDirectory,
+        defaults: UserDefaults = AppSettings.store
+    ) {
+        self.configDirectory = configDirectory
         self.defaults = defaults
         self.usageOrderEnabled = (defaults.object(forKey: AppSettings.quickActionUsageOrderKey) as? Bool) ?? true
-        self.configs = Self.loadConfigs(from: defaults)
+
+        // Load order: file → migrate from UserDefaults → factory defaults + seed file
+        let fileURL = configDirectory.appendingPathComponent("quick-actions.json")
+        if let data = try? Data(contentsOf: fileURL),
+           let loaded = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
+           !loaded.isEmpty {
+            self.configs = loaded
+        } else {
+            let legacyKey = "odyssey.chat.quickActionConfigs"
+            if let data = defaults.data(forKey: legacyKey),
+               let legacy = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
+               !legacy.isEmpty {
+                self.configs = legacy
+                defaults.removeObject(forKey: legacyKey)
+                try? Self.writeFile(legacy, to: fileURL, in: configDirectory)
+            } else {
+                self.configs = QuickActionConfig.defaults
+                try? Self.writeFile(QuickActionConfig.defaults, to: fileURL, in: configDirectory)
+            }
+        }
+
+        startDirectoryWatcher()
+    }
+
+    deinit {
+        watchSource?.cancel()
     }
 
     // MARK: - Derived order (used by ChatView)
@@ -80,22 +114,56 @@ final class QuickActionStore: ObservableObject {
     // MARK: - Persistence
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(configs) else { return }
-        defaults.set(data, forKey: AppSettings.quickActionConfigsKey)
+        let fileURL = configDirectory.appendingPathComponent("quick-actions.json")
+        try? Self.writeFile(configs, to: fileURL, in: configDirectory)
+    }
+
+    private static func writeFile(_ configs: [QuickActionConfig], to url: URL, in directory: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(configs)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
     }
 
     private func loadUsageCounts() -> [String: Int] {
         (defaults.dictionary(forKey: AppSettings.quickActionUsageCountsKey) as? [String: Int]) ?? [:]
     }
 
-    private static func loadConfigs(from defaults: UserDefaults) -> [QuickActionConfig] {
-        guard
-            let data = defaults.data(forKey: AppSettings.quickActionConfigsKey),
-            let configs = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
-            !configs.isEmpty
-        else {
-            return QuickActionConfig.defaults
+    // MARK: - Directory watcher
+
+    private func startDirectoryWatcher() {
+        try? FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        let fd = open(configDirectory.path, O_EVTONLY)
+        guard fd != -1 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: .write,
+            queue: DispatchQueue.global(qos: .background)
+        )
+        source.setEventHandler { [weak self] in self?.scheduleFileReload() }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+
+        watchFileDescriptor = fd
+        watchSource = source
+    }
+
+    private func scheduleFileReload() {
+        reloadWorkItem?.cancel()
+        let fileURL = configDirectory.appendingPathComponent("quick-actions.json")
+        let item = DispatchWorkItem {
+            guard let data = try? Data(contentsOf: fileURL),
+                  let loaded = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
+                  !loaded.isEmpty
+            else { return }
+            Task { @MainActor [weak self] in
+                guard let self, loaded != self.configs else { return }
+                self.configs = loaded
+            }
         }
-        return configs
+        reloadWorkItem = item
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.3, execute: item)
     }
 }

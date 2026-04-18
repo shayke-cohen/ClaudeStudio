@@ -5,18 +5,23 @@ import XCTest
 final class QuickActionStoreTests: XCTestCase {
     private var suiteName: String!
     private var testDefaults: UserDefaults!
+    private var tempDir: URL!
     private var store: QuickActionStore!
 
     override func setUp() async throws {
         suiteName = "test.quickActions.\(UUID().uuidString)"
         testDefaults = UserDefaults(suiteName: suiteName)!
-        store = QuickActionStore(defaults: testDefaults)
+        tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        store = QuickActionStore(configDirectory: tempDir, defaults: testDefaults)
     }
 
     override func tearDown() async throws {
         testDefaults.removeSuite(named: suiteName)
+        try? FileManager.default.removeItem(at: tempDir)
         store = nil
         testDefaults = nil
+        tempDir = nil
     }
 
     // ─── Model ───────────────────────────────────────────────────
@@ -42,6 +47,11 @@ final class QuickActionStoreTests: XCTestCase {
     func testStoreLoadsDefaultsOnFirstLaunch() {
         XCTAssertEqual(store.configs.count, 10)
         XCTAssertEqual(store.configs.first?.name, "Fix It")
+    }
+
+    func testFirstLaunchSeedsFile() {
+        let fileURL = tempDir.appendingPathComponent("quick-actions.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
     }
 
     // ─── Store: CRUD ─────────────────────────────────────────────
@@ -79,7 +89,7 @@ final class QuickActionStoreTests: XCTestCase {
 
     func testPersistsAcrossReInit() {
         store.add(QuickActionConfig(name: "Persisted", prompt: "p", symbolName: "star"))
-        let store2 = QuickActionStore(defaults: testDefaults)
+        let store2 = QuickActionStore(configDirectory: tempDir, defaults: testDefaults)
         XCTAssertTrue(store2.configs.contains(where: { $0.name == "Persisted" }))
     }
 
@@ -89,6 +99,27 @@ final class QuickActionStoreTests: XCTestCase {
         store.resetToDefaults()
         XCTAssertEqual(store.configs.count, 10)
         XCTAssertEqual(store.configs.first?.name, "Fix It")
+    }
+
+    // ─── Store: UserDefaults migration ───────────────────────────
+
+    func testMigratesFromUserDefaults() throws {
+        let migrationSuite = "test.migration.\(UUID().uuidString)"
+        let migrationDefaults = UserDefaults(suiteName: migrationSuite)!
+        defer { migrationDefaults.removeSuite(named: migrationSuite) }
+
+        let migrationDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: migrationDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: migrationDir) }
+
+        let custom = [QuickActionConfig(name: "Old Chip", prompt: "old", symbolName: "star")]
+        migrationDefaults.set(try JSONEncoder().encode(custom), forKey: "odyssey.chat.quickActionConfigs")
+
+        let migratedStore = QuickActionStore(configDirectory: migrationDir, defaults: migrationDefaults)
+
+        XCTAssertEqual(migratedStore.configs.first?.name, "Old Chip")
+        XCTAssertNil(migrationDefaults.data(forKey: "odyssey.chat.quickActionConfigs"), "Legacy key must be removed after migration")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: migrationDir.appendingPathComponent("quick-actions.json").path))
     }
 
     // ─── Store: usage ordering ────────────────────────────────────
