@@ -153,6 +153,8 @@ struct SidebarView: View {
     @State private var searchText = ""
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
+    @State private var expandedArchivedAgentIds: Set<UUID> = []
+    @State private var expandedArchivedGroupIds: Set<UUID> = []
     @State private var showingAgentScheduleEditor = false
     @State private var agentScheduleDraft = ScheduledMissionDraft(
         name: "",
@@ -332,6 +334,11 @@ struct SidebarView: View {
                     .environmentObject(appState)
                     .environment(windowState)
             }
+            .onChange(of: windowState.sidebarRevealConversationId) { _, convId in
+                guard let convId else { return }
+                expandForReveal(convId)
+                windowState.sidebarRevealConversationId = nil
+            }
     }
 
     private var sidebarList: some View {
@@ -372,17 +379,18 @@ struct SidebarView: View {
         }
         .frame(minWidth: 240)
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
+            ToolbarItem(placement: .automatic) {
                 Button {
                     ws.showScheduleLibrary = true
                 } label: {
-                    Label("Schedules", systemImage: "clock")
+                    Image(systemName: "clock")
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .help("Schedules (⌘⇧S)")
                 .xrayId("sidebar.schedulesButton")
                 .accessibilityLabel("Schedules")
-
+            }
+            ToolbarItem(placement: .automatic) {
                 ZStack {
                     Button("") { }
                         .frame(width: 0, height: 0).opacity(0)
@@ -435,6 +443,7 @@ struct SidebarView: View {
             }
         }
     }
+
 
     private var sortedProjects: [Project] {
         projects.sorted { lhs, rhs in
@@ -1174,7 +1183,15 @@ struct SidebarView: View {
             onViewSessionHistory: {
                 if expandedGroupIds.contains(group.id) { expandedGroupIds.remove(group.id) }
                 else { expandedGroupIds.insert(group.id) }
-            }
+            },
+            onCloseConversation: { conv in closeConversation(conv) },
+            isArchivedExpanded: Binding(
+                get: { expandedArchivedGroupIds.contains(group.id) },
+                set: { expanded in
+                    if expanded { expandedArchivedGroupIds.insert(group.id) }
+                    else { expandedArchivedGroupIds.remove(group.id) }
+                }
+            )
         )
     }
 
@@ -1559,7 +1576,15 @@ struct SidebarView: View {
                 } else {
                     expandedAgentIds.insert(agent.id)
                 }
-            }
+            },
+            onCloseConversation: { conv in closeConversation(conv) },
+            isArchivedExpanded: Binding(
+                get: { expandedArchivedAgentIds.contains(agent.id) },
+                set: { expanded in
+                    if expanded { expandedArchivedAgentIds.insert(agent.id) }
+                    else { expandedArchivedAgentIds.remove(agent.id) }
+                }
+            )
         )
     }
 
@@ -1880,6 +1905,27 @@ struct SidebarView: View {
             .compactMap { $0.conversations.first }
             .filter { $0.sourceGroupId == nil && $0.isArchived && inGlobalScope($0, project: project) }
             .filter { seen.insert($0.id).inserted }
+    }
+
+    private func expandForReveal(_ conversationId: UUID) {
+        guard let convo = conversations.first(where: { $0.id == conversationId }) else { return }
+        let isArchived = convo.isArchived
+
+        if let groupId = convo.sourceGroupId {
+            expandedGroupIds.insert(groupId)
+            if isArchived { expandedArchivedGroupIds.insert(groupId) }
+            return
+        }
+
+        for agent in agents {
+            let inActive = conversationsForAgent(agent).contains { $0.id == conversationId }
+            let inArchived = archivedConversationsForAgent(agent).contains { $0.id == conversationId }
+            if inActive || inArchived {
+                expandedAgentIds.insert(agent.id)
+                if inArchived { expandedArchivedAgentIds.insert(agent.id) }
+                return
+            }
+        }
     }
 
     private func schedulesForProject(_ project: Project) -> [ScheduledMission] {
