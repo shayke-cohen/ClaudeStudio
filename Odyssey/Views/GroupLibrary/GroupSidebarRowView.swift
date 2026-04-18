@@ -11,6 +11,8 @@ struct GroupSidebarRowView: View {
     let onSelectConversation: (Conversation) -> Void
     var onSelectGroup: (() -> Void)?
     var onEdit: (() -> Void)?
+    var onDuplicate: (() -> Void)?
+    var onRename: ((Conversation) -> Void)?
     var selectedConversationId: UUID?
     var hasActiveSession: Bool = false
     var onDeleteConversation: ((Conversation) -> Void)?
@@ -61,6 +63,7 @@ struct GroupSidebarRowView: View {
                         onSelectConversation(conv)
                     }
                     Divider()
+                    Button("Rename\u{2026}") { onRename?(conv) }
                     Button("Archive") {
                         conv.isArchived = true
                         conv.isPinned = false
