@@ -10,11 +10,13 @@ interface SseSubscriber {
  * Each subscriber is associated with a session ID and receives events
  * filtered to that session.
  *
- * Note: SSE is fire-and-forget — no replay on reconnect.
+ * Events are buffered per session (up to EVENT_BUFFER_MAX entries) and can be replayed via getEventHistory().
  */
 export class SseManager {
   private subscribers = new Map<string, Set<SseSubscriber>>();
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly eventBuffers = new Map<string, SidecarEvent[]>();
+  private static readonly EVENT_BUFFER_MAX = 200;
 
   constructor() {
     // Send keepalive to all subscribers every 30s
@@ -68,6 +70,8 @@ export class SseManager {
     const sessionId = this.extractSessionId(event);
     if (!sessionId) return;
 
+    this.pushToEventBuffer(sessionId, event);
+
     const subs = this.subscribers.get(sessionId);
     if (!subs || subs.size === 0) return;
 
@@ -91,6 +95,15 @@ export class SseManager {
     return count;
   }
 
+  getEventHistory(sessionId: string, limit = 100): SidecarEvent[] {
+    const buf = this.eventBuffers.get(sessionId) ?? [];
+    return buf.slice(-limit);
+  }
+
+  clearEventBuffer(sessionId: string): void {
+    this.eventBuffers.delete(sessionId);
+  }
+
   close(): void {
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     for (const [, subs] of this.subscribers) {
@@ -101,6 +114,14 @@ export class SseManager {
       }
     }
     this.subscribers.clear();
+    this.eventBuffers.clear();
+  }
+
+  private pushToEventBuffer(sessionId: string, event: SidecarEvent): void {
+    const buf = this.eventBuffers.get(sessionId) ?? [];
+    buf.push(event);
+    if (buf.length > SseManager.EVENT_BUFFER_MAX) buf.shift();
+    this.eventBuffers.set(sessionId, buf);
   }
 
   private extractSessionId(event: SidecarEvent): string | undefined {

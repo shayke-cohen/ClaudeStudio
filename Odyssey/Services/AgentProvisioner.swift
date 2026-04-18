@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 @MainActor
@@ -23,11 +24,13 @@ final class AgentProvisioner {
         providerOverride: String? = nil,
         modelOverride: String? = nil
     ) -> (AgentConfig, Session) {
+        let resolvedDir = resolveWorkingDirectory(override: workingDirOverride, agent: agent)
+        ensureOdysseyHomeDir(resolvedDir)
         let session = Session(
             agent: agent,
             mission: mission,
             mode: mode,
-            workingDirectory: resolveWorkingDirectory(override: workingDirOverride)
+            workingDirectory: resolvedDir
         )
         session.provider = AgentDefaults.resolveEffectiveProvider(
             sessionOverride: providerOverride,
@@ -44,10 +47,30 @@ final class AgentProvisioner {
 
     func config(for session: Session) -> AgentConfig? {
         guard let agent = session.agent else { return nil }
-        return buildConfig(agent: agent, session: session)
+        let wd = effectiveWorkingDirectory(agent: agent, session: session)
+        return buildConfig(agent: agent, session: session, workingDirectory: wd)
     }
 
-    private func buildConfig(agent: Agent, session: Session) -> AgentConfig {
+    /// Returns the working directory to use for a session, honoring agent home dirs
+    /// over any project dir stored on the session, but preserving explicit worktree paths.
+    private func effectiveWorkingDirectory(agent: Agent, session: Session) -> String {
+        let worktreesBase = NSString(string: "~/.odyssey/worktrees").expandingTildeInPath
+        let groupsBase = NSString(string: "~/.odyssey/groups").expandingTildeInPath
+        let isWorktree = session.workingDirectory.hasPrefix(worktreesBase + "/")
+        let isGroupDir = session.workingDirectory.hasPrefix(groupsBase + "/")
+        if isGroupDir {
+            ensureOdysseyHomeDir(session.workingDirectory)
+            return session.workingDirectory
+        }
+        if !isWorktree, let agentDir = agent.defaultWorkingDirectory, !agentDir.isEmpty {
+            let path = NSString(string: agentDir).expandingTildeInPath
+            ensureOdysseyHomeDir(path)
+            return path
+        }
+        return session.workingDirectory
+    }
+
+    private func buildConfig(agent: Agent, session: Session, workingDirectory: String? = nil) -> AgentConfig {
         let skills = resolveSkills(ids: agent.skillIds)
         let mcpServers = filteredMCPServers(
             resolveMCPServers(ids: resolveEffectiveMCPServerIDs(agent: agent, skills: skills)),
@@ -64,6 +87,8 @@ final class AgentProvisioner {
         if let mission = session.mission {
             systemPrompt += "\n\n# Current Mission\n\(mission)\n"
         }
+
+        let resolvedWD = workingDirectory ?? session.workingDirectory
 
         return AgentConfig(
             name: agent.name,
@@ -89,7 +114,7 @@ final class AgentProvisioner {
             maxTurns: agent.maxTurns,
             maxBudget: agent.maxBudget,
             maxThinkingTokens: agent.maxThinkingTokens,
-            workingDirectory: session.workingDirectory,
+            workingDirectory: resolvedWD,
             skills: skills.map { AgentConfig.SkillContent(name: $0.name, content: $0.content) },
             interactive: runtimeSettings.interactive ? true : nil,
             instancePolicy: runtimeSettings.instancePolicy,
@@ -133,9 +158,32 @@ final class AgentProvisioner {
         }
     }
 
-    private func resolveWorkingDirectory(override: String?) -> String {
-        if let explicit = override, !explicit.isEmpty { return explicit }
-        return NSHomeDirectory() // defensive fallback — should always have override from worktree
+    private func resolveWorkingDirectory(override: String?, agent: Agent) -> String {
+        if let explicit = override, !explicit.isEmpty {
+            return NSString(string: explicit).expandingTildeInPath
+        }
+        if let agentDefault = agent.defaultWorkingDirectory, !agentDefault.isEmpty {
+            return NSString(string: agentDefault).expandingTildeInPath
+        }
+        return NSHomeDirectory()
+    }
+
+    private func ensureOdysseyHomeDir(_ path: String) {
+        let odysseyHome = NSString(string: "~/.odyssey").expandingTildeInPath
+        guard path.hasPrefix(odysseyHome + "/") else { return }
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: path) {
+            try? fm.createDirectory(atPath: path, withIntermediateDirectories: true)
+        }
+        let gitDir = (path as NSString).appendingPathComponent(".git")
+        guard !fm.fileExists(atPath: gitDir) else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["init", path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+        process.waitUntilExit()
     }
 
     private func resolveSkills(ids: [UUID]) -> [Skill] {

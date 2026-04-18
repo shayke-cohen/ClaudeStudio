@@ -201,6 +201,7 @@ struct ScheduleLibraryView: View {
         copy.targetAgentId = schedule.targetAgentId
         copy.targetGroupId = schedule.targetGroupId
         copy.targetConversationId = schedule.targetConversationId
+        copy.targetProjectId = schedule.targetProjectId
         copy.sourceConversationId = schedule.sourceConversationId
         copy.sourceMessageId = schedule.sourceMessageId
         copy.runMode = schedule.runMode
@@ -232,6 +233,8 @@ struct ScheduleLibraryView: View {
             return groups.first(where: { $0.id == schedule.targetGroupId })?.name ?? "Group"
         case .conversation:
             return conversations.first(where: { $0.id == schedule.targetConversationId })?.topic ?? "Conversation"
+        case .project:
+            return "Project"
         }
     }
 

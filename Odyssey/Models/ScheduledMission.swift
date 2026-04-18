@@ -5,12 +5,14 @@ enum ScheduledMissionTargetKind: String, Codable, CaseIterable, Sendable {
     case agent
     case group
     case conversation
+    case project
 
     var displayName: String {
         switch self {
         case .agent: return "Agent"
         case .group: return "Group"
         case .conversation: return "Conversation"
+        case .project: return "Project"
         }
     }
 }
@@ -89,6 +91,7 @@ final class ScheduledMission {
     var targetAgentId: UUID?
     var targetGroupId: UUID?
     var targetConversationId: UUID?
+    var targetProjectId: UUID?
 
     var projectDirectory: String
     var promptTemplate: String

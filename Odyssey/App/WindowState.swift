@@ -259,6 +259,7 @@ final class WindowState {
     var showNewSessionSheet = false
     var showNewGroupThreadSheet = false
     var showScheduleLibrary = false
+    var showAllSchedules = false
     var showPeerNetwork = false
     var showAgentComms = false
     var showSharedRoomInviteSheet = false

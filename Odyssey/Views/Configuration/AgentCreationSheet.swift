@@ -44,6 +44,8 @@ struct AgentCreationSheet: View {
     @State private var maxTurns: String = ""
     @State private var maxBudget: String = ""
     @State private var instancePolicy: AgentInstancePolicy = .agentDefault
+    @State private var homeDirectory: String = ""
+    @State private var hasCustomHomeDir: Bool = false
 
     // MARK: Capability pickers
 
@@ -71,6 +73,9 @@ struct AgentCreationSheet: View {
             _selectedSkillIds = State(initialValue: Set(a.skillIds))
             _selectedMCPIds = State(initialValue: Set(a.extraMCPServerIds))
             _mode = State(initialValue: .manual)
+            let existingHome = a.defaultWorkingDirectory ?? Agent.defaultHomePath(for: a.name)
+            _homeDirectory = State(initialValue: existingHome)
+            _hasCustomHomeDir = State(initialValue: existingHome != Agent.defaultHomePath(for: a.name))
         }
     }
 
@@ -194,6 +199,33 @@ struct AgentCreationSheet: View {
             Section("Identity") {
                 TextField("Name", text: $name)
                     .accessibilityIdentifier("agentCreation.nameField")
+                    .onChange(of: name) { _, newName in
+                        if !hasCustomHomeDir {
+                            homeDirectory = Agent.defaultHomePath(for: newName)
+                        }
+                    }
+
+                HStack {
+                    TextField("Home Directory", text: $homeDirectory)
+                        .accessibilityIdentifier("agentCreation.homeDirectoryField")
+                        .onChange(of: homeDirectory) { _, newDir in
+                            hasCustomHomeDir = newDir != Agent.defaultHomePath(for: name)
+                        }
+                    Button("Browse…") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = false
+                        panel.canChooseDirectories = true
+                        panel.allowsMultipleSelection = false
+                        panel.prompt = "Select"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            homeDirectory = url.path
+                            hasCustomHomeDir = true
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("agentCreation.homeDirectoryBrowseButton")
+                }
 
                 TextField("Description", text: $agentDescription, axis: .vertical)
                     .lineLimit(2...4)
@@ -526,6 +558,7 @@ struct AgentCreationSheet: View {
                 maxTurns: Int(maxTurns),
                 maxBudget: Double(maxBudget),
                 instancePolicy: instancePolicy,
+                homeDirectory: homeDirectory.isEmpty ? Agent.defaultHomePath(for: name) : homeDirectory,
                 skillIds: Array(selectedSkillIds),
                 mcpIds: Array(selectedMCPIds),
                 modelContext: modelContext,
@@ -554,6 +587,7 @@ func performAgentSave(
     maxTurns: Int?,
     maxBudget: Double?,
     instancePolicy: AgentInstancePolicy,
+    homeDirectory: String? = nil,
     skillIds: [UUID] = [],
     mcpIds: [UUID] = [],
     modelContext: ModelContext,
@@ -589,7 +623,7 @@ func performAgentSave(
         maxThinkingTokens: nil,
         instancePolicy: instancePolicy == .agentDefault ? nil : instancePolicy.rawValue,
         instancePolicyPoolMax: nil,
-        defaultWorkingDirectory: Agent.defaultHomePath(for: name),
+        defaultWorkingDirectory: homeDirectory ?? Agent.defaultHomePath(for: name),
         isShared: nil
     )
 
@@ -623,6 +657,7 @@ func performAgentSave(
     agent.maxTurns = maxTurns
     agent.maxBudget = maxBudget
     agent.instancePolicy = instancePolicy
+    agent.defaultWorkingDirectory = homeDirectory ?? Agent.defaultHomePath(for: name)
     agent.skillIds = skillIds
     agent.extraMCPServerIds = mcpIds
     agent.updatedAt = Date()

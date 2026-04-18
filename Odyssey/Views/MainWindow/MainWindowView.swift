@@ -111,6 +111,7 @@ struct MainWindowView: View {
                             Label("Schedules", systemImage: "clock.badge")
                         }
                         .keyboardShortcut("s", modifiers: [.command, .shift])
+                        .xrayId("mainWindow.workspaceMenu.schedulesButton")
 
                         if showFederation {
                             Button {
@@ -119,6 +120,7 @@ struct MainWindowView: View {
                                 Label("Invites", systemImage: "person.badge.plus")
                             }
                             .keyboardShortcut("i", modifiers: [.command, .shift])
+                            .xrayId("mainWindow.workspaceMenu.invitesButton")
                         }
 
                         Button {
@@ -127,6 +129,7 @@ struct MainWindowView: View {
                             Label("Agent Comms", systemImage: "antenna.radiowaves.left.and.right")
                         }
                         .keyboardShortcut("a", modifiers: [.command, .shift])
+                        .xrayId("mainWindow.workspaceMenu.agentCommsButton")
 
                         if showPeerNetwork {
                             Button {
@@ -135,6 +138,7 @@ struct MainWindowView: View {
                                 Label("Peer Network", systemImage: "network")
                             }
                             .keyboardShortcut("p", modifiers: [.command, .shift])
+                            .xrayId("mainWindow.workspaceMenu.peerNetworkButton")
                         }
 
                         if showDebugLogs {
@@ -144,6 +148,7 @@ struct MainWindowView: View {
                                 Label("Debug Log", systemImage: "ladybug")
                             }
                             .keyboardShortcut("d", modifiers: [.command, .shift])
+                            .xrayId("mainWindow.workspaceMenu.debugLogButton")
                         }
                     } label: {
                         MainToolbarActionLabel(title: "Workspace", systemImage: "rectangle.grid.1x2")
@@ -176,6 +181,10 @@ struct MainWindowView: View {
         .sheet(isPresented: $ws.showScheduleLibrary) {
             ScheduleLibraryView()
                 .frame(minWidth: 900, minHeight: 560)
+        }
+        .sheet(isPresented: $ws.showAllSchedules) {
+            GlobalSchedulesView()
+                .environmentObject(appState)
         }
         .sheet(isPresented: $ws.showAgentComms) {
             AgentCommsView()
@@ -392,7 +401,8 @@ struct MainWindowView: View {
 
     private func startSessionWithAgent(_ agent: Agent) {
         let session = Session(agent: agent, mode: .interactive)
-        session.workingDirectory = agent.defaultWorkingDirectory ?? windowState.projectDirectory
+        let rawDir = agent.defaultWorkingDirectory ?? windowState.projectDirectory
+        session.workingDirectory = NSString(string: rawDir).expandingTildeInPath
         let conversation = Conversation(
             topic: agent.name,
             sessions: [session],

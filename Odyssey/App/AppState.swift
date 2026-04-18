@@ -47,6 +47,8 @@ final class AppState: ObservableObject {
     @Published var generateTemplateError: String?
     /// Set to true to open the "Add to Residents" sheet. AppXray tests use setState to set this.
     @Published var showAddResidentSheet: Bool = false
+    /// Set to true to open the Add Agents to Chat sheet in the active ChatView. AppXray tests use setState to set this.
+    @Published var showAddAgentsToChatSheet: Bool = false
     @Published var pendingQuestions: [String: AgentQuestion] = [:]
     @Published var pendingConfirmations: [String: AgentConfirmation] = [:]
     @Published var progressTrackers: [String: ProgressTracker] = [:]
@@ -504,11 +506,12 @@ final class AppState: ObservableObject {
         let mission = (trimmedMissionOverride?.isEmpty == false ? trimmedMissionOverride : nil) ?? group.defaultMission
 
         for agent in resolvedAgents {
+            let groupDir = projectDirectory.isEmpty ? (group.defaultWorkingDirectory ?? "") : projectDirectory
             let (_, session) = provisioner.provision(
                 agent: agent,
                 mission: mission,
                 mode: sessionMode(for: executionMode),
-                workingDirOverride: projectDirectory
+                workingDirOverride: groupDir.isEmpty ? nil : groupDir
             )
             session.conversations = [conversation]
             conversation.sessions.append(session)
@@ -1296,16 +1299,8 @@ final class AppState: ObservableObject {
             handleInviteAgent(sessionId: sessionId, agentName: agentName)
             persistAgentInvite(sessionId: sessionId, invitedAgent: agentName, invitedBy: "Group")
 
-        case .taskCreated(let sessionId, let task):
-            persistTask(task, sessionId: sessionId)
-            persistTaskEvent(sessionId: sessionId, task: task, action: "created")
-
-        case .taskUpdated(let sessionId, let task):
-            persistTask(task, sessionId: sessionId)
-            persistTaskEvent(sessionId: sessionId, task: task, action: task.status)
-
-        case .taskListResult(let tasks):
-            for task in tasks { persistTask(task, sessionId: nil) }
+        case .taskCreated, .taskUpdated, .taskListResult:
+            break
 
         case .connectorListResult:
             break
@@ -1371,7 +1366,6 @@ final class AppState: ObservableObject {
             disconnectTimer?.invalidate()
             disconnectTimer = nil
             Task { await recoverSessions() }
-            sendToSidecar(.taskList(filter: nil))
             registerAgentDefinitions()
             registerConnections()
             if let ctx = modelContext {
@@ -1524,205 +1518,6 @@ final class AppState: ObservableObject {
         ))
 
         Log.appState.info("handleInviteAgent: added '\(agentName, privacy: .public)' to conversation \(conversation.id, privacy: .public)")
-    }
-
-    // MARK: - Task Board
-
-    private func persistTask(_ wire: TaskWireSwift, sessionId: String?) {
-        guard let ctx = modelContext else { return }
-        guard let taskId = UUID(uuidString: wire.id) else { return }
-        let projectId = wire.projectId.flatMap(UUID.init) ?? inferredProjectId(for: wire, sessionId: sessionId, in: ctx)
-        let assignedAgentUUID = wire.assignedAgentId.flatMap(UUID.init)
-        let assignedAgentName = wire.assignedAgentName ?? (assignedAgentUUID == nil ? wire.assignedAgentId : nil)
-
-        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { t in t.id == taskId })
-
-        if let existing = try? ctx.fetch(descriptor).first {
-            if let projectId {
-                existing.projectId = projectId
-            }
-            existing.title = wire.title
-            existing.taskDescription = wire.description
-            existing.status = TaskStatus(rawValue: wire.status) ?? .ready
-            existing.priority = TaskPriority(rawValue: wire.priority) ?? .medium
-            existing.labels = wire.labels
-            existing.result = wire.result
-            existing.parentTaskId = wire.parentTaskId.flatMap(UUID.init)
-            existing.assignedAgentId = assignedAgentUUID
-            existing.assignedAgentName = assignedAgentName
-            existing.assignedGroupId = wire.assignedGroupId.flatMap(UUID.init)
-            existing.conversationId = wire.conversationId.flatMap(UUID.init)
-            existing.startedAt = wire.startedAt.flatMap { ISO8601DateFormatter().date(from: $0) }
-            existing.completedAt = wire.completedAt.flatMap { ISO8601DateFormatter().date(from: $0) }
-        } else {
-            let item = TaskItem(
-                title: wire.title,
-                taskDescription: wire.description,
-                priority: TaskPriority(rawValue: wire.priority) ?? .medium,
-                labels: wire.labels,
-                status: TaskStatus(rawValue: wire.status) ?? .backlog
-            )
-            item.id = taskId
-            item.projectId = projectId
-            item.parentTaskId = wire.parentTaskId.flatMap(UUID.init)
-            item.assignedAgentId = assignedAgentUUID
-            item.assignedAgentName = assignedAgentName
-            item.assignedGroupId = wire.assignedGroupId.flatMap(UUID.init)
-            item.conversationId = wire.conversationId.flatMap(UUID.init)
-            item.result = wire.result
-            item.startedAt = wire.startedAt.flatMap { ISO8601DateFormatter().date(from: $0) }
-            item.completedAt = wire.completedAt.flatMap { ISO8601DateFormatter().date(from: $0) }
-            ctx.insert(item)
-        }
-        try? ctx.save()
-    }
-
-    private func inferredProjectId(
-        for wire: TaskWireSwift,
-        sessionId: String?,
-        in modelContext: ModelContext
-    ) -> UUID? {
-        if let conversationId = wire.conversationId.flatMap(UUID.init) {
-            let descriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == conversationId })
-            if let conversation = try? modelContext.fetch(descriptor).first {
-                return conversation.projectId
-            }
-        }
-
-        if let sessionId, let sessionUUID = UUID(uuidString: sessionId) {
-            let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.id == sessionUUID })
-            if let session = try? modelContext.fetch(descriptor).first {
-                return session.conversations.first?.projectId
-            }
-        }
-
-        return nil
-    }
-
-    func createTask(
-        title: String,
-        description: String,
-        priority: TaskPriority,
-        labels: [String],
-        markReady: Bool,
-        projectId: UUID?
-    ) {
-        let id = UUID()
-        let status: TaskStatus = markReady ? .ready : .backlog
-        let now = ISO8601DateFormatter().string(from: Date())
-
-        let wire = TaskWireSwift(
-            id: id.uuidString,
-            projectId: projectId?.uuidString,
-            title: title,
-            description: description,
-            status: status.rawValue,
-            priority: priority.rawValue,
-            labels: labels,
-            result: nil,
-            parentTaskId: nil,
-            assignedAgentId: nil,
-            assignedAgentName: nil,
-            assignedGroupId: nil,
-            conversationId: nil,
-            createdAt: now,
-            startedAt: nil,
-            completedAt: nil
-        )
-        sendToSidecar(.taskCreate(task: wire))
-        persistTask(wire, sessionId: nil)
-    }
-
-    func updateTaskStatus(_ task: TaskItem, status: TaskStatus) {
-        let wire = TaskWireSwift(
-            id: task.id.uuidString,
-            projectId: task.projectId?.uuidString,
-            title: task.title,
-            description: task.taskDescription,
-            status: status.rawValue,
-            priority: task.priority.rawValue,
-            labels: task.labels,
-            result: task.result,
-            parentTaskId: task.parentTaskId?.uuidString,
-            assignedAgentId: task.assignedAgentId?.uuidString,
-            assignedAgentName: task.assignedAgentName,
-            assignedGroupId: task.assignedGroupId?.uuidString,
-            conversationId: task.conversationId?.uuidString,
-            createdAt: ISO8601DateFormatter().string(from: task.createdAt),
-            startedAt: task.startedAt.map { ISO8601DateFormatter().string(from: $0) },
-            completedAt: task.completedAt.map { ISO8601DateFormatter().string(from: $0) }
-        )
-        sendToSidecar(.taskUpdate(taskId: task.id.uuidString, updates: wire))
-        task.status = status
-        if status == .inProgress && task.startedAt == nil { task.startedAt = Date() }
-        if status == .done || status == .failed { task.completedAt = Date() }
-        if status == .ready || status == .backlog {
-            task.startedAt = nil
-            task.completedAt = nil
-            task.assignedAgentId = nil
-            task.assignedAgentName = nil
-            task.assignedGroupId = nil
-        }
-        try? modelContext?.save()
-    }
-
-    /// Launch an Orchestrator session to process a specific task.
-    /// Marks the task as ready if it's in backlog, then creates a new Orchestrator
-    /// conversation with a prompt instructing it to claim and execute the task.
-    func runTaskWithOrchestrator(_ task: TaskItem, modelContext: ModelContext, windowState: WindowState) {
-        // Ensure task is ready for the orchestrator
-        if task.status == .backlog {
-            updateTaskStatus(task, status: .ready)
-        }
-
-        // Find the Orchestrator agent
-        let descriptor = FetchDescriptor<Agent>()
-        guard let agents = try? modelContext.fetch(descriptor),
-              let orchestrator = agents.first(where: { $0.name.lowercased() == "orchestrator" }) else {
-            Log.appState.error("runTaskWithOrchestrator: Orchestrator agent not found")
-            return
-        }
-
-        // Provision a new session
-        let provisioner = AgentProvisioner(modelContext: modelContext)
-        let (_, session) = provisioner.provision(agent: orchestrator, mission: task.title)
-
-        // Create conversation
-        let conversation = Conversation(
-            topic: "Task: \(task.title)",
-            projectId: task.projectId ?? windowState.selectedProjectId,
-            threadKind: .direct
-        )
-        let userParticipant = Participant(type: .user, displayName: "You")
-        let agentParticipant = Participant(
-            type: .agentSession(sessionId: session.id),
-            displayName: orchestrator.name
-        )
-        userParticipant.conversation = conversation
-        agentParticipant.conversation = conversation
-        conversation.participants = [userParticipant, agentParticipant]
-        session.conversations = [conversation]
-
-        modelContext.insert(session)
-        modelContext.insert(conversation)
-
-        // Link task to this conversation
-        task.conversationId = conversation.id
-        try? modelContext.save()
-        Task { await sidecarManager?.pushConversationSync(modelContext: modelContext) }
-
-        windowState.selectedConversationId = conversation.id
-
-        let prompt = """
-        Check the task board and process the task with ID: \(task.id.uuidString)
-
-        Task: \(task.title)
-        Description: \(task.taskDescription)
-        Priority: \(task.priority.rawValue)
-
-        Use task_board_claim to claim it, then plan and execute it by delegating to the appropriate agents.
-        """
-        windowState.autoSendText = prompt
     }
 
     #if DEBUG
@@ -1993,20 +1788,6 @@ final class AppState: ObservableObject {
             msg.toolInput = writtenBy
             ctx.insert(msg)
         }
-        try? ctx.save()
-    }
-
-    private func persistTaskEvent(sessionId: String?, task: TaskWireSwift, action: String) {
-        guard let ctx = modelContext, let sid = sessionId,
-              let convo = conversationForSession(sessionId: sid) else { return }
-        let statusLabel = action == "created" ? "Created" : action.capitalized
-        let msg = ConversationMessage(
-            text: "\(statusLabel): \(task.title)",
-            type: .taskEvent,
-            conversation: convo
-        )
-        msg.toolName = task.priority
-        ctx.insert(msg)
         try? ctx.save()
     }
 

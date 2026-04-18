@@ -823,6 +823,9 @@ struct ChatView: View {
                 checkForPendingResponse()
             }
         }
+        .onChange(of: appState.showAddAgentsToChatSheet) { _, newValue in
+            if newValue { showAddAgentsSheet = true }
+        }
         .onChange(of: windowState.autoSendText) { _, _ in consumeAutoSendText() }
         .onChange(of: inputText) { _, new in
             if new.hasPrefix("/"), !new.hasPrefix("//"), !new.contains(" ") {
@@ -882,7 +885,9 @@ struct ChatView: View {
         }
         .alert("Clear Messages?", isPresented: $showClearConfirmation) {
             Button("Clear All", role: .destructive) { clearMessages() }
+                .xrayId("chat.alert.clearAll.confirmButton")
             Button("Cancel", role: .cancel) {}
+                .xrayId("chat.alert.clearAll.cancelButton")
         } message: {
             Text("All messages in this conversation will be deleted. The conversation will remain.")
         }
@@ -908,7 +913,9 @@ struct ChatView: View {
         ) { result in
             handleFileImport(result)
         }
-        .sheet(isPresented: $showAddAgentsSheet) {
+        .sheet(isPresented: $showAddAgentsSheet, onDismiss: {
+            appState.showAddAgentsToChatSheet = false
+        }) {
             AddAgentsToChatSheet(conversationId: conversationId)
                 .environmentObject(appState)
                 .environment(\.modelContext, modelContext)
@@ -927,21 +934,25 @@ struct ChatView: View {
         .background(slashCommandSheets)
         .alert("Slash Commands", isPresented: $showSlashHelp) {
             Button("Dismiss", role: .cancel) {}
+                .xrayId("chat.alert.slashHelp.dismissButton")
         } message: {
             Text("/help or /? — show this list\n/topic <name> or /rename <name> — rename the conversation\n/agents — open the Add Agents sheet\n@AgentName — invite that agent to this conversation\n\nTip: start a message with // to send a literal slash without triggering a command.")
         }
         .alert("Unknown command", isPresented: $showUnknownSlash) {
             Button("Dismiss", role: .cancel) {}
+                .xrayId("chat.alert.unknownSlash.dismissButton")
         } message: {
             Text("Unknown command /\(unknownSlashName). Try /help.")
         }
         .alert("Mention", isPresented: $showMentionError) {
             Button("Dismiss", role: .cancel) {}
+                .xrayId("chat.alert.mention.dismissButton")
         } message: {
             Text(mentionErrorDetail)
         }
         .alert("Recovery", isPresented: $showRecoveryError) {
             Button("Dismiss", role: .cancel) {}
+                .xrayId("chat.alert.recovery.dismissButton")
         } message: {
             Text(recoveryErrorDetail)
         }
@@ -953,12 +964,15 @@ struct ChatView: View {
             Button("Switch mode only") {
                 applyExecutionModeChange(.autonomous)
             }
+            .xrayId("chat.alert.planSwitch.modeOnlyButton")
             if canLaunchSavedMissionFromModeSwitch {
                 Button("Switch and launch saved goal now") {
                     applyExecutionModeChange(.autonomous, launchSavedMission: true)
                 }
+                .xrayId("chat.alert.planSwitch.launchButton")
             }
             Button("Cancel", role: .cancel) {}
+                .xrayId("chat.alert.planSwitch.cancelButton")
         } message: {
             if canLaunchSavedMissionFromModeSwitch {
                 Text("Autonomous mode avoids follow-up questions unless progress is blocked. You can switch modes only, or switch and launch the saved goal.")
@@ -3553,13 +3567,15 @@ struct ChatView: View {
             modelContext.insert(session)
             modelContext.insert(p)
         }
-        // Ensure all sessions have a working directory.
-        // Resident agents (defaultWorkingDirectory set) run in their own home folder;
-        // everyone else falls back to the project root.
-        for session in convo.sessions where session.workingDirectory.isEmpty {
+        // Enforce working directories. Agent home dirs take priority over project dir.
+        // Worktree paths (under ~/.odyssey/worktrees/) are explicit overrides — never touched.
+        let odysseyWorktrees = NSString(string: "~/.odyssey/worktrees").expandingTildeInPath
+        for session in convo.sessions {
+            let isWorktree = session.workingDirectory.hasPrefix(odysseyWorktrees + "/")
+            guard !isWorktree else { continue }
             if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {
-                session.workingDirectory = dir
-            } else {
+                session.workingDirectory = NSString(string: dir).expandingTildeInPath
+            } else if session.workingDirectory.isEmpty {
                 session.workingDirectory = windowState.projectDirectory
             }
         }

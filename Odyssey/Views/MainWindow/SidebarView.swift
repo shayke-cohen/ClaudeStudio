@@ -137,20 +137,14 @@ struct SidebarView: View {
     @AppStorage(FeatureFlags.autoAssembleKey, store: AppSettings.store) private var autoAssembleFlag = false
     @AppStorage(FeatureFlags.autonomousMissionsKey, store: AppSettings.store) private var autonomousMissionsFlag = false
     @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
-    @AppStorage("sidebar.showProjectTasksSection") private var showsProjectTasksSection = false
     @AppStorage("sidebar.showProjectSchedulesSection") private var showsProjectSchedulesSection = false
     @Query(sort: \Project.createdAt, order: .reverse) private var projects: [Project]
     @Query(sort: \Conversation.startedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \Agent.name) private var agents: [Agent]
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
-    @Query(sort: \TaskItem.createdAt, order: .reverse) private var taskItems: [TaskItem]
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
     @State private var searchText = ""
-    @State private var isTasksExpanded = true
-    @State private var isCompletedTasksExpanded = false
-    @State private var showTaskCreation = false
-    @State private var editingTask: TaskItem?
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
     @State private var showingAgentScheduleEditor = false
@@ -203,14 +197,6 @@ struct SidebarView: View {
             }
             .sheet(isPresented: $showAutoAssemble) {
                 AutoAssembleSheet()
-                    .environmentObject(appState)
-            }
-            .sheet(isPresented: $showTaskCreation) {
-                TaskCreationSheet()
-                    .environmentObject(appState)
-            }
-            .sheet(item: $editingTask) { task in
-                TaskEditSheet(task: task)
                     .environmentObject(appState)
             }
             .sheet(isPresented: $showingAgentScheduleEditor) {
@@ -308,6 +294,8 @@ struct SidebarView: View {
     private var sidebarList: some View {
         @Bindable var ws = windowState
         return List {
+            globalUtilitiesSection
+
             agentsSection
 
             groupsSection
@@ -561,11 +549,6 @@ struct SidebarView: View {
 
         if expandedProjectIds.contains(project.id) {
             projectThreadRows(project)
-            if showsProjectTasksSection {
-                projectIndentedRow {
-                    projectTasksSection(project)
-                }
-            }
             if showsProjectSchedulesSection {
                 projectIndentedRow {
                     projectSchedulesSection(project)
@@ -894,16 +877,6 @@ struct SidebarView: View {
             .xrayId("sidebar.projectActions.toggleArchived.\(project.id.uuidString)")
 
             Button {
-                showsProjectTasksSection.toggle()
-            } label: {
-                Label(
-                    showsProjectTasksSection ? "Hide tasks section" : "Show tasks section",
-                    systemImage: showsProjectTasksSection ? "eye.slash" : "checklist"
-                )
-            }
-            .xrayId("sidebar.projectActions.toggleTasks.\(project.id.uuidString)")
-
-            Button {
                 showsProjectSchedulesSection.toggle()
             } label: {
                 Label(
@@ -933,45 +906,6 @@ struct SidebarView: View {
         .help("Project actions")
         .xrayId("sidebar.projectActions.\(project.id.uuidString)")
         .accessibilityLabel("Project actions for \(project.name)")
-    }
-
-    @ViewBuilder
-    private func projectTasksSection(_ project: Project) -> some View {
-        let tasks = tasksForProject(project)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Label("Tasks", systemImage: "checklist")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    windowState.selectProject(project)
-                    showTaskCreation = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.caption2)
-                }
-                .buttonStyle(.plain)
-                .modifier(SidebarChromeButtonModifier(tint: projectTint(project)))
-                .accessibilityLabel("Add task to \(project.name)")
-                .xrayId("sidebar.projectTasksAdd.\(project.id.uuidString)")
-            }
-
-            if tasks.isEmpty {
-                Text("No tasks")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            } else {
-                ForEach(tasks.prefix(6)) { task in
-                    taskRow(task)
-                }
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(sidebarPanelBackground)
-        .overlay(sidebarPanelStroke)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
@@ -1133,239 +1067,6 @@ struct SidebarView: View {
             .onTapGesture { selectConversation(convo) }
     }
 
-    // MARK: - Tasks Section
-
-    @ViewBuilder
-    private var tasksSection: some View {
-        let activeTasks = taskItems.filter { $0.status != .done && $0.status != .failed }
-        let completedTasks = taskItems.filter { $0.status == .done || $0.status == .failed }
-
-        if !taskItems.isEmpty || true { // Always show section for the [+] button
-            Section {
-                DisclosureGroup(isExpanded: $isTasksExpanded) {
-                    // In Progress
-                    ForEach(taskItems.filter { $0.status == .inProgress }) { task in
-                        taskRow(task)
-                    }
-                    // Ready
-                    ForEach(taskItems.filter { $0.status == .ready }) { task in
-                        taskRow(task)
-                    }
-                    // Blocked
-                    ForEach(taskItems.filter { $0.status == .blocked }) { task in
-                        taskRow(task)
-                    }
-                    // Backlog
-                    ForEach(taskItems.filter { $0.status == .backlog }) { task in
-                        taskRow(task)
-                    }
-                    // Completed (foldable)
-                    if !completedTasks.isEmpty {
-                        DisclosureGroup(isExpanded: $isCompletedTasksExpanded) {
-                            ForEach(completedTasks) { task in
-                                taskRow(task)
-                            }
-                        } label: {
-                            Text("Completed (\(completedTasks.count))")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Label("Task Board (\(activeTasks.count))", systemImage: "checklist")
-                        Spacer()
-                        Button {
-                            showTaskCreation = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.caption)
-                                .frame(width: 20, height: 20)
-                        }
-                        .buttonStyle(.plain)
-                        .keyboardShortcut("t", modifiers: [.command, .shift])
-                        .xrayId("sidebar.tasksAddButton")
-                        .accessibilityLabel("Add task")
-                        .contentShape(Rectangle())
-                    }
-                }
-            }
-            .stableXrayId("sidebar.tasksSection")
-        }
-    }
-
-    @ViewBuilder
-    private func taskRow(_ task: TaskItem) -> some View {
-        HStack(spacing: 6) {
-            sidebarSymbolBadge(
-                symbol: taskStatusDescriptor(task.status).symbol,
-                tint: taskStatusDescriptor(task.status).color,
-                size: 22,
-                cornerRadius: 7
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.title)
-                    .lineLimit(1)
-                    .font(.callout)
-                HStack(spacing: 4) {
-                    statusBadge(task.status)
-                    priorityBadge(task.priority)
-                    if let assignedAgentName = task.assignedAgentName
-                        ?? task.assignedAgentId.flatMap({ agentId in agents.first(where: { $0.id == agentId })?.name }) {
-                        Text(assignedAgentName)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer()
-            if task.conversationId != nil {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        // Use task.id as tag — intercepted by onChange to redirect
-        .tag(task.id)
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
-        )
-        .stableXrayId("sidebar.taskRow.\(task.id.uuidString)")
-        .contextMenu { taskContextMenu(for: task) }
-    }
-
-    @ViewBuilder
-    private func taskContextMenu(for task: TaskItem) -> some View {
-        switch task.status {
-        case .backlog:
-            Button("Edit Task...") { editingTask = task }
-                .xrayId("sidebar.taskContext.edit.\(task.id.uuidString)")
-            Button("Mark as Ready") { appState.updateTaskStatus(task, status: .ready) }
-                .xrayId("sidebar.taskContext.markReady.\(task.id.uuidString)")
-            Button("Run with Orchestrator") {
-                appState.runTaskWithOrchestrator(task, modelContext: modelContext, windowState: windowState)
-            }
-            .xrayId("sidebar.taskContext.runOrchestrator.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        case .ready:
-            Button("Edit Task...") { editingTask = task }
-                .xrayId("sidebar.taskContext.edit.\(task.id.uuidString)")
-            Button("Run with Orchestrator") {
-                appState.runTaskWithOrchestrator(task, modelContext: modelContext, windowState: windowState)
-            }
-            .xrayId("sidebar.taskContext.runOrchestrator.\(task.id.uuidString)")
-            Button("Move to Backlog") { appState.updateTaskStatus(task, status: .backlog) }
-                .xrayId("sidebar.taskContext.moveBacklog.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        case .inProgress:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Pause") { appState.updateTaskStatus(task, status: .blocked) }
-                .xrayId("sidebar.taskContext.pause.\(task.id.uuidString)")
-            Divider()
-            Button("Cancel & Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.cancelDelete.\(task.id.uuidString)")
-        case .blocked:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Resume") { appState.updateTaskStatus(task, status: .inProgress) }
-                .xrayId("sidebar.taskContext.resume.\(task.id.uuidString)")
-            Divider()
-            Button("Cancel & Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.cancelDelete.\(task.id.uuidString)")
-        case .done, .failed:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Retry") { appState.updateTaskStatus(task, status: .ready) }
-                .xrayId("sidebar.taskContext.retry.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        }
-    }
-
-    @ViewBuilder
-    private func taskStatusIcon(_ status: TaskStatus) -> some View {
-        let descriptor = taskStatusDescriptor(status)
-        Image(systemName: descriptor.symbol)
-            .foregroundStyle(descriptor.color)
-    }
-
-    @ViewBuilder
-    private func statusBadge(_ status: TaskStatus) -> some View {
-        let (label, color): (String, Color) = switch status {
-        case .backlog: ("Backlog", .gray)
-        case .ready: ("Ready", .blue)
-        case .inProgress: ("In Progress", .orange)
-        case .done: ("Done", .green)
-        case .failed: ("Failed", .red)
-        case .blocked: ("Blocked", .yellow)
-        }
-        Text(label)
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .foregroundStyle(color)
-            .background(color.opacity(0.15))
-            .cornerRadius(3)
-    }
-
-    private func priorityBadge(_ priority: TaskPriority) -> some View {
-        Text(priority.rawValue.capitalized)
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(priorityColor(priority).opacity(0.2))
-            .cornerRadius(3)
-    }
-
-    private func priorityColor(_ priority: TaskPriority) -> Color {
-        switch priority {
-        case .low: .gray
-        case .medium: .blue
-        case .high: .orange
-        case .critical: .red
-        }
-    }
-
     // MARK: - Groups Section
 
     @ViewBuilder
@@ -1516,6 +1217,30 @@ struct SidebarView: View {
             .accessibilityLabel("Add agent")
             .contentShape(Rectangle())
         }
+    }
+
+    @ViewBuilder
+    private var globalUtilitiesSection: some View {
+        @Bindable var ws = windowState
+        Section {
+            Button {
+                ws.showAllSchedules = true
+            } label: {
+                HStack {
+                    Label("All Schedules", systemImage: "clock.badge")
+                    Spacer()
+                    if !schedules.isEmpty {
+                        Text("\(schedules.count)")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .stableXrayId("sidebar.allSchedulesRow")
+        }
+        .stableXrayId("sidebar.globalUtilitiesSection")
     }
 
     @ViewBuilder
@@ -1908,23 +1633,6 @@ struct SidebarView: View {
         .frame(width: size, height: size)
     }
 
-    private func taskStatusDescriptor(_ status: TaskStatus) -> (symbol: String, color: Color) {
-        switch status {
-        case .backlog:
-            return ("circle.dotted", .gray)
-        case .ready:
-            return ("circle", .blue)
-        case .inProgress:
-            return ("circle.fill", .orange)
-        case .done:
-            return ("checkmark.circle.fill", .green)
-        case .failed:
-            return ("xmark.circle.fill", .red)
-        case .blocked:
-            return ("exclamationmark.circle.fill", .yellow)
-        }
-    }
-
     private func scheduleRuleLabel(_ schedule: ScheduledMission) -> String {
         if schedule.cadenceKind == .hourlyInterval {
             return "Hourly"
@@ -1982,10 +1690,6 @@ struct SidebarView: View {
                 }
             }
             .filter { seen.insert($0.id).inserted }
-    }
-
-    private func tasksForProject(_ project: Project) -> [TaskItem] {
-        taskItems.filter { $0.projectId == project.id }
     }
 
     private func schedulesForProject(_ project: Project) -> [ScheduledMission] {
@@ -2133,8 +1837,8 @@ struct SidebarView: View {
             // everyone else runs in the project root.
             let fallback = targetProject?.rootPath ?? windowState.projectDirectory
             if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
-                session.workingDirectory = residentDir
                 let expanded = (residentDir as NSString).expandingTildeInPath
+                session.workingDirectory = expanded
                 ResidentAgentSupport.prepareVaultForSession(in: expanded, agentName: agent.name)
             } else if !fallback.isEmpty {
                 session.workingDirectory = fallback
@@ -2208,7 +1912,6 @@ struct SidebarView: View {
 
     private func removeProject(_ project: Project) {
         let projectConversations = conversationsForProject(project)
-        let projectTasks = tasksForProject(project)
         let projectSchedules = schedulesForProject(project)
         let fallbackProject = sortedProjects.first(where: { $0.id != project.id })
 
@@ -2235,9 +1938,6 @@ struct SidebarView: View {
 
             for schedule in projectSchedules {
                 modelContext.delete(schedule)
-            }
-            for task in projectTasks {
-                modelContext.delete(task)
             }
             for conversation in projectConversations {
                 modelContext.delete(conversation)
@@ -2275,12 +1975,6 @@ struct SidebarView: View {
                 expandedAgentIds.insert(agent.id)
             } else if let group = groups.first(where: { conversationsForGroup($0).contains { $0.id == selectedId } }) {
                 expandedGroupIds.insert(group.id)
-            }
-        } else if let task = taskItems.first(where: { $0.id == selectedId }) {
-            if let convId = task.conversationId {
-                DispatchQueue.main.async { windowState.selectedConversationId = convId }
-            } else {
-                DispatchQueue.main.async { windowState.selectedConversationId = nil; editingTask = task }
             }
         }
     }

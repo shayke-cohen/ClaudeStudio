@@ -11,17 +11,31 @@ import { logger } from "./logger.js";
 import { ClaudeRuntime } from "./providers/claude-runtime.js";
 import { CodexRuntime } from "./providers/codex-runtime.js";
 import { LocalAgentRuntime } from "./providers/local-agent-runtime.js";
+import { MockRuntime } from "./providers/mock-runtime.js";
 import type { ProviderRuntime } from "./providers/runtime.js";
 import { buildMCPPreflightReport } from "./mcp-preflight.js";
 
 type EventEmitter = (event: SidecarEvent) => void;
 
+export interface TurnRecord {
+  index: number;
+  startedAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  inputPreview: string;
+  tokenCount?: number;
+  cost?: number;
+  error?: string;
+  status: "active" | "completed" | "failed" | "paused";
+}
+
 export class SessionManager {
   private readonly activeAborts = new Map<string, AbortController>();
   private readonly autonomousResults = new Map<string, { resolve: (result: string) => void }>();
   private readonly pendingCreates = new Map<string, Promise<void>>();
-  private readonly runtimes: Record<"claude" | "codex" | "foundation" | "mlx", ProviderRuntime>;
+  private readonly runtimes: Record<"claude" | "codex" | "foundation" | "mlx" | "mock", ProviderRuntime>;
   private readonly suppressedEvalSessions = new Set<string>();
+  private readonly turnHistory = new Map<string, TurnRecord[]>();
   private static readonly OLLAMA_CLAUDE_TURN_TIMEOUT_MS = 360_000;
   private static readonly OLLAMA_TURN_TIMEOUT_CODE = "OLLAMA_TURN_TIMEOUT";
 
@@ -46,6 +60,7 @@ export class SessionManager {
       codex: new CodexRuntime(deps),
       foundation: new LocalAgentRuntime("foundation", deps),
       mlx: new LocalAgentRuntime("mlx", deps),
+      mock: new MockRuntime(deps),
     };
   }
 
@@ -91,6 +106,18 @@ export class SessionManager {
     planMode?: boolean,
   ): Promise<void> {
     const turnStartedAt = Date.now();
+    // Start turn record
+    const sessionTurns = this.turnHistory.get(sessionId) ?? [];
+    const turnRecord: TurnRecord = {
+      index: sessionTurns.length,
+      startedAt: new Date().toISOString(),
+      inputPreview: text.slice(0, 120),
+      status: "active",
+    };
+    sessionTurns.push(turnRecord);
+    // Keep last 50 turns per session
+    if (sessionTurns.length > 50) sessionTurns.shift();
+    this.turnHistory.set(sessionId, sessionTurns);
     const pendingCreate = this.pendingCreates.get(sessionId);
     if (pendingCreate) {
       try {
@@ -147,6 +174,9 @@ export class SessionManager {
 
       if (abortController.signal.aborted) {
         this.registry.update(sessionId, { status: "paused" });
+        turnRecord.status = "paused";
+        turnRecord.completedAt = new Date().toISOString();
+        turnRecord.durationMs = Date.now() - turnStartedAt;
         return;
       }
 
@@ -177,9 +207,19 @@ export class SessionManager {
         waiter.resolve(result.resultText);
         this.autonomousResults.delete(sessionId);
       }
+
+      // Complete turn record
+      turnRecord.completedAt = new Date().toISOString();
+      turnRecord.durationMs = Date.now() - turnStartedAt;
+      turnRecord.tokenCount = result.inputTokens + result.outputTokens;
+      turnRecord.cost = result.costDelta;
+      turnRecord.status = "completed";
     } catch (err: any) {
       if (abortController.signal.aborted && !this.isOllamaTurnTimeout(abortController.signal.reason)) {
         this.registry.update(sessionId, { status: "paused" });
+        turnRecord.status = "paused";
+        turnRecord.completedAt = new Date().toISOString();
+        turnRecord.durationMs = Date.now() - turnStartedAt;
       } else {
         const timeoutReason = this.isOllamaTurnTimeout(abortController.signal.reason)
           ? abortController.signal.reason
@@ -194,6 +234,12 @@ export class SessionManager {
           error: errorMessage,
         });
         this.registry.update(sessionId, { status: "failed" });
+
+        // Fail turn record
+        turnRecord.completedAt = new Date().toISOString();
+        turnRecord.durationMs = Date.now() - turnStartedAt;
+        turnRecord.error = errorMessage;
+        turnRecord.status = "failed";
 
         const waiter = this.autonomousResults.get(sessionId);
         if (waiter) {
@@ -428,6 +474,10 @@ export class SessionManager {
 
   listSessions() {
     return this.registry.list();
+  }
+
+  getTurnHistory(sessionId: string): TurnRecord[] {
+    return this.turnHistory.get(sessionId) ?? [];
   }
 
   buildQueryOptionsForTesting(

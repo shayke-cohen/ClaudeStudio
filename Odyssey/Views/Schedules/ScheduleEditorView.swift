@@ -10,6 +10,7 @@ struct ScheduleEditorView: View {
     @Query(sort: \Agent.name) private var agents: [Agent]
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \Conversation.startedAt, order: .reverse) private var conversations: [Conversation]
+    @Query(sort: \Project.lastOpenedAt, order: .reverse) private var projects: [Project]
 
     let schedule: ScheduledMission?
     let initialDraft: ScheduledMissionDraft
@@ -279,6 +280,20 @@ struct ScheduleEditorView: View {
                         title: "Conversation",
                         detail: "The prompt will be appended to this existing thread whenever the schedule runs."
                     )
+                case .project:
+                    ScheduleEditorFieldRow(
+                        title: "Project",
+                        detail: "The mission will run in the context of the selected project using its default agent or team."
+                    ) {
+                        Picker("Project", selection: $draft.targetProjectId) {
+                            Text("Select a project").tag(UUID?.none)
+                            ForEach(projects) { project in
+                                Text(project.name).tag(UUID?.some(project.id))
+                            }
+                        }
+                        .stableXrayId("scheduleEditor.projectPicker")
+                        .help("Pick the project this scheduled mission should run in.")
+                    }
                 }
             }
         }
@@ -639,6 +654,7 @@ struct ScheduleEditorView: View {
         schedule.targetConversationId = draft.runMode == .reuseConversation || draft.targetKind == .conversation
             ? draft.targetConversationId
             : nil
+        schedule.targetProjectId = draft.targetKind == .project ? draft.targetProjectId : nil
         schedule.projectDirectory = draft.projectDirectory
         schedule.promptTemplate = draft.promptTemplate
         schedule.sourceConversationId = draft.sourceConversationId

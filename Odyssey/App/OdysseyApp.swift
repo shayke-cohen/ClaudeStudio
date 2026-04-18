@@ -72,7 +72,6 @@ struct OdysseyApp: App {
                 Peer.self,
                 AgentGroup.self,
                 PromptTemplate.self,
-                TaskItem.self,
                 ScheduledMission.self,
                 ScheduledMissionRun.self,
                 SharedRoomInvite.self,
@@ -296,11 +295,6 @@ struct OdysseyApp: App {
             context.delete(item)
         }
 
-        let tasks = (try? context.fetch(FetchDescriptor<TaskItem>())) ?? []
-        for item in tasks {
-            context.delete(item)
-        }
-
         let schedules = (try? context.fetch(FetchDescriptor<ScheduledMission>())) ?? []
         for item in schedules {
             context.delete(item)
@@ -409,7 +403,16 @@ private struct ProjectWindowContent: View {
                 "showAddResidentSheet": { [weak appState] v in
                     let val = (v as? Bool) ?? false
                     DispatchQueue.main.async { appState?.showAddResidentSheet = val }
-                }
+                },
+                "showAddAgentsToChatSheet": { [weak appState] v in
+                    let val = (v as? Bool) ?? false
+                    DispatchQueue.main.async { appState?.showAddAgentsToChatSheet = val }
+                },
+                "sidecarStatusOverrideForTesting": { [weak appState] v in
+                    guard let str = v as? String else { return }
+                    let status: AppState.SidecarStatus = str == "connected" ? .connected : str == "connecting" ? .connecting : .disconnected
+                    DispatchQueue.main.async { appState?.sidecarStatus = status }
+                },
             ])
             #endif
 

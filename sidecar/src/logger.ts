@@ -10,6 +10,14 @@
 
 export type SidecarLogLevel = "debug" | "info" | "warn" | "error";
 
+export interface LogEntry {
+  ts: string;
+  level: SidecarLogLevel;
+  category: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
+
 const LEVEL_ORDER: Record<SidecarLogLevel, number> = {
   debug: 0,
   info: 1,
@@ -18,6 +26,14 @@ const LEVEL_ORDER: Record<SidecarLogLevel, number> = {
 };
 
 let currentLevel: SidecarLogLevel = "info";
+
+const LOG_BUFFER_MAX = 500;
+const logBuffer: LogEntry[] = [];
+
+function pushToBuffer(entry: LogEntry): void {
+  logBuffer.push(entry);
+  if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.shift();
+}
 
 /** Set the minimum log level. Messages below this level are suppressed. */
 export function setLogLevel(level: SidecarLogLevel): void {
@@ -35,13 +51,14 @@ export function log(
 ): void {
   if (LEVEL_ORDER[level] < LEVEL_ORDER[currentLevel]) return;
 
-  const entry: Record<string, unknown> = {
+  const entry: LogEntry = {
     ts: new Date().toISOString(),
     level,
     category,
     message,
+    ...(data ? { data } : {}),
   };
-  if (data) entry.data = data;
+  pushToBuffer(entry);
 
   const line = JSON.stringify(entry);
 
@@ -59,6 +76,14 @@ export function log(
       console.log(line);
       break;
   }
+}
+
+export function getLogBuffer(opts?: { tail?: number; category?: string; level?: SidecarLogLevel }): LogEntry[] {
+  let entries = [...logBuffer];
+  if (opts?.category) entries = entries.filter((e) => e.category === opts.category);
+  if (opts?.level) entries = entries.filter((e) => e.level === opts.level);
+  if (opts?.tail && opts.tail > 0) entries = entries.slice(-opts.tail);
+  return entries;
 }
 
 /** Convenience wrappers scoped by category. */

@@ -213,8 +213,9 @@ final class ConfigSyncService {
         // Sync feature flags from features.json (restart-free flag flipping)
         syncFeaturesFromDisk()
 
-        // Repair: ensure every resident agent has a home folder
+        // Repair: ensure every resident agent and group has a home folder
         repairResidentHomeFolders(context: context)
+        repairGroupHomeFolders(context: context)
 
         do {
             try context.save()
@@ -443,19 +444,33 @@ final class ConfigSyncService {
         }
     }
 
-    /// Ensures every resident agent has a defaultWorkingDirectory.
-    /// Agents added to Residents before the home-folder feature shipped may have a nil path.
+    /// Ensures every agent has a defaultWorkingDirectory.
+    /// Agents created before the home-folder feature shipped (including built-ins) may have a nil path.
     private func repairResidentHomeFolders(context: ModelContext) {
-        let residents = (try? context.fetch(
-            FetchDescriptor<Agent>(predicate: #Predicate { $0.isResident == true })
-        )) ?? []
+        let allAgents = (try? context.fetch(FetchDescriptor<Agent>())) ?? []
         var repaired = 0
-        for agent in residents where agent.defaultWorkingDirectory == nil || agent.defaultWorkingDirectory!.isEmpty {
-            agent.defaultWorkingDirectory = Agent.defaultHomePath(for: agent.name)
-            repaired += 1
+        for agent in allAgents {
+            if agent.defaultWorkingDirectory == nil || agent.defaultWorkingDirectory!.isEmpty {
+                agent.defaultWorkingDirectory = Agent.defaultHomePath(for: agent.name)
+                repaired += 1
+            }
         }
         if repaired > 0 {
-            Log.configSync.info("Repaired home folder for \(repaired) resident agent(s)")
+            Log.configSync.info("Repaired home folder for \(repaired) agent(s)")
+        }
+    }
+
+    private func repairGroupHomeFolders(context: ModelContext) {
+        let allGroups = (try? context.fetch(FetchDescriptor<AgentGroup>())) ?? []
+        var repaired = 0
+        for group in allGroups {
+            if group.defaultWorkingDirectory == nil || group.defaultWorkingDirectory!.isEmpty {
+                group.defaultWorkingDirectory = AgentGroup.defaultHomePath(for: group.name)
+                repaired += 1
+            }
+        }
+        if repaired > 0 {
+            Log.configSync.info("Repaired home folder for \(repaired) group(s)")
         }
     }
 

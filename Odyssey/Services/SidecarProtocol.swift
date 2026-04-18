@@ -21,10 +21,6 @@ enum SidecarCommand: Sendable {
     case questionAnswer(sessionId: String, questionId: String, answer: String, selectedOptions: [String]?)
     case confirmationAnswer(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
-    case taskCreate(task: TaskWireSwift)
-    case taskUpdate(taskId: String, updates: TaskWireSwift)
-    case taskList(filter: TaskListFilter?)
-    case taskClaim(taskId: String, agentName: String)
     case connectorList
     case connectorBeginAuth(connection: ConnectorWire)
     case connectorCompleteAuth(connection: ConnectorWire, credentials: ConnectorCredentialsWire?)
@@ -132,22 +128,6 @@ enum SidecarCommand: Sendable {
         case .sessionUpdateCwd(let sessionId, let workingDirectory):
             return try encoder.encode(
                 SessionUpdateCwdWire(type: "session.updateCwd", sessionId: sessionId, workingDirectory: workingDirectory)
-            )
-        case .taskCreate(let task):
-            return try encoder.encode(
-                TaskCreateWire(type: "task.create", task: task)
-            )
-        case .taskUpdate(let taskId, let updates):
-            return try encoder.encode(
-                TaskUpdateWire(type: "task.update", taskId: taskId, updates: updates)
-            )
-        case .taskList(let filter):
-            return try encoder.encode(
-                TaskListWire(type: "task.list", filter: filter)
-            )
-        case .taskClaim(let taskId, let agentName):
-            return try encoder.encode(
-                TaskClaimWire(type: "task.claim", taskId: taskId, agentName: agentName)
             )
         case .connectorList:
             return try encoder.encode(
@@ -477,51 +457,6 @@ struct GeneratedTemplateSpec: Codable, Sendable, Equatable {
     let prompt: String
 }
 
-struct TaskWireSwift: Codable, Sendable {
-    let id: String
-    let projectId: String?
-    let title: String
-    let description: String
-    let status: String
-    let priority: String
-    let labels: [String]
-    let result: String?
-    let parentTaskId: String?
-    let assignedAgentId: String?
-    let assignedAgentName: String?
-    let assignedGroupId: String?
-    let conversationId: String?
-    let createdAt: String
-    let startedAt: String?
-    let completedAt: String?
-}
-
-private struct TaskCreateWire: Encodable {
-    let type: String
-    let task: TaskWireSwift
-}
-
-private struct TaskUpdateWire: Encodable {
-    let type: String
-    let taskId: String
-    let updates: TaskWireSwift
-}
-
-private struct TaskListWire: Encodable {
-    let type: String
-    let filter: TaskListFilter?
-}
-
-struct TaskListFilter: Codable, Sendable {
-    let status: String?
-}
-
-private struct TaskClaimWire: Encodable {
-    let type: String
-    let taskId: String
-    let agentName: String
-}
-
 private struct ConnectorListWire: Encodable {
     let type: String
 }
@@ -637,9 +572,9 @@ enum SidecarEvent: Sendable {
     case streamSuggestions(sessionId: String, suggestions: [SuggestionItem])
     case conversationInviteAgent(sessionId: String, agentName: String)
     case planComplete(sessionId: String, plan: String?, allowedPrompts: [PlanAllowedPrompt]?)
-    case taskCreated(sessionId: String?, task: TaskWireSwift)
-    case taskUpdated(sessionId: String?, task: TaskWireSwift)
-    case taskListResult(tasks: [TaskWireSwift])
+    case taskCreated
+    case taskUpdated
+    case taskListResult
     case connectorListResult(connections: [ConnectorWire])
     case connectorStatusChanged(connection: ConnectorWire)
     case connectorAudit(sessionId: String?, connectionId: String, provider: String, action: String, outcome: String, summary: String)
@@ -758,8 +693,6 @@ struct IncomingWireMessage: Codable, Sendable {
     let suggestions: [SuggestionItem]?
     let plan: String?
     let allowedPrompts: [PlanAllowedPrompt]?
-    let taskWire: TaskWireSwift?
-    let tasks: [TaskWireSwift]?
     let connection: ConnectorWire?
     let connections: [ConnectorWire]?
     let connectionId: String?
@@ -793,8 +726,6 @@ struct IncomingWireMessage: Codable, Sendable {
         case confirmationId, action, reason, riskLevel, details
         case format, title, content, height, progressId, steps, suggestions
         case plan, allowedPrompts
-        case taskWire = "task"
-        case tasks
         case connection, connections, connectionId, provider, outcome, summary
         case agentName, workspaceName, workspaceId
         case invitedAgent, invitedBy
@@ -886,14 +817,9 @@ struct IncomingWireMessage: Codable, Sendable {
         case "conversation.inviteAgent":
             guard let sid = sessionId, let name = agentName else { return nil }
             return .conversationInviteAgent(sessionId: sid, agentName: name)
-        case "task.created":
-            guard let t = taskWire else { return nil }
-            return .taskCreated(sessionId: sessionId, task: t)
-        case "task.updated":
-            guard let t = taskWire else { return nil }
-            return .taskUpdated(sessionId: sessionId, task: t)
-        case "task.list.result":
-            return .taskListResult(tasks: tasks ?? [])
+        case "task.created": return .taskCreated
+        case "task.updated": return .taskUpdated
+        case "task.list.result": return .taskListResult
         case "connector.list.result":
             return .connectorListResult(connections: connections ?? [])
         case "connector.statusChanged":

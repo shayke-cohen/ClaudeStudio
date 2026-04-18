@@ -91,18 +91,38 @@ struct InspectorView: View {
         appState.activeSessions[session.id]
     }
 
+    private var isAgentOnlyContext: Bool {
+        windowState.projectDirectory.isEmpty
+    }
+
+    private var agentWorkspaceDirectory: String? {
+        if let group = sourceGroup, let dir = group.defaultWorkingDirectory, !dir.isEmpty {
+            return NSString(string: dir).expandingTildeInPath
+        }
+        if let dir = primarySession?.agent?.defaultWorkingDirectory, !dir.isEmpty {
+            return NSString(string: dir).expandingTildeInPath
+        }
+        return nil
+    }
+
     private var hasWorkingDirectory: Bool {
-        !windowState.projectDirectory.isEmpty
+        !windowState.projectDirectory.isEmpty || agentWorkspaceDirectory != nil
     }
 
     private var workspaceDirectoryPath: String {
-        conversation.worktreePath ?? windowState.projectDirectory
+        if isAgentOnlyContext, let agentDir = agentWorkspaceDirectory {
+            return agentDir
+        }
+        return conversation.worktreePath ?? windowState.projectDirectory
     }
 
     private var fileExplorerDirectoryPath: String {
         if let worktreePath = conversation.worktreePath,
            WorktreeManager.isUsableWorktree(at: worktreePath) {
             return worktreePath
+        }
+        if isAgentOnlyContext, let agentDir = agentWorkspaceDirectory {
+            return agentDir
         }
         return windowState.projectDirectory
     }
@@ -407,7 +427,7 @@ struct InspectorView: View {
     @ViewBuilder
     private var workspaceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("Project", systemImage: "folder")
+            sectionLabel(isAgentOnlyContext ? "Agent Workspace" : "Project", systemImage: isAgentOnlyContext ? "house" : "folder")
                 .xrayId("inspector.workspaceHeading")
 
             VStack(alignment: .leading, spacing: 4) {
@@ -419,6 +439,11 @@ struct InspectorView: View {
                     .fontWeight(.medium)
                     .textSelection(.enabled)
                     .lineLimit(3)
+            }
+
+            if !isAgentOnlyContext, let agentDir = agentWorkspaceDirectory {
+                InfoRow(label: "Agent Home", value: abbreviatePath(agentDir))
+                    .xrayId("inspector.agentHomeRow")
             }
 
             if workspaceGitState.isGitRepo {

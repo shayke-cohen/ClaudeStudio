@@ -179,12 +179,15 @@ struct AddAgentsToChatSheet: View {
             convo.threadKind = .group
         }
 
-        // Ensure all new sessions have a working directory.
-        // Resident agents run in their own home folder; everyone else in the project root.
-        for session in convo.sessions where session.workingDirectory.isEmpty {
+        // Enforce working directories. Agent home dirs take priority over project dir.
+        // Worktree paths are explicit overrides — never touched.
+        let odysseyWorktrees = NSString(string: "~/.odyssey/worktrees").expandingTildeInPath
+        for session in convo.sessions {
+            let isWorktree = session.workingDirectory.hasPrefix(odysseyWorktrees + "/")
+            guard !isWorktree else { continue }
             if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {
-                session.workingDirectory = dir
-            } else {
+                session.workingDirectory = NSString(string: dir).expandingTildeInPath
+            } else if session.workingDirectory.isEmpty {
                 session.workingDirectory = windowState.projectDirectory
             }
         }

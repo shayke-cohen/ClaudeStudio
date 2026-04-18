@@ -268,34 +268,6 @@ export class WsServer {
         break;
       }
 
-      case "task.create": {
-        const task = this.ctx.taskBoard.create(command.task);
-        this.broadcast({ type: "task.created", task });
-        logger.info("ws", `task.create: created "${task.title}" (${task.id})`);
-        break;
-      }
-      case "task.update": {
-        const task = this.ctx.taskBoard.update(command.taskId, command.updates);
-        if (task) {
-          this.broadcast({ type: "task.updated", task });
-          logger.info("ws", `task.update: updated ${command.taskId} → ${task.status}`);
-        }
-        break;
-      }
-      case "task.list": {
-        const tasks = this.ctx.taskBoard.list(command.filter);
-        this.broadcast({ type: "task.list.result", tasks });
-        break;
-      }
-      case "task.claim": {
-        const task = this.ctx.taskBoard.claim(command.taskId, command.agentName);
-        if (task) {
-          this.broadcast({ type: "task.updated", task });
-          logger.info("ws", `task.claim: ${command.agentName} claimed ${command.taskId}`);
-        }
-        break;
-      }
-
       case "connector.list":
         this.broadcast({ type: "connector.list.result", connections: this.ctx.connectors.listConfigs() });
         break;

@@ -241,7 +241,9 @@ struct AgentLibraryView: View {
 
     private func startSession(with agent: Agent) {
         let session = Session(agent: agent, mode: .interactive)
-        if session.workingDirectory.isEmpty, !windowState.projectDirectory.isEmpty {
+        if let agentDir = agent.defaultWorkingDirectory, !agentDir.isEmpty {
+            session.workingDirectory = NSString(string: agentDir).expandingTildeInPath
+        } else if !windowState.projectDirectory.isEmpty {
             session.workingDirectory = windowState.projectDirectory
         }
         let conversation = Conversation(

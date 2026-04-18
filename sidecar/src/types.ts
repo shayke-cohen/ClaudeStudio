@@ -28,10 +28,6 @@ export type SidecarCommand =
   | { type: "session.questionAnswer"; sessionId: string; questionId: string; answer: string; selectedOptions?: string[] }
   | { type: "session.confirmationAnswer"; sessionId: string; confirmationId: string; approved: boolean; modifiedAction?: string }
   | { type: "session.updateCwd"; sessionId: string; workingDirectory: string }
-  | { type: "task.create"; task: TaskWire }
-  | { type: "task.update"; taskId: string; updates: Partial<TaskWire> }
-  | { type: "task.list"; filter?: { status?: string } }
-  | { type: "task.claim"; taskId: string; agentName: string }
   | { type: "connector.list" }
   | { type: "connector.beginAuth"; connection: ConnectorConfig }
   | { type: "connector.completeAuth"; connection: ConnectorConfig; credentials?: ConnectorCredentials }
@@ -83,7 +79,7 @@ export interface AgentConfig {
   instancePolicyPoolMax?: number;
 }
 
-export type AgentProvider = "claude" | "codex" | "foundation" | "mlx";
+export type AgentProvider = "claude" | "codex" | "foundation" | "mlx" | "mock";
 
 export interface MCPServerConfig {
   name: string;
@@ -254,9 +250,6 @@ export type SidecarEvent =
   | { type: "session.planComplete"; sessionId: string; plan: string | null; allowedPrompts?: { tool: string; prompt: string }[] }
   | { type: "conversation.idle"; conversationId: string }
   | { type: "conversation.idleResult"; conversationId: string; status: "complete" | "needsMore" | "failed"; reason: string }
-  | { type: "task.created"; sessionId?: string; task: TaskWire }
-  | { type: "task.updated"; sessionId?: string; task: TaskWire }
-  | { type: "task.list.result"; tasks: TaskWire[] }
   | { type: "connector.list.result"; connections: ConnectorConfig[] }
   | { type: "connector.statusChanged"; connection: ConnectorConfig }
   | { type: "connector.audit"; sessionId?: string; connectionId: string; provider: ConnectorProvider; action: string; outcome: string; summary: string }
@@ -325,26 +318,6 @@ export interface BlackboardEntry {
   workspaceId?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-// Task board entry
-export interface TaskWire {
-  id: string;
-  projectId?: string;
-  title: string;
-  description: string;
-  status: "backlog" | "ready" | "inProgress" | "done" | "failed" | "blocked";
-  priority: "low" | "medium" | "high" | "critical";
-  labels: string[];
-  result?: string;
-  parentTaskId?: string;
-  assignedAgentId?: string;
-  assignedAgentName?: string;
-  assignedGroupId?: string;
-  conversationId?: string;
-  createdAt: string;
-  startedAt?: string;
-  completedAt?: string;
 }
 
 // ─── REST API Types ───

@@ -1,7 +1,6 @@
 import { WsServer } from "./ws-server.js";
 import { HttpServer } from "./http-server.js";
 import { BlackboardStore } from "./stores/blackboard-store.js";
-import { TaskBoardStore } from "./stores/task-board-store.js";
 import { SessionRegistry } from "./stores/session-registry.js";
 import { MessageStore } from "./stores/message-store.js";
 import { ChatChannelStore } from "./stores/chat-channel-store.js";
@@ -29,7 +28,6 @@ const DATA_DIR = process.env.ODYSSEY_DATA_DIR ?? process.env.CLAUDESTUDIO_DATA_D
 logger.info("sidecar", "Starting...");
 
 const blackboard = new BlackboardStore();
-const taskBoard = new TaskBoardStore();
 const sessions = new SessionRegistry();
 const messages = new MessageStore();
 const channels = new ChatChannelStore();
@@ -55,7 +53,6 @@ let broadcastFn: (event: SidecarEvent) => void = () => {};
 
 const toolContext: ToolContext = {
   blackboard,
-  taskBoard,
   sessions,
   messages,
   channels,

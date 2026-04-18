@@ -23,6 +23,8 @@ struct GroupEditorView: View {
     @State private var agentRoles: [UUID: String] = [:]
     @State private var hasWorkflow: Bool = false
     @State private var workflowSteps: [WorkflowStep] = []
+    @State private var homeDirectory: String = ""
+    @State private var hasCustomHomeDir: Bool = false
 
     private let availableColors = ["blue", "red", "green", "purple", "orange", "yellow", "pink", "teal", "indigo", "gray"]
 
@@ -60,6 +62,33 @@ struct GroupEditorView: View {
                             .stableXrayId("groupEditor.iconField")
                         TextField("Group Name", text: $name)
                             .stableXrayId("groupEditor.nameField")
+                            .onChange(of: name) { _, newName in
+                                if !hasCustomHomeDir {
+                                    homeDirectory = AgentGroup.defaultHomePath(for: newName)
+                                }
+                            }
+                    }
+
+                    HStack {
+                        TextField("Home Directory", text: $homeDirectory)
+                            .stableXrayId("groupEditor.homeDirectoryField")
+                            .onChange(of: homeDirectory) { _, newDir in
+                                hasCustomHomeDir = newDir != AgentGroup.defaultHomePath(for: name)
+                            }
+                        Button("Browse…") {
+                            let panel = NSOpenPanel()
+                            panel.canChooseFiles = false
+                            panel.canChooseDirectories = true
+                            panel.allowsMultipleSelection = false
+                            panel.prompt = "Select"
+                            if panel.runModal() == .OK, let url = panel.url {
+                                homeDirectory = url.path
+                                hasCustomHomeDir = true
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .stableXrayId("groupEditor.homeDirectoryBrowseButton")
                     }
 
                     TextField("Description", text: $groupDescription)
@@ -242,12 +271,16 @@ struct GroupEditorView: View {
             hasWorkflow = true
             workflowSteps = wf
         }
+        let existingHome = group.defaultWorkingDirectory ?? AgentGroup.defaultHomePath(for: group.name)
+        homeDirectory = existingHome
+        hasCustomHomeDir = existingHome != AgentGroup.defaultHomePath(for: group.name)
     }
 
     private func save() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, !selectedAgentIds.isEmpty else { return }
 
+        let resolvedHome = homeDirectory.isEmpty ? AgentGroup.defaultHomePath(for: trimmedName) : homeDirectory
         if let group {
             group.name = trimmedName
             group.icon = icon
@@ -261,6 +294,7 @@ struct GroupEditorView: View {
             group.coordinatorAgentId = coordinatorAgentId
             group.agentRoles = agentRoles
             group.workflow = hasWorkflow && !workflowSteps.isEmpty ? workflowSteps : nil
+            group.defaultWorkingDirectory = resolvedHome
         } else {
             let newGroup = AgentGroup(
                 name: trimmedName,
@@ -276,6 +310,7 @@ struct GroupEditorView: View {
             newGroup.coordinatorAgentId = coordinatorAgentId
             newGroup.agentRoles = agentRoles
             newGroup.workflow = hasWorkflow && !workflowSteps.isEmpty ? workflowSteps : nil
+            newGroup.defaultWorkingDirectory = resolvedHome
             modelContext.insert(newGroup)
         }
 

@@ -13,7 +13,7 @@ import type {
   AgentConfig,
 } from "./types.js";
 import { resolveQuestion, createQuestion, questionsBySession } from "./tools/ask-user-tool.js";
-import { logger } from "./logger.js";
+import { logger, getLogBuffer, type SidecarLogLevel } from "./logger.js";
 
 // ─── Helpers ───
 
@@ -239,24 +239,24 @@ export async function handleApiRequest(
       return handleListProjects(ctx);
     }
 
-    // ─── Task Board ───
+    // ─── Debug / Observability ───
 
-    if (matchRoute("/api/v1/tasks", "GET", req.method, path)) {
-      return handleListTasks(req, ctx);
+    if (matchRoute("/api/v1/debug/state", "GET", req.method, path)) {
+      return handleDebugState(ctx);
     }
 
-    if (matchRoute("/api/v1/tasks", "POST", req.method, path)) {
-      return await handleCreateTask(req, ctx);
+    if (matchRoute("/api/v1/debug/logs", "GET", req.method, path)) {
+      return handleDebugLogs(url, ctx);
     }
 
-    params = matchRoute("/api/v1/tasks/:id", "PATCH", req.method, path);
+    params = matchRoute("/api/v1/sessions/:id/turns", "GET", req.method, path);
     if (params) {
-      return await handleUpdateTask(params.id, req, ctx);
+      return handleSessionTurns(params.id, ctx);
     }
 
-    params = matchRoute("/api/v1/tasks/:id/claim", "POST", req.method, path);
+    params = matchRoute("/api/v1/sessions/:id/events/history", "GET", req.method, path);
     if (params) {
-      return await handleClaimTask(params.id, req, ctx);
+      return handleSessionEventHistory(params.id, url, ctx);
     }
 
     return apiError("not_found", `No route matches ${req.method} ${path}`, 404);
@@ -712,52 +712,6 @@ async function handleCreateWorkspace(req: Request, ctx: ApiContext): Promise<Res
   return apiJson(workspace, 201);
 }
 
-// ─── Task Board Handlers ───
-
-function handleListTasks(req: Request, ctx: ApiContext): Response {
-  const url = new URL(req.url);
-  const status = url.searchParams.get("status") ?? undefined;
-  const assignedTo = url.searchParams.get("assigned_to") ?? undefined;
-  const tasks = ctx.toolCtx.taskBoard.list({ status, assignedTo });
-  return apiJson({ tasks });
-}
-
-async function handleCreateTask(req: Request, ctx: ApiContext): Promise<Response> {
-  const body = await parseBody<{ title: string; description?: string; priority?: string; labels?: string[]; status?: string; parentTaskId?: string }>(req);
-  if (!body.title) return apiError("invalid_request", "title is required", 400);
-
-  const task = ctx.toolCtx.taskBoard.create({
-    title: body.title,
-    description: body.description ?? "",
-    priority: (body.priority as any) ?? "medium",
-    labels: body.labels ?? [],
-    status: (body.status as any) ?? "backlog",
-    parentTaskId: body.parentTaskId,
-  });
-
-  ctx.toolCtx.broadcast({ type: "task.created", task });
-  return apiJson(task, 201);
-}
-
-async function handleUpdateTask(taskId: string, req: Request, ctx: ApiContext): Promise<Response> {
-  const body = await parseBody<Record<string, any>>(req);
-  const task = ctx.toolCtx.taskBoard.update(taskId, body);
-  if (!task) return apiError("not_found", `Task ${taskId} not found`, 404);
-
-  ctx.toolCtx.broadcast({ type: "task.updated", task });
-  return apiJson(task);
-}
-
-async function handleClaimTask(taskId: string, req: Request, ctx: ApiContext): Promise<Response> {
-  const body = await parseBody<{ agentName?: string }>(req);
-  const agentName = body.agentName ?? clientIdentity(req);
-  const task = ctx.toolCtx.taskBoard.claim(taskId, agentName);
-  if (!task) return apiError("conflict", `Task ${taskId} cannot be claimed (not in 'ready' status)`, 409);
-
-  ctx.toolCtx.broadcast({ type: "task.updated", task });
-  return apiJson(task);
-}
-
 // ─── Conversations (iOS data bridge) ───
 
 function handleListConversations(ctx: ApiContext): Response {
@@ -781,4 +735,51 @@ function handleGetConversationMessages(conversationId: string, url: URL, ctx: Ap
 function handleListProjects(ctx: ApiContext): Response {
   const projects = ctx.toolCtx.projectStore.list();
   return apiJson({ projects });
+}
+
+// ─── Debug handlers ───
+
+function handleDebugState(ctx: ApiContext): Response {
+  const sessions = ctx.sessionManager.listSessions();
+  const uptime = process.uptime();
+  return apiJson({
+    uptime: `${Math.floor(uptime)}s`,
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      agentName: s.agentName,
+      status: s.status,
+      tokenCount: s.tokenCount,
+      cost: s.cost,
+    })),
+    sseConnections: ctx.sseManager.connectionCount,
+    sessionCount: sessions.length,
+    activeSessionCount: sessions.filter((s) => s.status === "active").length,
+  });
+}
+
+function handleDebugLogs(url: URL, _ctx: ApiContext): Response {
+  const tail = parseInt(url.searchParams.get("tail") ?? "50", 10);
+  const category = url.searchParams.get("category") ?? undefined;
+  const VALID_LOG_LEVELS = new Set<string>(["debug", "info", "warn", "error"]);
+  const rawLevel = url.searchParams.get("level") ?? undefined;
+  const level: SidecarLogLevel | undefined = rawLevel && VALID_LOG_LEVELS.has(rawLevel)
+    ? (rawLevel as SidecarLogLevel)
+    : undefined;
+  const entries = getLogBuffer({ tail, category, level });
+  return apiJson({ logs: entries, total: entries.length, returned: entries.length });
+}
+
+function handleSessionTurns(sessionId: string, ctx: ApiContext): Response {
+  const session = ctx.toolCtx.sessions.get(sessionId);
+  if (!session) return apiError("not_found", `Session '${sessionId}' not found`, 404);
+  const turns = ctx.sessionManager.getTurnHistory(sessionId);
+  return apiJson({ sessionId, turns });
+}
+
+function handleSessionEventHistory(sessionId: string, url: URL, ctx: ApiContext): Response {
+  const session = ctx.toolCtx.sessions.get(sessionId);
+  if (!session) return apiError("not_found", `Session '${sessionId}' not found`, 404);
+  const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
+  const events = ctx.sseManager.getEventHistory(sessionId, limit);
+  return apiJson({ sessionId, events, buffered: events.length });
 }

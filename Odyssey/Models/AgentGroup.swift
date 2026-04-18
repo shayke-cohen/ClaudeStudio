@@ -34,6 +34,8 @@ final class AgentGroup {
     // Feature: Workflow — JSON-encoded [WorkflowStep]
     var workflowJSON: String?
 
+    var defaultWorkingDirectory: String?
+
     // AgentGroupOrigin flattened for SwiftData
     var originKind: String
     var originPeerName: String?
@@ -42,6 +44,15 @@ final class AgentGroup {
 
     @Relationship(deleteRule: .cascade, inverse: \PromptTemplate.group)
     var promptTemplates: [PromptTemplate] = []
+
+    static func defaultHomePath(for name: String) -> String {
+        let slug = name
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return "~/.odyssey/groups/\(slug.isEmpty ? "group" : slug)"
+    }
 
     @Transient
     var origin: AgentGroupOrigin {
@@ -139,5 +150,6 @@ final class AgentGroup {
         self.originKind = "local"
         self.originPeerName = nil
         self.originRemoteId = nil
+        self.defaultWorkingDirectory = AgentGroup.defaultHomePath(for: name)
     }
 }

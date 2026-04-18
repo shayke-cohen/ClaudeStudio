@@ -9,6 +9,7 @@ struct ScheduledMissionDraft: Identifiable, Sendable {
     var targetAgentId: UUID?
     var targetGroupId: UUID?
     var targetConversationId: UUID?
+    var targetProjectId: UUID?
     var projectDirectory: String
     var promptTemplate: String
     var sourceConversationId: UUID?
@@ -53,6 +54,7 @@ struct ScheduledMissionDraft: Identifiable, Sendable {
         self.targetAgentId = schedule.targetAgentId
         self.targetGroupId = schedule.targetGroupId
         self.targetConversationId = schedule.targetConversationId
+        self.targetProjectId = schedule.targetProjectId
         self.projectDirectory = schedule.projectDirectory
         self.promptTemplate = schedule.promptTemplate
         self.sourceConversationId = schedule.sourceConversationId
@@ -84,6 +86,8 @@ struct ScheduledMissionDraft: Identifiable, Sendable {
             if targetGroupId == nil { return "Pick a group target." }
         case .conversation:
             if targetConversationId == nil { return "Pick a conversation target." }
+        case .project:
+            if targetProjectId == nil { return "Pick a project target." }
         }
         switch runMode {
         case .freshConversation:
