@@ -110,9 +110,17 @@ final class ScheduleRunCoordinator {
             return
         }
 
+        // Resolve project directory at run time for worktree creation (same rule as session WD)
+        let worktreeBaseDirectory: String
+        if let projectId = schedule.projectId {
+            let descriptor = FetchDescriptor<Project>(predicate: #Predicate { p in p.id == projectId })
+            worktreeBaseDirectory = (try? modelContext.fetch(descriptor).first)?.rootPath ?? ""
+        } else {
+            worktreeBaseDirectory = ""
+        }
         let worktreePath = await dependencies.ensureWorktree(
             conversation,
-            schedule.projectDirectory,
+            worktreeBaseDirectory,
             modelContext
         )
 
