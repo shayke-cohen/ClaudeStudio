@@ -12,7 +12,6 @@ final class QuickActionStore: ObservableObject {
     let configDirectory: URL
     private let defaults: UserDefaults
 
-    private var watchFileDescriptor: Int32 = -1
     private var watchSource: DispatchSourceFileSystemObject?
     private var reloadWorkItem: DispatchWorkItem?
 
@@ -118,6 +117,8 @@ final class QuickActionStore: ObservableObject {
         try? Self.writeFile(configs, to: fileURL, in: configDirectory)
     }
 
+    // Mirrors ConfigFileManager.writeQuickActions but accepts an explicit directory
+    // for testability (injected configDirectory instead of ConfigFileManager.configDirectory).
     private static func writeFile(_ configs: [QuickActionConfig], to url: URL, in directory: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -140,13 +141,12 @@ final class QuickActionStore: ObservableObject {
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: .write,
-            queue: DispatchQueue.global(qos: .background)
+            queue: .main
         )
         source.setEventHandler { [weak self] in self?.scheduleFileReload() }
         source.setCancelHandler { close(fd) }
         source.resume()
 
-        watchFileDescriptor = fd
         watchSource = source
     }
 
