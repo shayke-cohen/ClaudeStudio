@@ -385,7 +385,7 @@ struct SidebarView: View {
     }
 
     private var nonResidentAgents: [Agent] {
-        agents.filter { $0.isEnabled && !$0.isResident }
+        agents.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }
             .sorted { $0.name < $1.name }
     }
 
@@ -1347,7 +1347,7 @@ struct SidebarView: View {
     @ViewBuilder
     private var groupsSection: some View {
         Section {
-            ForEach(groups.filter { $0.isEnabled }) { group in
+            ForEach(groups.filter { $0.isEnabled && $0.showInSidebar }) { group in
                 GroupSidebarRowView(
                     group: group,
                     conversations: conversationsForGroup(group),
@@ -1408,6 +1408,19 @@ struct SidebarView: View {
                     Button("Delete", role: .destructive) { deleteGroup(group) }
                         .xrayId("sidebar.groupContext.delete.\(group.id.uuidString)")
                 }
+            }
+
+            let hiddenGroupCount = groups.filter { $0.isEnabled && !$0.showInSidebar }.count
+            if hiddenGroupCount > 0 {
+                Button {
+                    windowState.openConfiguration(section: .groups)
+                } label: {
+                    Text("\(hiddenGroupCount) hidden · manage →")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.groupsHiddenHint")
             }
         } header: {
             HStack {
@@ -1478,6 +1491,20 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .xrayId("sidebar.agents.showMore")
+            }
+
+            // 3. Hidden agents hint
+            let hiddenAgentCount = agents.filter { $0.isEnabled && !$0.isResident && !$0.showInSidebar }.count
+            if hiddenAgentCount > 0 {
+                Button {
+                    windowState.openConfiguration(section: .agents)
+                } label: {
+                    Text("\(hiddenAgentCount) hidden · manage →")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.agentsHiddenHint")
             }
         } header: {
             agentsSectionHeader
