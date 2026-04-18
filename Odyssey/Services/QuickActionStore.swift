@@ -13,7 +13,7 @@ final class QuickActionStore: ObservableObject {
     private let defaults: UserDefaults
 
     private var watchSource: DispatchSourceFileSystemObject?
-    private var reloadWorkItem: DispatchWorkItem?
+    private var reloadTask: Task<Void, Never>?
 
     init(
         configDirectory: URL = ConfigFileManager.configDirectory,
@@ -48,6 +48,7 @@ final class QuickActionStore: ObservableObject {
 
     deinit {
         watchSource?.cancel()
+        reloadTask?.cancel()
     }
 
     // MARK: - Derived order (used by ChatView)
@@ -152,20 +153,21 @@ final class QuickActionStore: ObservableObject {
         watchSource = source
     }
 
+    // Pure Swift concurrency debounce — stays on @MainActor, no GCD background dispatch.
+    // The previous DispatchWorkItem approach caused _dispatch_assert_queue_fail in Swift 6
+    // because a @Sendable GCD closure ran @MainActor-isolated code on a background thread.
     private func scheduleFileReload() {
-        reloadWorkItem?.cancel()
+        reloadTask?.cancel()
         let fileURL = configDirectory.appendingPathComponent("quick-actions.json")
-        let item = DispatchWorkItem {
+        reloadTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, let self else { return }
             guard let data = try? Data(contentsOf: fileURL),
                   let loaded = try? JSONDecoder().decode([QuickActionConfig].self, from: data),
-                  !loaded.isEmpty
+                  !loaded.isEmpty,
+                  loaded != self.configs
             else { return }
-            Task { @MainActor [weak self] in
-                guard let self, loaded != self.configs else { return }
-                self.configs = loaded
-            }
+            self.configs = loaded
         }
-        reloadWorkItem = item
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.3, execute: item)
     }
 }

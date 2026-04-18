@@ -67,7 +67,7 @@ struct QuickActionsSettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .accessibilityIdentifier("settings.quickActions.addButton")

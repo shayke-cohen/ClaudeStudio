@@ -54,7 +54,7 @@ struct MainWindowView: View {
                     ws.pendingConfigSlug = nil
                     ws.closeSettings()
                 }
-                .environment(appState)
+                .environmentObject(appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .xrayId("mainWindow.settingsScreen")
             } else {
@@ -167,11 +167,11 @@ struct MainWindowView: View {
         }
         .sheet(isPresented: $ws.showAllSchedules) {
             GlobalSchedulesView()
-                .environment(appState)
+                .environmentObject(appState)
         }
         .sheet(isPresented: $ws.showAgentComms) {
             AgentCommsView()
-                .environment(appState)
+                .environmentObject(appState)
                 .frame(minWidth: 600, minHeight: 400)
         }
         .sheet(isPresented: $ws.showSharedRoomInbox) {
@@ -191,7 +191,7 @@ struct MainWindowView: View {
         }
         .sheet(isPresented: $ws.showWorkshop) {
             WorkshopView()
-                .environment(appState)
+                .environmentObject(appState)
                 .frame(minWidth: 960, minHeight: 640)
         }
         .onAppear {
