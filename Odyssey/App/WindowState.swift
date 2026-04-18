@@ -249,6 +249,7 @@ final class WindowState {
     var selectedGroupId: UUID? {
         didSet { if selectedGroupId != nil { selectedConversationId = nil } }
     }
+    var sidebarRevealConversationId: UUID? = nil
 
     var inspectorVisible = true
     var selectedInspectorTab: WindowInspectorTab = .info
@@ -336,6 +337,13 @@ final class WindowState {
         pendingConfigSection = nil
         pendingConfigSlug = nil
         activeRoute = .workspace
+    }
+
+    func navigateToConversation(_ conversationId: UUID, projectId: UUID?) {
+        if let projectId { selectProject(id: projectId, preserveSelection: true) }
+        selectedConversationId = conversationId
+        sidebarRevealConversationId = conversationId
+        showScheduleLibrary = false
     }
 
     func openInspector(tab: WindowInspectorTab? = nil) {
