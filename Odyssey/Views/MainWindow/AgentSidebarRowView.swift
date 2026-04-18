@@ -8,6 +8,7 @@ struct AgentSidebarRowView: View {
     let onNewChat: () -> Void
     let onSelectConversation: (Conversation) -> Void
     var onSelectAgent: (() -> Void)?
+    var onRename: ((Conversation) -> Void)?
     var selectedConversationId: UUID?
     var hasActiveSession: Bool = false
     var onDeleteConversation: ((Conversation) -> Void)?
@@ -61,6 +62,9 @@ struct AgentSidebarRowView: View {
                         onSelectConversation(conv)
                     }
                     Divider()
+                    Button("Rename\u{2026}") {
+                        onRename?(conv)
+                    }
                     Button("Archive") {
                         conv.isArchived = true
                         conv.isPinned = false
