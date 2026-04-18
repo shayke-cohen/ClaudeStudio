@@ -345,6 +345,7 @@ final class WindowState {
     func navigateToConversation(_ conversationId: UUID, projectId: UUID?) {
         if let projectId { selectProject(id: projectId, preserveSelection: true) }
         selectedConversationId = conversationId
+        sidebarRevealConversationId = nil  // ensure onChange fires even if same UUID repeated
         sidebarRevealConversationId = conversationId
         showScheduleLibrary = false
     }
