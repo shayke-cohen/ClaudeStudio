@@ -1381,7 +1381,8 @@ struct SidebarView: View {
                     onEdit: { editingGroup = group },
                     onDuplicate: { duplicateGroup(group) },
                     selectedConversationId: windowState.selectedConversationId,
-                    hasActiveSession: groupHasActiveSession(group)
+                    hasActiveSession: groupHasActiveSession(group),
+                    onDeleteConversation: { conv in promptDelete(conv) }
                 )
                 .contextMenu {
                     Button("Start Chat") {
