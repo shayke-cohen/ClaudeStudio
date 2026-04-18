@@ -4,6 +4,7 @@ import SwiftData
 struct GroupSidebarRowView: View {
     let group: AgentGroup
     let conversations: [Conversation]
+    var archivedConversations: [Conversation] = []
     let allAgents: [Agent]
     @Binding var isExpanded: Bool
     let onNewChat: () -> Void
@@ -23,6 +24,7 @@ struct GroupSidebarRowView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var showAllConversations = false
+    @State private var isArchivedExpanded = false
 
     private var isSelected: Bool {
         guard let selected = selectedConversationId else { return false }
@@ -91,6 +93,52 @@ struct GroupSidebarRowView: View {
                 .buttonStyle(.plain)
                 .padding(.leading, 6)
                 .accessibilityIdentifier("sidebar.agentShowAllThreads.\(group.id.uuidString)")
+            }
+
+            if !archivedConversations.isEmpty {
+                DisclosureGroup(isExpanded: $isArchivedExpanded) {
+                    ForEach(archivedConversations) { conv in
+                        let isConvSelected = selectedConversationId == conv.id
+                        Button {
+                            onSelectConversation(conv)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "archivebox")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                Text(conv.topic ?? "Untitled")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(conv.startedAt, style: .relative)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
+                            .background(isConvSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("sidebar.groupArchivedThreadRow.\(conv.id.uuidString)")
+                        .contextMenu {
+                            Button("Open Thread") { onSelectConversation(conv) }
+                            Divider()
+                            Button("Unarchive") {
+                                conv.isArchived = false
+                                try? modelContext.save()
+                            }
+                            Button("Delete\u{2026}", role: .destructive) { onDeleteConversation?(conv) }
+                        }
+                    }
+                } label: {
+                    Text("Archived (\(archivedConversations.count))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 6)
+                }
+                .accessibilityIdentifier("sidebar.groupArchivedSection.\(group.id.uuidString)")
             }
         } label: {
             HStack(spacing: 8) {

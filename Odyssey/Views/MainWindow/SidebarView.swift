@@ -178,6 +178,7 @@ struct SidebarView: View {
     @State private var showDeleteConfirmation = false
     @State private var projectToArchiveThreads: Project?
     @State private var projectToRemove: Project?
+    @State private var scheduleToDelete: ScheduledMission?
     @State private var isPinnedExpanded = true
     @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
@@ -303,6 +304,22 @@ struct SidebarView: View {
             } message: {
                 if let project = projectToRemove {
                     Text("Remove \(project.name) from the sidebar and delete its local threads, tasks, and schedules. Project files on disk will stay untouched.")
+                }
+            }
+            .alert("Delete Schedule?", isPresented: Binding(
+                get: { scheduleToDelete != nil },
+                set: { if !$0 { scheduleToDelete = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    if let schedule = scheduleToDelete {
+                        deleteGlobalSchedule(schedule)
+                    }
+                    scheduleToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { scheduleToDelete = nil }
+            } message: {
+                if let schedule = scheduleToDelete {
+                    Text("\"\(schedule.name)\" will be permanently deleted.")
                 }
             }
     }
@@ -1087,73 +1104,66 @@ struct SidebarView: View {
     // MARK: - Groups Section
 
     @ViewBuilder
+    private func groupSidebarRow(_ group: AgentGroup) -> some View {
+        GroupSidebarRowView(
+            group: group,
+            conversations: conversationsForGroup(group),
+            archivedConversations: archivedConversationsForGroup(group),
+            allAgents: agents,
+            isExpanded: Binding(
+                get: { expandedGroupIds.contains(group.id) },
+                set: { expanded in
+                    if expanded { expandedGroupIds.insert(group.id) }
+                    else { expandedGroupIds.remove(group.id) }
+                }
+            ),
+            onNewChat: {
+                if let convoId = appState.startGroupChat(
+                    group: group,
+                    projectDirectory: windowState.projectDirectory,
+                    projectId: nil,
+                    modelContext: modelContext
+                ) {
+                    expandedGroupIds.insert(group.id)
+                    windowState.selectedConversationId = convoId
+                }
+            },
+            onNewAutonomousChat: (autonomousMissionsEnabled && group.autonomousCapable) ? {
+                autonomousGroup = group
+            } : nil,
+            onSelectConversation: { conv in windowState.selectedConversationId = conv.id },
+            onSelectGroup: { selectOrCreateGroupChat(group) },
+            onEdit: { editingGroup = group },
+            onRename: { conv in renameText = conv.topic ?? ""; renamingConversation = conv },
+            selectedConversationId: windowState.selectedConversationId,
+            hasActiveSession: groupHasActiveSession(group),
+            onDeleteConversation: { conv in promptDelete(conv) },
+            projects: projects,
+            onNewSessionInProject: { project in selectOrCreateGroupChat(group, in: project) },
+            onHideFromSidebar: { group.showInSidebar = false; try? modelContext.save() },
+            onScheduleMission: {
+                groupScheduleDraft = ScheduledMissionDraft(
+                    name: "\(group.name) schedule",
+                    targetKind: .group,
+                    projectDirectory: windowState.projectDirectory,
+                    promptTemplate: group.defaultMission ?? ""
+                )
+                groupScheduleDraft.targetGroupId = group.id
+                showingGroupScheduleEditor = true
+            },
+            onViewSessionHistory: {
+                if expandedGroupIds.contains(group.id) { expandedGroupIds.remove(group.id) }
+                else { expandedGroupIds.insert(group.id) }
+            }
+        )
+    }
+
+    @ViewBuilder
     private var groupsSection: some View {
         Section {
             if isGroupsSectionExpanded {
                 ForEach(groups.filter { $0.isEnabled && $0.showInSidebar }) { group in
-                    GroupSidebarRowView(
-                        group: group,
-                        conversations: conversationsForGroup(group),
-                        allAgents: agents,
-                        isExpanded: Binding(
-                            get: { expandedGroupIds.contains(group.id) },
-                            set: { expanded in
-                                if expanded { expandedGroupIds.insert(group.id) }
-                                else { expandedGroupIds.remove(group.id) }
-                            }
-                        ),
-                        onNewChat: {
-                            if let convoId = appState.startGroupChat(
-                                group: group,
-                                projectDirectory: windowState.projectDirectory,
-                                projectId: nil,
-                                modelContext: modelContext
-                            ) {
-                                expandedGroupIds.insert(group.id)
-                                windowState.selectedConversationId = convoId
-                            }
-                        },
-                        onNewAutonomousChat: (autonomousMissionsEnabled && group.autonomousCapable) ? {
-                            autonomousGroup = group
-                        } : nil,
-                        onSelectConversation: { conv in
-                            windowState.selectedConversationId = conv.id
-                        },
-                        onSelectGroup: {
-                            selectOrCreateGroupChat(group)
-                        },
-                        onEdit: { editingGroup = group },
-                        onRename: { conv in
-                            renameText = conv.topic ?? ""
-                            renamingConversation = conv
-                        },
-                        selectedConversationId: windowState.selectedConversationId,
-                        hasActiveSession: groupHasActiveSession(group),
-                        onDeleteConversation: { conv in promptDelete(conv) },
-                        projects: projects,
-                        onNewSessionInProject: { project in selectOrCreateGroupChat(group, in: project) },
-                        onHideFromSidebar: {
-                            group.showInSidebar = false
-                            try? modelContext.save()
-                        },
-                        onScheduleMission: {
-                            groupScheduleDraft = ScheduledMissionDraft(
-                                name: "\(group.name) schedule",
-                                targetKind: .group,
-                                projectDirectory: windowState.projectDirectory,
-                                promptTemplate: group.defaultMission ?? ""
-                            )
-                            groupScheduleDraft.targetGroupId = group.id
-                            showingGroupScheduleEditor = true
-                        },
-                        onViewSessionHistory: {
-                            if expandedGroupIds.contains(group.id) {
-                                expandedGroupIds.remove(group.id)
-                            } else {
-                                expandedGroupIds.insert(group.id)
-                            }
-                        }
-                    )
+                    groupSidebarRow(group)
                 }
 
                 let hiddenGroupCount = groups.filter { $0.isEnabled && !$0.showInSidebar }.count
@@ -1339,7 +1349,7 @@ struct SidebarView: View {
                 Label("Duplicate & Edit", systemImage: "doc.on.doc.fill")
             }
             Divider()
-            Button(role: .destructive) { deleteGlobalSchedule(schedule) } label: {
+            Button(role: .destructive) { scheduleToDelete = schedule } label: {
                 Label("Delete", systemImage: "trash")
             }
         }
@@ -1477,6 +1487,7 @@ struct SidebarView: View {
         AgentSidebarRowView(
             agent: agent,
             conversations: conversationsForAgent(agent),
+            archivedConversations: archivedConversationsForAgent(agent),
             isExpanded: Binding(
                 get: { expandedAgentIds.contains(agent.id) },
                 set: { expanded in
@@ -1818,7 +1829,17 @@ struct SidebarView: View {
 
     private func conversationsForGroup(_ group: AgentGroup, in project: Project? = nil) -> [Conversation] {
         conversations.filter {
-            $0.sourceGroupId == group.id && (project == nil ? $0.projectId == nil : $0.projectId == project?.id)
+            $0.sourceGroupId == group.id
+                && !$0.isArchived
+                && (project == nil ? $0.projectId == nil : $0.projectId == project?.id)
+        }
+    }
+
+    private func archivedConversationsForGroup(_ group: AgentGroup, in project: Project? = nil) -> [Conversation] {
+        conversations.filter {
+            $0.sourceGroupId == group.id
+                && $0.isArchived
+                && (project == nil ? $0.projectId == nil : $0.projectId == project?.id)
         }
     }
 
@@ -1827,12 +1848,30 @@ struct SidebarView: View {
         return allSessions
             .filter { $0.agent?.id == agent.id }
             .compactMap { $0.conversations.first }
-            .filter { $0.sourceGroupId == nil }  // group chats belong to the group only
+            .filter { $0.sourceGroupId == nil }
+            .filter { !$0.isArchived }
             .filter {
                 if let project {
                     $0.projectId == project.id
                 } else {
-                    $0.projectId == nil   // global agent section: only non-project chats
+                    $0.projectId == nil
+                }
+            }
+            .filter { seen.insert($0.id).inserted }
+    }
+
+    private func archivedConversationsForAgent(_ agent: Agent, in project: Project? = nil) -> [Conversation] {
+        var seen = Set<UUID>()
+        return allSessions
+            .filter { $0.agent?.id == agent.id }
+            .compactMap { $0.conversations.first }
+            .filter { $0.sourceGroupId == nil }
+            .filter { $0.isArchived }
+            .filter {
+                if let project {
+                    $0.projectId == project.id
+                } else {
+                    $0.projectId == nil
                 }
             }
             .filter { seen.insert($0.id).inserted }
