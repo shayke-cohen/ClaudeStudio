@@ -6,7 +6,7 @@ import SwiftData
 struct SkillCreationSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @Query(sort: \MCPServer.name) private var allMCPs: [MCPServer]
 

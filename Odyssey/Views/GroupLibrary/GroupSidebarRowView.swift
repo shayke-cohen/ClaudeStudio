@@ -24,7 +24,7 @@ struct GroupSidebarRowView: View {
     var onCloseConversation: ((Conversation) -> Void)?
 
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var showAllConversations = false
     var isArchivedExpanded: Binding<Bool>
     @State private var isHeaderHovered = false

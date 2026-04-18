@@ -15,7 +15,7 @@ struct InspectorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(WindowState.self) private var windowState: WindowState
     @Query(sort: \Session.startedAt) private var allSessions: [Session]
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
@@ -1122,7 +1122,7 @@ private struct BlackboardInspectorPanel: View {
     let relevantKeys: Set<String>
     let relevantWriters: Set<String>
 
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var entries: [BlackboardSnapshotEntry] = []
     @State private var scope: BlackboardInspectorScope = .relevant
     @State private var searchText = ""

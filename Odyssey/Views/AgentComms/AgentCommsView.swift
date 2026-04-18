@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct AgentCommsView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var filter: CommsFilter = .all
 
     enum CommsFilter: String, CaseIterable {

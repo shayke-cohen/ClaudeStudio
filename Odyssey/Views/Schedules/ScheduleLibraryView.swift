@@ -4,7 +4,7 @@ import SwiftData
 struct ScheduleLibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
     @Query(sort: \ScheduledMissionRun.startedAt, order: .reverse) private var runs: [ScheduledMissionRun]
@@ -114,7 +114,7 @@ struct ScheduleLibraryView: View {
         .frame(minWidth: 900, minHeight: 560)
         .sheet(isPresented: $showingEditor) {
             ScheduleEditorView(schedule: editingSchedule, draft: editorDraft)
-                .environmentObject(appState)
+                .environment(appState)
                 .environment(\.modelContext, modelContext)
         }
     }

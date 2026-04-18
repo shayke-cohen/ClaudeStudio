@@ -3,7 +3,7 @@ import SwiftData
 
 struct GroupDetailView: View {
     let groupId: UUID
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @Query private var allGroups: [AgentGroup]
@@ -53,7 +53,7 @@ struct GroupDetailView: View {
             }
             .sheet(isPresented: $showingScheduleEditor) {
                 ScheduleEditorView(schedule: nil, draft: scheduleDraft)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(\.modelContext, modelContext)
             }
             .alert("Delete Group?", isPresented: $showDeleteConfirm) {

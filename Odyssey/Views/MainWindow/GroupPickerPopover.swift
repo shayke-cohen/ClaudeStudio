@@ -7,7 +7,7 @@ struct GroupPickerPopover: View {
     @Binding var isPresented: Bool
 
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
 
     @Query(sort: \AgentGroup.name) private var allGroups: [AgentGroup]

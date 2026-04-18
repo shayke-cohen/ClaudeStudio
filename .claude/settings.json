@@ -42,7 +42,9 @@
       "Bash(xcodebuild -project ClaudPeer.xcodeproj -scheme ClaudPeer -configuration Debug -derivedDataPath .derived-run build)",
       "Bash(ls /Users/shayco/ClaudPeer/*.xcodeproj)",
       "Bash(ls /Users/shayco/ClaudPeer/*.xcworkspace)",
-      "Bash(open /Users/shayco/Library/Developer/Xcode/DerivedData/ClaudeStudio-aacesxntcduwzqbazhfjqhybjfau/Build/Products/Debug/ClaudeStudio.app)"
+      "Bash(open /Users/shayco/Library/Developer/Xcode/DerivedData/ClaudeStudio-aacesxntcduwzqbazhfjqhybjfau/Build/Products/Debug/ClaudeStudio.app)",
+      "Bash(make build-check *)",
+      "Bash(xcodebuild -project Odyssey.xcodeproj -scheme Odyssey -configuration Debug -derivedDataPath /tmp/odyssey-check build)"
     ],
     "additionalDirectories": [
       "/Users/shayco/.claudestudio/instances/default/data",

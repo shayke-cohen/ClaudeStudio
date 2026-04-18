@@ -3,7 +3,7 @@ import SwiftUI
 /// Standalone debug window that displays a unified, filterable, real-time
 /// log stream from both the Swift app (OSLog) and the TypeScript sidecar.
 struct DebugLogView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @StateObject private var aggregator = LogAggregator()
     @State private var autoScroll = true
     @State private var copyFlash = false

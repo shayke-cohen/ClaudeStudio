@@ -9,7 +9,7 @@ private let logger = Logger(subsystem: "com.odyssey.app", category: "iOSPairing"
 /// Settings pane for iOS device pairing: QR code display, copy link, and device management.
 struct iOSPairingSettingsView: View {
 
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var p2pNetworkManager: P2PNetworkManager
     @Environment(\.modelContext) private var modelContext
     @Query(

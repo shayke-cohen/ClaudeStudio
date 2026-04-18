@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct MatrixAccountView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @State private var homeserverText = "https://matrix.org"
     @State private var username = ""

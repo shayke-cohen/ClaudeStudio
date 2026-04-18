@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ConversationIdleResultView: View {
     let conversationId: String
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) var appState
 
     private var idleResult: ConversationIdleResult? {
         appState.idleResults[conversationId]

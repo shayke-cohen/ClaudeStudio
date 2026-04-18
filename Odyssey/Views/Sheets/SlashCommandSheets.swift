@@ -221,7 +221,7 @@ struct SlashBranchPickerSheet: View {
 
 struct SlashSkillsSheet: View {
     let session: Session?
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) var appState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var skills: [Skill]
@@ -260,7 +260,7 @@ struct SlashSkillsSheet: View {
 
 struct SlashMCPSheet: View {
     let session: Session?
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) var appState
     @Environment(\.dismiss) private var dismiss
     @Query private var mcpServers: [MCPServer]
 

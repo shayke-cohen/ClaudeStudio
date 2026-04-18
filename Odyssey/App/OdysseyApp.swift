@@ -8,7 +8,7 @@ import AppXray
 
 @main
 struct OdysseyApp: App {
-    @StateObject private var appState: AppState
+    @State private var appState: AppState
     @StateObject private var p2pNetworkManager = P2PNetworkManager()
     @StateObject private var sharedRoomService: SharedRoomService
     @StateObject private var sharedRoomTestAPIService: SharedRoomTestAPIService
@@ -34,7 +34,7 @@ struct OdysseyApp: App {
         let appState = AppState()
         let sharedRoomService = SharedRoomService()
         let sharedRoomTestAPIService = SharedRoomTestAPIService()
-        _appState = StateObject(wrappedValue: appState)
+        _appState = State(initialValue: appState)
         _sharedRoomService = StateObject(wrappedValue: sharedRoomService)
         _sharedRoomTestAPIService = StateObject(wrappedValue: sharedRoomTestAPIService)
 
@@ -187,7 +187,7 @@ struct OdysseyApp: App {
 
         Window("Debug Log", id: "debug-log") {
             DebugLogView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environment(\.appTextScale, resolvedTextSize.scaleFactor)
                 .preferredColorScheme(resolvedColorScheme)
         }
@@ -359,7 +359,7 @@ private struct ProjectWindowContent: View {
                 }
             }
         }
-        .environmentObject(appState)
+        .environment(appState)
         .environmentObject(p2pNetworkManager)
         .environmentObject(sharedRoomService)
         .preferredColorScheme(resolvedColorScheme)

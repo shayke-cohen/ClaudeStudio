@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct WelcomeView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Agent.name) private var allAgents: [Agent]
@@ -62,7 +62,7 @@ struct WelcomeView: View {
                 projectId: windowState.selectedProjectId,
                 projectDirectory: windowState.projectDirectory
             )
-            .environmentObject(appState)
+            .environment(appState)
             .environment(windowState)
         }
     }

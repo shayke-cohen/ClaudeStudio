@@ -23,7 +23,7 @@ enum WorkshopTab: String, CaseIterable, Identifiable {
 
 struct WorkshopEntityBrowser: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @Query(sort: \Agent.name) private var agents: [Agent]
     @Query(sort: \AgentGroup.name) private var groups: [AgentGroup]

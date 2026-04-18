@@ -21,7 +21,7 @@ extension FocusedValues {
 }
 
 struct MainWindowView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var p2pNetworkManager: P2PNetworkManager
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Environment(WindowState.self) private var windowState: WindowState
@@ -54,7 +54,7 @@ struct MainWindowView: View {
                     ws.pendingConfigSlug = nil
                     ws.closeSettings()
                 }
-                .environmentObject(appState)
+                .environment(appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .xrayId("mainWindow.settingsScreen")
             } else {
@@ -167,11 +167,11 @@ struct MainWindowView: View {
         }
         .sheet(isPresented: $ws.showAllSchedules) {
             GlobalSchedulesView()
-                .environmentObject(appState)
+                .environment(appState)
         }
         .sheet(isPresented: $ws.showAgentComms) {
             AgentCommsView()
-                .environmentObject(appState)
+                .environment(appState)
                 .frame(minWidth: 600, minHeight: 400)
         }
         .sheet(isPresented: $ws.showSharedRoomInbox) {
@@ -191,7 +191,7 @@ struct MainWindowView: View {
         }
         .sheet(isPresented: $ws.showWorkshop) {
             WorkshopView()
-                .environmentObject(appState)
+                .environment(appState)
                 .frame(minWidth: 960, minHeight: 640)
         }
         .onAppear {

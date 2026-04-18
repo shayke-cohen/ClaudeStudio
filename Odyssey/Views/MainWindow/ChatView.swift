@@ -164,7 +164,7 @@ struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appTextScale) private var appTextScale
     @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var sharedRoomService: SharedRoomService
     @Environment(WindowState.self) private var windowState: WindowState
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
@@ -626,11 +626,11 @@ struct ChatView: View {
             try? await Task.sleep(for: .milliseconds(300))
             checkForPendingResponse()
         }
-        .onReceive(appState.$lastSessionEvent) { events in
+        .onChange(of: appState.lastSessionEvent) { _, events in
             restoreStreamingStateFromAppState()
             checkForCompletion(events: events)
         }
-        .onReceive(appState.$streamingText) { texts in
+        .onChange(of: appState.streamingText) { _, texts in
             for key in activeStreamingSessionKeys {
                 let newCount = texts[key]?.count ?? 0
                 let previousCount = lastStreamingTextLengths[key] ?? 0
@@ -641,10 +641,10 @@ struct ChatView: View {
             }
             restoreStreamingStateFromAppState()
         }
-        .onReceive(appState.$thinkingText) { _ in
+        .onChange(of: appState.thinkingText) { _, _ in
             restoreStreamingStateFromAppState()
         }
-        .onReceive(appState.$sidecarStatus) { status in
+        .onChange(of: appState.sidecarStatus) { _, status in
             if status != .connected && isProcessing {
                 isProcessing = false
                 processingStartTimes.removeAll()
@@ -770,7 +770,7 @@ struct ChatView: View {
             addAgentsFilter = .all
         }) {
             AddAgentsToChatSheet(conversationId: conversationId, filter: addAgentsFilter)
-                .environmentObject(appState)
+                .environment(appState)
                 .environment(\.modelContext, modelContext)
         }
         .task(id: conversationId) {
@@ -790,7 +790,7 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showingScheduleEditor) {
             ScheduleEditorView(schedule: nil, draft: scheduleDraft)
-                .environmentObject(appState)
+                .environment(appState)
                 .environment(\.modelContext, modelContext)
         }
         // Slash command sheets — attached via background to avoid type-checker overload
@@ -853,12 +853,12 @@ struct ChatView: View {
             }
             .sheet(isPresented: $showSlashSkillsSheet) {
                 SlashSkillsSheet(session: conversation?.primarySession)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(\.modelContext, modelContext)
             }
             .sheet(isPresented: $showSlashMCPSheet) {
                 SlashMCPSheet(session: conversation?.primarySession)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
             .sheet(isPresented: $showSlashPermissionsSheet) {
                 SlashPermissionsSheet(session: conversation?.primarySession)

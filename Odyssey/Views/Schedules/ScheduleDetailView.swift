@@ -7,7 +7,7 @@ struct ScheduleDetailView: View {
     let onDuplicate: (ScheduledMission) -> Void
     let onDelete: (ScheduledMission) -> Void
 
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @State private var isStartingRun = false
     @State private var showingAllRuns = false
@@ -415,7 +415,7 @@ struct ScheduleRunListSheet: View {
 struct ScheduleHistorySheet: View {
     let schedule: ScheduledMission
 
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss

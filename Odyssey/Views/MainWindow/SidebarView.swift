@@ -132,7 +132,7 @@ private struct GlobalScheduleEditRequest: Identifiable {
 }
 
 struct SidebarView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
@@ -309,30 +309,30 @@ struct SidebarView: View {
             }
             .sheet(item: $autonomousGroup) { group in
                 AutonomousMissionSheet(group: group)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
             .sheet(isPresented: $showAutoAssemble) {
                 AutoAssembleSheet()
-                    .environmentObject(appState)
+                    .environment(appState)
             }
             .sheet(isPresented: $showingAgentScheduleEditor) {
                 ScheduleEditorView(schedule: nil, draft: agentScheduleDraft)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(\.modelContext, modelContext)
             }
             .sheet(isPresented: $showingGroupScheduleEditor) {
                 ScheduleEditorView(schedule: nil, draft: groupScheduleDraft)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(\.modelContext, modelContext)
             }
             .sheet(item: $globalScheduleEditRequest) { req in
                 ScheduleEditorView(schedule: req.schedule, draft: req.draft)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(\.modelContext, modelContext)
             }
             .sheet(item: $scheduleForHistory) { schedule in
                 ScheduleHistorySheet(schedule: schedule)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environment(windowState)
             }
             .onChange(of: windowState.sidebarRevealConversationId) { _, convId in
@@ -426,7 +426,7 @@ struct SidebarView: View {
                                 projectDirectory: "",
                                 isPresented: $ws.showAgentPicker
                             )
-                            .environmentObject(appState)
+                            .environment(appState)
                             .environment(windowState)
                         }
                     Button("") { }
@@ -437,7 +437,7 @@ struct SidebarView: View {
                                 projectDirectory: "",
                                 isPresented: $ws.showGroupPicker
                             )
-                            .environmentObject(appState)
+                            .environment(appState)
                             .environment(windowState)
                         }
                     Button("") { ws.showAgentPicker = true }

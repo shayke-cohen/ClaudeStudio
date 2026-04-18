@@ -6,7 +6,7 @@ import SwiftData
 /// a Nostr relay connection.
 struct AcceptInviteView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @State private var inviteText: String = ""
     @State private var status: Status = .idle

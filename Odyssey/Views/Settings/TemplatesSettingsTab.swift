@@ -7,7 +7,7 @@ import SwiftData
 /// handling sync in both directions.
 struct TemplatesSettingsTab: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @Query(sort: [SortDescriptor(\Agent.name)]) private var agents: [Agent]
     @Query(sort: [SortDescriptor(\AgentGroup.sortOrder), SortDescriptor(\AgentGroup.name)]) private var groups: [AgentGroup]

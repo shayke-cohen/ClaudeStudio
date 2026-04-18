@@ -44,7 +44,7 @@ struct NewSessionSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
 
     @Query(sort: \Agent.name) private var agents: [Agent]

@@ -496,7 +496,7 @@ private struct ModelsSettingsTab: View {
     @AppStorage(AppSettings.localAgentHostPathOverrideKey, store: AppSettings.store) private var localAgentHostPathOverride = ""
     @AppStorage(AppSettings.mlxRunnerPathOverrideKey, store: AppSettings.store) private var mlxRunnerPathOverride = ""
     @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @ObservedObject var state: ModelsSettingsState
 
     private var localProviderReport: LocalProviderStatusReport {
@@ -1876,7 +1876,7 @@ private struct ModelsSettingsTab: View {
 // MARK: - Advanced (Connection + Developer merged)
 
 private struct AdvancedSettingsTab: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var p2pNetworkManager: P2PNetworkManager
     @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
     @AppStorage(AppSettings.wsPortKey, store: AppSettings.store) private var wsPort = AppSettings.defaultWsPort
@@ -2284,7 +2284,7 @@ private struct AdvancedSettingsTab: View {
 
 
 private struct ConnectorsSettingsTab: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Connection.displayName) private var connections: [Connection]
     @AppStorage(AppSettings.connectorBrokerBaseURLKey, store: AppSettings.store) private var connectorBrokerBaseURL = ""
@@ -2359,7 +2359,7 @@ private struct ConnectorsSettingsTab: View {
                 provider: provider,
                 existingConnection: connection(for: provider)
             )
-            .environmentObject(appState)
+            .environment(appState)
         }
     }
 
@@ -2522,7 +2522,7 @@ private struct ConnectorRowView: View {
 private struct ConnectorEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     let provider: ConnectionProvider
     let existingConnection: Connection?

@@ -1,13 +1,14 @@
 import SwiftUI
 import SwiftData
-import Combine
+
 import OSLog
 import OdysseyCore
 
 private let logger = Logger(subsystem: "com.odyssey.app", category: "AppState")
 
+@Observable
 @MainActor
-final class AppState: ObservableObject {
+final class AppState {
     enum SidecarCommandError: Error {
         case unavailable
     }
@@ -19,52 +20,52 @@ final class AppState: ObservableObject {
         case error(String)
     }
 
-    @Published var sidecarStatus: SidecarStatus = .disconnected
-    @Published var activeSessions: [UUID: SessionInfo] = [:]
+    var sidecarStatus: SidecarStatus = .disconnected
+    var activeSessions: [UUID: SessionInfo] = [:]
 
     /// Conversation IDs currently visible in any window — used for notification/unread gating.
-    @Published var visibleConversationIds: Set<UUID> = []
-    @Published var streamingText: [String: String] = [:]
+    var visibleConversationIds: Set<UUID> = []
+    var streamingText: [String: String] = [:]
     private var streamingTokens: [String: [String]] = [:]
-    @Published var thinkingText: [String: String] = [:]
-    @Published var streamingImages: [String: [(data: String, mediaType: String)]] = [:]
-    @Published var streamingFileCards: [String: [(path: String, type: String, name: String)]] = [:]
-    @Published var lastSessionEvent: [String: SessionEventKind] = [:]
-    @Published private(set) var allocatedWsPort: Int = 0
-    @Published private(set) var allocatedHttpPort: Int = 0
+    var thinkingText: [String: String] = [:]
+    var streamingImages: [String: [(data: String, mediaType: String)]] = [:]
+    var streamingFileCards: [String: [(path: String, type: String, name: String)]] = [:]
+    var lastSessionEvent: [String: SessionEventKind] = [:]
+    private(set) var allocatedWsPort: Int = 0
+    private(set) var allocatedHttpPort: Int = 0
 
-    @Published var toolCalls: [String: [ToolCallInfo]] = [:]
-    @Published var sessionActivity: [String: SessionActivityState] = [:]
-    @Published var commsEvents: [CommsEvent] = []
-    @Published var fileTreeRefreshTrigger: Int = 0
-    @Published var generatedAgentSpec: GeneratedAgentSpec?
-    @Published var isGeneratingAgent: Bool = false
-    @Published var generateAgentError: String?
-    @Published var generatedSkillSpec: GeneratedSkillSpec?
-    @Published var isGeneratingSkill: Bool = false
-    @Published var generateSkillError: String?
-    @Published var generatedTemplateSpec: GeneratedTemplateSpec?
-    @Published var isGeneratingTemplate: Bool = false
-    @Published var generateTemplateError: String?
+    var toolCalls: [String: [ToolCallInfo]] = [:]
+    var sessionActivity: [String: SessionActivityState] = [:]
+    var commsEvents: [CommsEvent] = []
+    var fileTreeRefreshTrigger: Int = 0
+    var generatedAgentSpec: GeneratedAgentSpec?
+    var isGeneratingAgent: Bool = false
+    var generateAgentError: String?
+    var generatedSkillSpec: GeneratedSkillSpec?
+    var isGeneratingSkill: Bool = false
+    var generateSkillError: String?
+    var generatedTemplateSpec: GeneratedTemplateSpec?
+    var isGeneratingTemplate: Bool = false
+    var generateTemplateError: String?
     /// Set to true to open the "Add to Residents" sheet. AppXray tests use setState to set this.
-    @Published var showAddResidentSheet: Bool = false
+    var showAddResidentSheet: Bool = false
     /// Set to true to open the Add Agents to Chat sheet in the active ChatView. AppXray tests use setState to set this.
-    @Published var showAddAgentsToChatSheet: Bool = false
-    @Published var pendingQuestions: [String: AgentQuestion] = [:]
-    @Published var pendingConfirmations: [String: AgentConfirmation] = [:]
-    @Published var progressTrackers: [String: ProgressTracker] = [:]
-    @Published var pendingSuggestions: [String: [SuggestionItem]] = [:]
-    @Published var completedPlans: [String: CompletedPlan] = [:]
-    @Published var idleResults: [String: ConversationIdleResult] = [:]
-    @Published var evaluatingConversations: Set<String> = []
-    @Published private(set) var workerStandbySessions: Set<String> = []
-    @Published var presenceStore: [String: PresenceStatus] = [:]
+    var showAddAgentsToChatSheet: Bool = false
+    var pendingQuestions: [String: AgentQuestion] = [:]
+    var pendingConfirmations: [String: AgentConfirmation] = [:]
+    var progressTrackers: [String: ProgressTracker] = [:]
+    var pendingSuggestions: [String: [SuggestionItem]] = [:]
+    var completedPlans: [String: CompletedPlan] = [:]
+    var idleResults: [String: ConversationIdleResult] = [:]
+    var evaluatingConversations: Set<String> = []
+    private(set) var workerStandbySessions: Set<String> = []
+    var presenceStore: [String: PresenceStatus] = [:]
     /// Nostr public key hex (x-only, BIP-340) for this instance — used in invite generation.
-    @Published var nostrPublicKeyHex: String? = nil
+    var nostrPublicKeyHex: String? = nil
     /// Number of currently connected Nostr relays (updated via nostr.status events).
-    @Published var nostrRelayCount: Int = 0
+    var nostrRelayCount: Int = 0
     /// Total number of configured Nostr relays.
-    @Published var nostrRelayTotal: Int = 0
+    var nostrRelayTotal: Int = 0
     // launchError and autoSendText moved to WindowState (per-window)
 
     /// File-based config sync service (set by OdysseyApp on appear)
@@ -114,7 +115,7 @@ final class AppState: ObservableObject {
         let allowedPrompts: [PlanAllowedPrompt]?
     }
 
-    enum SessionEventKind {
+    enum SessionEventKind: Equatable {
         case result
         case error(String)
     }
@@ -218,13 +219,7 @@ final class AppState: ObservableObject {
     private var eventTask: Task<Void, Never>?
     private var conversationSyncTimer: Task<Void, Never>?
     var modelContext: ModelContext?
-    private(set) lazy var transportManager: TransportManager = {
-        let tm = TransportManager(instanceName: InstanceConfig.name)
-        tm.onPresenceChanged = { @MainActor [weak self] userId, status in
-            self?.presenceStore[userId] = status
-        }
-        return tm
-    }()
+    private(set) var transportManager: TransportManager
     private(set) var scheduleEngine: ScheduleEngine?
     private(set) var scheduleRunCoordinator: ScheduleRunCoordinator?
     #if DEBUG
@@ -233,6 +228,10 @@ final class AppState: ObservableObject {
     #endif
 
     init() {
+        self.transportManager = TransportManager(instanceName: InstanceConfig.name)
+        transportManager.onPresenceChanged = { @MainActor [weak self] userId, status in
+            self?.presenceStore[userId] = status
+        }
         if let kp = try? IdentityManager.shared.nostrKeypair(for: InstanceConfig.name) {
             nostrPublicKeyHex = kp.pubkeyHex
         }

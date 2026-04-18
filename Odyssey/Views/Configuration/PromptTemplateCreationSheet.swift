@@ -14,7 +14,7 @@ import SwiftData
 struct PromptTemplateCreationSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
 
     var ownerAgent: Agent? = nil
     var ownerGroup: AgentGroup? = nil

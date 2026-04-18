@@ -4,7 +4,7 @@ import SwiftData
 struct GlobalSchedulesView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
 
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var allSchedules: [ScheduledMission]
@@ -70,7 +70,7 @@ struct GlobalSchedulesView: View {
         .frame(minWidth: 940, minHeight: 560)
         .sheet(isPresented: $showingEditor) {
             ScheduleEditorView(schedule: editingSchedule, draft: editorDraft)
-                .environmentObject(appState)
+                .environment(appState)
                 .environment(\.modelContext, modelContext)
         }
         .stableXrayId("globalSchedules.container")
