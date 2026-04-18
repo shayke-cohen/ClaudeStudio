@@ -334,6 +334,7 @@ struct ChatView: View {
     @State private var recoveryErrorDetail = ""
     @State private var showAutonomousSwitchConfirmation = false
     @State private var showAddAgentsSheet = false
+    @State private var addAgentsFilter: AddAgentsToChatSheet.FilterMode = .all
     @State private var showingScheduleEditor = false
     @State private var scheduleDraft = ScheduledMissionDraft()
     /// Retained while the system share sheet is visible so temp export files can be cleaned up.
@@ -915,8 +916,9 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showAddAgentsSheet, onDismiss: {
             appState.showAddAgentsToChatSheet = false
+            addAgentsFilter = .all
         }) {
-            AddAgentsToChatSheet(conversationId: conversationId)
+            AddAgentsToChatSheet(conversationId: conversationId, filter: addAgentsFilter)
                 .environmentObject(appState)
                 .environment(\.modelContext, modelContext)
         }
@@ -2121,38 +2123,58 @@ struct ChatView: View {
             }
 
             HStack(spacing: 8) {
-                Menu {
-                    Button {
-                        showAddAgentsSheet = true
-                    } label: {
-                        Label(conversation?.isSharedRoom == true ? "Add My Agents" : "Add Agents or Groups",
-                              systemImage: "plus.circle")
-                    }
-
-                    if federationEnabled {
-                        Button {
-                            windowState.sharedRoomInviteConversationId = conversationId
-                            windowState.showSharedRoomInviteSheet = true
-                        } label: {
-                            Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room",
-                                  systemImage: "person.badge.plus")
-                        }
-                    }
-
-                    Button {
-                        showFileImporter = true
-                    } label: {
-                        Label("Attach File", systemImage: "paperclip")
-                    }
+                Button {
+                    showFileImporter = true
                 } label: {
-                    Label("Tools", systemImage: "plus")
+                    Image(systemName: "paperclip")
                         .font(captionFont.weight(.medium))
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
+                .buttonStyle(.borderless)
                 .disabled(isProcessing)
-                .xrayId("chat.toolsMenu")
-                .accessibilityLabel("Tools")
+                .xrayId("chat.attachFileButton")
+                .accessibilityLabel("Attach file")
+                .help("Attach a file")
+
+                Button {
+                    addAgentsFilter = .agentsOnly
+                    showAddAgentsSheet = true
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(captionFont.weight(.medium))
+                }
+                .buttonStyle(.borderless)
+                .disabled(isProcessing)
+                .xrayId("chat.addAgentButton")
+                .accessibilityLabel("Add agent")
+                .help("Add an agent to this conversation")
+
+                Button {
+                    addAgentsFilter = .groupsOnly
+                    showAddAgentsSheet = true
+                } label: {
+                    Image(systemName: "person.2.badge.plus")
+                        .font(captionFont.weight(.medium))
+                }
+                .buttonStyle(.borderless)
+                .disabled(isProcessing)
+                .xrayId("chat.addGroupButton")
+                .accessibilityLabel("Add group")
+                .help("Add a group to this conversation")
+
+                if federationEnabled {
+                    Button {
+                        windowState.sharedRoomInviteConversationId = conversationId
+                        windowState.showSharedRoomInviteSheet = true
+                    } label: {
+                        Label(conversation?.isSharedRoom == true ? "Add People" : "Share Room",
+                              systemImage: "person.wave.2")
+                            .font(captionFont.weight(.medium))
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(isProcessing)
+                    .xrayId("chat.shareRoomButton")
+                    .accessibilityLabel(conversation?.isSharedRoom == true ? "Add people" : "Share room")
+                }
 
                 Button {
                     conversation?.planModeEnabled.toggle()

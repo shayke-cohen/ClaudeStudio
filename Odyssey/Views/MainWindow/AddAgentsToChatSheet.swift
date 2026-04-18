@@ -3,7 +3,10 @@ import SwiftData
 
 /// Add one or more agents to an existing conversation (new `Session` + participant each).
 struct AddAgentsToChatSheet: View {
+    enum FilterMode { case all, agentsOnly, groupsOnly }
+
     let conversationId: UUID
+    var filter: FilterMode = .all
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
@@ -51,7 +54,7 @@ struct AddAgentsToChatSheet: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    if !addableGroups.isEmpty {
+                    if !addableGroups.isEmpty && filter != .agentsOnly {
                         Text("Groups")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -81,31 +84,33 @@ struct AddAgentsToChatSheet: View {
                         }
                     }
 
-                    if !addableGroups.isEmpty && !addableAgents.isEmpty {
+                    if !addableGroups.isEmpty && !addableAgents.isEmpty && filter == .all {
                         Divider().padding(.vertical, 4)
                     }
 
-                    if !addableAgents.isEmpty {
+                    if !addableAgents.isEmpty && filter != .groupsOnly {
                         Text("Agents")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .padding(.bottom, 2)
                     }
 
-                    ForEach(addableAgents) { agent in
-                        Toggle(isOn: Binding(
-                            get: { selectedIds.contains(agent.id) },
-                            set: { on in
-                                if on { selectedIds.insert(agent.id) } else { selectedIds.remove(agent.id) }
+                    if filter != .groupsOnly {
+                        ForEach(addableAgents) { agent in
+                            Toggle(isOn: Binding(
+                                get: { selectedIds.contains(agent.id) },
+                                set: { on in
+                                    if on { selectedIds.insert(agent.id) } else { selectedIds.remove(agent.id) }
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: agent.icon)
+                                        .foregroundStyle(Color.fromAgentColor(agent.color))
+                                    Text(agent.name)
+                                }
                             }
-                        )) {
-                            HStack(spacing: 8) {
-                                Image(systemName: agent.icon)
-                                    .foregroundStyle(Color.fromAgentColor(agent.color))
-                                Text(agent.name)
-                            }
+                            .xrayId("addAgents.toggle.\(agent.id.uuidString)")
                         }
-                        .xrayId("addAgents.toggle.\(agent.id.uuidString)")
                     }
                 }
             }
