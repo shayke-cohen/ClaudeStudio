@@ -1149,6 +1149,7 @@ final class AppState: ObservableObject {
             }
             lastSessionEvent[sessionId] = .result
             thinkingText.removeValue(forKey: sessionId)
+            streamingTokens.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .done
             checkConversationIdle(for: sessionId)
@@ -1174,6 +1175,7 @@ final class AppState: ObservableObject {
             }
             lastSessionEvent[sessionId] = .error(error)
             thinkingText.removeValue(forKey: sessionId)
+            streamingTokens.removeValue(forKey: sessionId)
             streamingImages.removeValue(forKey: sessionId)
             streamingFileCards.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)

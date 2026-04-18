@@ -16,7 +16,7 @@ final class PromptTemplateTests: XCTestCase {
         container = try ModelContainer(
             for:
                 Agent.self, AgentGroup.self, Session.self, Skill.self, MCPServer.self,
-                PermissionSet.self, PromptTemplate.self, TaskItem.self,
+                PermissionSet.self, PromptTemplate.self,
             configurations: config
         )
         context = container.mainContext

@@ -310,12 +310,14 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
 
     private func receiveMessages() {
         webSocketTask?.receive { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let message):
-                    self?.handleMessage(message)
-                    self?.receiveMessages()
-                case .failure:
+            switch result {
+            case .success(let message):
+                Task.detached(priority: .userInitiated) { [weak self] in
+                    guard let self else { return }
+                    await self.decodeAndYield(message)
+                }
+            case .failure:
+                Task { @MainActor in
                     self?.eventContinuation?.yield(.disconnected)
                     self?.attemptReconnect()
                 }
@@ -323,7 +325,7 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
         }
     }
 
-    private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
+    private nonisolated func decodeAndYield(_ message: URLSessionWebSocketTask.Message) async {
         let data: Data
         switch message {
         case .string(let text):
@@ -331,12 +333,19 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
         case .data(let d):
             data = d
         @unknown default:
+            await MainActor.run { self.receiveMessages() }
             return
         }
 
         guard let wire = try? JSONDecoder().decode(IncomingWireMessage.self, from: data),
-              let event = wire.toEvent() else { return }
-        eventContinuation?.yield(event)
+              let event = wire.toEvent() else {
+            await MainActor.run { self.receiveMessages() }
+            return
+        }
+        await MainActor.run {
+            self.eventContinuation?.yield(event)
+            self.receiveMessages()
+        }
     }
 
     private func handleProcessTermination(_ terminatedProcess: Process? = nil) {

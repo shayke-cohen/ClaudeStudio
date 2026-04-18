@@ -36,6 +36,7 @@ export class SessionManager {
   private readonly runtimes: Record<"claude" | "codex" | "foundation" | "mlx" | "mock", ProviderRuntime>;
   private readonly suppressedEvalSessions = new Set<string>();
   private readonly turnHistory = new Map<string, TurnRecord[]>();
+  private readonly tokenBatchers = new Map<string, { timer: ReturnType<typeof setTimeout> | null; buffer: string[] }>();
   private static readonly OLLAMA_CLAUDE_TURN_TIMEOUT_MS = 360_000;
   private static readonly OLLAMA_TURN_TIMEOUT_CODE = "OLLAMA_TURN_TIMEOUT";
 
@@ -46,6 +47,19 @@ export class SessionManager {
   ) {
     const suppressAwareEmit = (event: SidecarEvent) => {
       if ("sessionId" in event && typeof event.sessionId === "string" && this.suppressedEvalSessions.has(event.sessionId)) {
+        return;
+      }
+      if (event.type === "stream.token" && "sessionId" in event && "text" in event) {
+        const sid = event.sessionId as string;
+        const text = (event as { text: string }).text;
+        let batcher = this.tokenBatchers.get(sid);
+        if (!batcher) {
+          batcher = { timer: null, buffer: [] };
+          this.tokenBatchers.set(sid, batcher);
+        }
+        batcher.buffer.push(text);
+        if (batcher.timer) clearTimeout(batcher.timer);
+        batcher.timer = setTimeout(() => this.flushTokenBatch(sid, emit), 50);
         return;
       }
       emit(event);
@@ -248,7 +262,10 @@ export class SessionManager {
         }
       }
     } finally {
+      this.flushTokenBatch(sessionId, this.emit);
+      this.tokenBatchers.delete(sessionId);
       this.activeAborts.delete(sessionId);
+      this.turnHistory.delete(sessionId);
     }
   }
 
@@ -418,7 +435,10 @@ export class SessionManager {
       questionsBySession.delete(sessionId);
     }
 
+    this.flushTokenBatch(sessionId, this.emit);
+    this.tokenBatchers.delete(sessionId);
     this.toolCtx.delegation.delete(sessionId);
+    this.turnHistory.delete(sessionId);
     this.registry.update(sessionId, { status: "paused" });
   }
 
@@ -547,6 +567,18 @@ export class SessionManager {
     } finally {
       this.suppressedEvalSessions.delete(sessionId);
     }
+  }
+
+  flushTokenBatch(sessionId: string, emitFn: EventEmitter): void {
+    const batcher = this.tokenBatchers.get(sessionId);
+    if (!batcher || batcher.buffer.length === 0) return;
+    const combined = batcher.buffer.join("");
+    batcher.buffer = [];
+    if (batcher.timer) {
+      clearTimeout(batcher.timer);
+      batcher.timer = null;
+    }
+    emitFn({ type: "stream.token", sessionId, text: combined } as SidecarEvent);
   }
 
   private runtimeFor(config: AgentConfig): ProviderRuntime {

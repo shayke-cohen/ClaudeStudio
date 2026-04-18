@@ -7,14 +7,12 @@ struct MarkdownContent: View {
     var onOpenLocalReference: ((String) -> Void)? = nil
     @AppStorage(AppSettings.renderAdmonitionsKey, store: AppSettings.store) private var renderAdmonitions = true
     @Environment(\.appTextScale) private var appTextScale
-
-    private var renderedText: String {
-        LocalFileReferenceLinkifier.linkify(text)
-    }
+    @State private var renderedText: String = ""
+    @State private var cachedAdmonitionBlocks: [AdmonitionParser.Block]? = nil
 
     var body: some View {
         Group {
-            if renderAdmonitions, let blocks = AdmonitionParser.extractBlocks(from: renderedText), !blocks.isEmpty {
+            if renderAdmonitions, let blocks = cachedAdmonitionBlocks, !blocks.isEmpty {
                 admonitionAwareContent(blocks: blocks)
             } else {
                 Markdown(renderedText)
@@ -26,6 +24,15 @@ struct MarkdownContent: View {
         .environment(\.openURL, OpenURLAction { url in
             handleOpenURL(url)
         })
+        .onAppear { recomputeRendered() }
+        .onChange(of: text) { _, _ in recomputeRendered() }
+        .onChange(of: renderAdmonitions) { _, _ in recomputeRendered() }
+    }
+
+    private func recomputeRendered() {
+        let linked = LocalFileReferenceLinkifier.linkify(text)
+        renderedText = linked
+        cachedAdmonitionBlocks = renderAdmonitions ? AdmonitionParser.extractBlocks(from: linked) : nil
     }
 
     @ViewBuilder

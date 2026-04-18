@@ -214,7 +214,6 @@ final class SharedRoomServiceLocalBackendTests: XCTestCase {
             BlackboardEntry.self,
             Peer.self,
             AgentGroup.self,
-            TaskItem.self,
             ScheduledMission.self,
             ScheduledMissionRun.self,
             SharedRoomInvite.self,

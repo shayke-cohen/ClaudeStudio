@@ -16,7 +16,7 @@ final class ThreadCreationTests: XCTestCase {
             ConversationMessage.self, MessageAttachment.self,
             Participant.self, Skill.self, Connection.self, MCPServer.self,
             PermissionSet.self, BlackboardEntry.self, AgentGroup.self,
-            TaskItem.self, NostrPeer.self, PromptTemplate.self,
+            NostrPeer.self, PromptTemplate.self,
             configurations: config
         )
         context = container.mainContext
