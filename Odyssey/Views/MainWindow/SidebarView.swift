@@ -153,6 +153,13 @@ struct SidebarView: View {
     @State private var editingTask: TaskItem?
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
+    @State private var showingAgentScheduleEditor = false
+    @State private var agentScheduleDraft = ScheduledMissionDraft(
+        name: "",
+        targetKind: .agent,
+        projectDirectory: "",
+        promptTemplate: ""
+    )
     @State private var editingGroup: AgentGroup?
     @State private var autonomousGroup: AgentGroup?
     @State private var showAutoAssemble = false
@@ -198,6 +205,11 @@ struct SidebarView: View {
             .sheet(item: $editingTask) { task in
                 TaskEditSheet(task: task)
                     .environmentObject(appState)
+            }
+            .sheet(isPresented: $showingAgentScheduleEditor) {
+                ScheduleEditorView(schedule: nil, draft: agentScheduleDraft)
+                    .environmentObject(appState)
+                    .environment(\.modelContext, modelContext)
             }
             .alert("Rename Conversation", isPresented: Binding(
                 get: { renamingConversation != nil },
@@ -1548,18 +1560,59 @@ struct SidebarView: View {
             Button("New Session") {
                 startSession(with: agent)
             }
-            .xrayId("sidebar.agentRow.newSession.\(agent.id.uuidString)")
+            .accessibilityIdentifier("sidebar.agentRow.newSession.\(agent.id.uuidString)")
+
+            Menu("New Thread in Project\u{2026}") {
+                ForEach(projects) { project in
+                    Button(project.name) {
+                        startSession(with: agent, in: project)
+                    }
+                }
+                if projects.isEmpty {
+                    Text("No projects")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityIdentifier("sidebar.agentRow.newThreadInProject.\(agent.id.uuidString)")
+
             Divider()
+
+            Button("View Session History") {
+                if expandedAgentIds.contains(agent.id) {
+                    expandedAgentIds.remove(agent.id)
+                } else {
+                    expandedAgentIds.insert(agent.id)
+                }
+            }
+            .accessibilityIdentifier("sidebar.agentRow.viewHistory.\(agent.id.uuidString)")
+
+            Divider()
+
             Button(isPinned ? "Unpin from Sidebar" : "Pin to Sidebar") {
                 agent.isResident.toggle()
                 try? modelContext.save()
             }
-            .xrayId("sidebar.agentRow.togglePin.\(agent.id.uuidString)")
-            Divider()
-            Button("Open in Configuration") {
-                windowState.openConfiguration(section: .agents)
+            .accessibilityIdentifier("sidebar.agentRow.togglePin.\(agent.id.uuidString)")
+
+            Button("Hide from Sidebar") {
+                agent.showInSidebar = false
+                try? modelContext.save()
             }
-            .xrayId("sidebar.agentRow.openConfig.\(agent.id.uuidString)")
+            .accessibilityIdentifier("sidebar.agentRow.hideSidebar.\(agent.id.uuidString)")
+
+            Divider()
+
+            Button("Schedule Mission\u{2026}") {
+                agentScheduleDraft = ScheduledMissionDraft(
+                    name: "\(agent.name) schedule",
+                    targetKind: .agent,
+                    projectDirectory: windowState.projectDirectory,
+                    promptTemplate: ""
+                )
+                agentScheduleDraft.targetAgentId = agent.id
+                showingAgentScheduleEditor = true
+            }
+            .accessibilityIdentifier("sidebar.agentRow.schedule.\(agent.id.uuidString)")
         }
     }
 
