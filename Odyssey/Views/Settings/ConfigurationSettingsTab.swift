@@ -75,7 +75,6 @@ struct ConfigurationSettingsTab: View {
 
     @State private var selectedSection: ConfigSection = .agents
     @State private var selectedItem: ConfigSelectedItem?
-    @State private var searchText: String = ""
 
     private let initialSlug: String?
 
@@ -135,7 +134,6 @@ struct ConfigurationSettingsTab: View {
         }
         .onChange(of: selectedSection) { _, _ in
             selectedItem = nil
-            searchText = ""
         }
         .onAppear {
             guard let slug = initialSlug else { return }
@@ -206,22 +204,6 @@ struct ConfigurationSettingsTab: View {
             .padding(.horizontal, 12)
             .padding(.top, 11)
             .padding(.bottom, 7)
-
-            // Search field
-            HStack(spacing: 5) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                TextField("Search \(selectedSection.title.lowercased())…", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 11))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 8)
-            .padding(.bottom, 6)
-            .accessibilityIdentifier("settings.configuration.listSearch")
 
             Divider()
 
@@ -378,39 +360,11 @@ struct ConfigurationSettingsTab: View {
 
     // MARK: - Filtered items
 
-    private var filteredAgents: [Agent] {
-        let all = agents.filter(\.isEnabled)
-        guard !searchText.isEmpty else { return all }
-        let needle = searchText.lowercased()
-        return all.filter { $0.name.lowercased().contains(needle) }
-    }
-
-    private var filteredGroups: [AgentGroup] {
-        let all = groups.filter(\.isEnabled)
-        guard !searchText.isEmpty else { return all }
-        let needle = searchText.lowercased()
-        return all.filter { $0.name.lowercased().contains(needle) }
-    }
-
-    private var filteredSkills: [Skill] {
-        let all = skills.filter(\.isEnabled)
-        guard !searchText.isEmpty else { return all }
-        let needle = searchText.lowercased()
-        return all.filter { $0.name.lowercased().contains(needle) }
-    }
-
-    private var filteredMCPs: [MCPServer] {
-        let all = mcps.filter(\.isEnabled)
-        guard !searchText.isEmpty else { return all }
-        let needle = searchText.lowercased()
-        return all.filter { $0.name.lowercased().contains(needle) }
-    }
-
-    private var filteredPermissions: [PermissionSet] {
-        guard !searchText.isEmpty else { return Array(permissions) }
-        let needle = searchText.lowercased()
-        return permissions.filter { $0.name.lowercased().contains(needle) }
-    }
+    private var filteredAgents: [Agent] { agents.filter(\.isEnabled) }
+    private var filteredGroups: [AgentGroup] { groups.filter(\.isEnabled) }
+    private var filteredSkills: [Skill] { skills.filter(\.isEnabled) }
+    private var filteredMCPs: [MCPServer] { mcps.filter(\.isEnabled) }
+    private var filteredPermissions: [PermissionSet] { Array(permissions) }
 
     // MARK: - Actions
 

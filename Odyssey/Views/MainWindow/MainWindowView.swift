@@ -31,6 +31,7 @@ struct MainWindowView: View {
     @AppStorage(FeatureFlags.peerNetworkKey, store: AppSettings.store) private var peerNetworkFlag = false
     @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
     @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
+    @AppStorage(FeatureFlags.agentCommsKey, store: AppSettings.store) private var agentCommsFlag = false
     @Query private var conversations: [Conversation]
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showStatusPopover = false
@@ -38,6 +39,7 @@ struct MainWindowView: View {
     private var showPeerNetwork: Bool { FeatureFlags.isEnabled(FeatureFlags.peerNetworkKey) || (masterFlag && peerNetworkFlag) }
     private var showDebugLogs: Bool { FeatureFlags.isEnabled(FeatureFlags.debugLogsKey) || (masterFlag && debugLogsFlag) }
     private var showFederation: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
+    private var showAgentComms: Bool { FeatureFlags.isEnabled(FeatureFlags.agentCommsKey) || (masterFlag && agentCommsFlag) }
 
     var body: some View {
         @Bindable var ws = windowState
@@ -101,13 +103,15 @@ struct MainWindowView: View {
                             .xrayId("mainWindow.workspaceMenu.invitesButton")
                         }
 
-                        Button {
-                            windowState.showAgentComms = true
-                        } label: {
-                            Label("Agent Comms", systemImage: "antenna.radiowaves.left.and.right")
+                        if showAgentComms {
+                            Button {
+                                windowState.showAgentComms = true
+                            } label: {
+                                Label("Agent Comms", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                            .keyboardShortcut("a", modifiers: [.command, .shift])
+                            .xrayId("mainWindow.workspaceMenu.agentCommsButton")
                         }
-                        .keyboardShortcut("a", modifiers: [.command, .shift])
-                        .xrayId("mainWindow.workspaceMenu.agentCommsButton")
 
                         if showPeerNetwork {
                             Button {

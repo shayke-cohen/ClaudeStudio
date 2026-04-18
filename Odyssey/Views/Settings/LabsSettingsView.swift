@@ -75,6 +75,11 @@ struct LabsSettingsView: View {
                 title: "Federation",
                 description: "iOS Pairing, Matrix, Nostr accept-invite, and shared rooms."
             )
+            LabsToggleRow(
+                key: FeatureFlags.agentCommsKey,
+                title: "Agent Comms",
+                description: "Unified timeline of agent-to-agent messages and delegations."
+            )
         }
     }
 

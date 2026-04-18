@@ -49,9 +49,12 @@ enum FeatureFlags {
     /// Dev Mode — multi-instance UI affordances and launch-parameter helpers.
     static let devModeKey = "odyssey.features.devMode"
 
+    /// Agent Comms — unified agent-to-agent messaging timeline.
+    static let agentCommsKey = "odyssey.features.agentComms"
+
     // MARK: - Collections
 
-    /// All flag keys in a stable order (master + 9 per-feature).
+    /// All flag keys in a stable order (master + 10 per-feature).
     /// Included in `AppSettings.allKeys` so "Reset All Settings" clears them.
     static let all: [String] = [
         showAdvancedKey,
@@ -64,6 +67,7 @@ enum FeatureFlags {
         debugLogsKey,
         advancedAgentConfigKey,
         devModeKey,
+        agentCommsKey,
     ]
 
     /// Default values — all `false` for a focused V1 experience.
@@ -78,6 +82,7 @@ enum FeatureFlags {
         debugLogsKey: false,
         advancedAgentConfigKey: false,
         devModeKey: false,
+        agentCommsKey: false,
     ]
 
     // MARK: - Accessor
