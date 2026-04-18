@@ -249,6 +249,9 @@ final class WindowState {
     var selectedGroupId: UUID? {
         didSet { if selectedGroupId != nil { selectedConversationId = nil } }
     }
+    /// Fire-and-forget signal: SidebarView observes this via onChange, expands the owning
+    /// agent/group tree, then nils it out. Note: if the same UUID is set twice in a row
+    /// without the sidebar consuming and clearing it first, the second onChange won't fire.
     var sidebarRevealConversationId: UUID? = nil
 
     var inspectorVisible = true
