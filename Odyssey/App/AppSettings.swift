@@ -50,8 +50,9 @@ enum AppSettings {
     static let showSessionSummaryKey = "odyssey.chat.showSessionSummary"
     static let showSuggestionChipsKey = "odyssey.chat.showSuggestionChips"
     // MARK: - Quick Actions
-    static let quickActionUsageOrderKey = "odyssey.chat.quickActionUsageOrder"
+    static let quickActionUsageOrderKey  = "odyssey.chat.quickActionUsageOrder"
     static let quickActionUsageCountsKey = "odyssey.chat.quickActionUsageCounts"
+    static let quickActionConfigsKey     = "odyssey.chat.quickActionConfigs"    // ← add this
 
     // MARK: - TURN Relay
     static let turnEnabledKey = "odyssey.turnEnabled"
@@ -104,7 +105,7 @@ enum AppSettings {
             notificationsEnabledKey, notificationSoundEnabledKey,
             renderMermaidKey, renderHTMLKey, renderDiffsKey, renderTerminalKey,
             renderAdmonitionsKey, renderPDFKey, showSessionSummaryKey, showSuggestionChipsKey,
-            quickActionUsageOrderKey, quickActionUsageCountsKey,
+            quickActionUsageOrderKey, quickActionUsageCountsKey, quickActionConfigsKey,
             dataDirectoryKey, logLevelKey, builtInConfigOverridePolicyKey,
             sharedRoomUserIdKey, sharedRoomDisplayNameKey,
             turnEnabledKey, turnURLKey, turnUsernameKey, turnCredentialKey,
