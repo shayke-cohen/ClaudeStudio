@@ -83,20 +83,6 @@ struct MainWindowView: View {
         .background(WindowTitleSetter(projectName: windowState.projectName))
         .toolbar {
             if ws.activeRoute != .settings {
-                ToolbarItemGroup(placement: .navigation) {
-                    Button {
-                        ws.openSettings()
-                    } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .help("Settings")
-                    .xrayId("mainWindow.settingsButton")
-                    .accessibilityLabel("Settings")
-
-                }
-            }
-
-            if ws.activeRoute != .settings {
                 ToolbarItem(placement: .status) {
                     sidecarStatusPill
                 }
@@ -393,8 +379,15 @@ struct MainWindowView: View {
 
     private func startSessionWithAgent(_ agent: Agent) {
         let session = Session(agent: agent, mode: .interactive)
-        let rawDir = agent.defaultWorkingDirectory ?? windowState.projectDirectory
-        session.workingDirectory = NSString(string: rawDir).expandingTildeInPath
+        let rawDir: String
+        if !windowState.projectDirectory.isEmpty {
+            rawDir = windowState.projectDirectory
+        } else {
+            rawDir = agent.defaultWorkingDirectory ?? ""
+        }
+        if !rawDir.isEmpty {
+            session.workingDirectory = NSString(string: rawDir).expandingTildeInPath
+        }
         let conversation = Conversation(
             topic: agent.name,
             sessions: [session],

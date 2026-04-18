@@ -241,10 +241,12 @@ struct AgentLibraryView: View {
 
     private func startSession(with agent: Agent) {
         let session = Session(agent: agent, mode: .interactive)
-        if let agentDir = agent.defaultWorkingDirectory, !agentDir.isEmpty {
-            session.workingDirectory = NSString(string: agentDir).expandingTildeInPath
-        } else if !windowState.projectDirectory.isEmpty {
+        if !windowState.projectDirectory.isEmpty {
+            // Project context wins
             session.workingDirectory = windowState.projectDirectory
+        } else if let agentDir = agent.defaultWorkingDirectory, !agentDir.isEmpty {
+            // No project — agent's home dir is its root
+            session.workingDirectory = NSString(string: agentDir).expandingTildeInPath
         }
         let conversation = Conversation(
             topic: agent.name,
