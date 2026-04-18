@@ -121,9 +121,23 @@ echo "    Staple OK."
 # ── Step 7: Create DMG ──────────────────────────────────────────────────────
 
 echo "==> Creating DMG..."
-# Detect Developer ID identity from Keychain for DMG signing
-CODESIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-  | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+# Detect Developer ID identity — use SHA-1 hash to avoid ambiguity when multiple
+# certs share the same name (e.g. renewed Developer ID certs in the same Keychain).
+# Among all matching certs, pick the one with the latest expiry.
+CODESIGN_IDENTITY=""
+_best_expiry_epoch=0
+while IFS= read -r _sha; do
+  _pem=$(security find-certificate -c "Developer ID Application" -p -Z -a \
+    ~/Library/Keychains/login.keychain-db 2>/dev/null \
+    | awk "/SHA-1 hash: $_sha/{f=1} f && /BEGIN CERTIFICATE/{p=1} p{print} p && /END CERTIFICATE/{exit}")
+  _expiry=$(echo "$_pem" | openssl x509 -noout -enddate 2>/dev/null | sed 's/notAfter=//')
+  _epoch=$(date -j -f "%b %d %T %Y %Z" "$_expiry" "+%s" 2>/dev/null || echo 0)
+  if (( _epoch > _best_expiry_epoch )); then
+    _best_expiry_epoch=$_epoch
+    CODESIGN_IDENTITY="$_sha"
+  fi
+done < <(security find-identity -v -p codesigning 2>/dev/null \
+  | grep "Developer ID Application" | awk '{print $2}')
 
 CREATE_DMG_ARGS=(
   --volname "Odyssey $VERSION"
@@ -137,7 +151,8 @@ CREATE_DMG_ARGS=(
 
 if [[ -n "$CODESIGN_IDENTITY" ]]; then
   CREATE_DMG_ARGS+=(--codesign "$CODESIGN_IDENTITY")
-  echo "    Signing DMG as: $CODESIGN_IDENTITY"
+  CERT_NAME=$(security find-identity -v -p codesigning 2>/dev/null | grep "$CODESIGN_IDENTITY" | sed 's/.*"\(.*\)".*/\1/')
+  echo "    Signing DMG as: $CERT_NAME [$CODESIGN_IDENTITY]"
 fi
 
 create-dmg "${CREATE_DMG_ARGS[@]}" "$DMG_PATH" "$EXPORT_DIR/"
@@ -181,18 +196,21 @@ echo "    DMG length: $DMG_LENGTH bytes"
 
 echo "==> Creating GitHub release v$VERSION..."
 gh release create "v${VERSION}" "$DMG_PATH" \
-  --repo shayke-cohen/Odyssey \
+  --repo shayke-cohen/Odyssey-releases \
   --title "Odyssey v${VERSION}" \
   --generate-notes
 
-DMG_URL="https://github.com/shayke-cohen/Odyssey/releases/download/v${VERSION}/${DMG_NAME}"
+DMG_URL="https://github.com/shayke-cohen/Odyssey-releases/releases/download/v${VERSION}/${DMG_NAME}"
 echo "    GitHub release OK: $DMG_URL"
 
 # ── Step 10: Update appcast.xml ─────────────────────────────────────────────
 
 echo "==> Updating appcast.xml..."
 PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
-APPCAST="$DIST_DIR/appcast.xml"
+
+RELEASES_REPO_DIR="$TEMP_DIR/Odyssey-releases"
+git clone https://github.com/shayke-cohen/Odyssey-releases.git "$RELEASES_REPO_DIR" --quiet
+APPCAST="$RELEASES_REPO_DIR/appcast.xml"
 
 python3 - "$APPCAST" "$VERSION" "$NEW_BUILD" "$PUB_DATE" "$DMG_URL" "$ED_SIGNATURE" "$DMG_LENGTH" << 'PYEOF'
 import sys
@@ -231,12 +249,19 @@ tree.write(appcast_path, encoding="unicode", xml_declaration=True)
 print(f"    appcast.xml updated with v{version} (build {build}).")
 PYEOF
 
-git add "$DIST_DIR/appcast.xml" project.yml
+cd "$RELEASES_REPO_DIR"
+git add appcast.xml
 git commit -m "chore: release v${VERSION} (build ${NEW_BUILD})"
+git push
+cd "$REPO_ROOT"
+
+# Commit only the version bump to the private source repo
+git add project.yml
+git commit -m "chore: bump to v${VERSION} (build ${NEW_BUILD})"
 git push
 
 echo ""
 echo "✅  Release v${VERSION} complete!"
 echo "   DMG URL:     $DMG_URL"
 echo "   Build:       $NEW_BUILD"
-echo "   Appcast:     https://raw.githubusercontent.com/shayke-cohen/Odyssey/main/distribution/appcast.xml"
+echo "   Appcast:     https://raw.githubusercontent.com/shayke-cohen/Odyssey-releases/main/appcast.xml"

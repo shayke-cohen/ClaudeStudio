@@ -1225,7 +1225,6 @@
 				};
 			};
 			buildConfigurationList = DDA97F92741C2C718536BA52 /* Build configuration list for PBXProject "Odyssey" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1243,6 +1242,7 @@
 				BBC4B72E121871E49436DC24 /* XCLocalSwiftPackageReference "Packages/OdysseyCore" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 32355096EA6D9877FF016108 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -1297,7 +1297,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/zsh\nset -euo pipefail\n\nif [[ -z \"${SRCROOT:-}\" || -z \"${TARGET_BUILD_DIR:-}\" || -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]]; then\n  echo \"build-local-agent-host.sh requires Xcode build environment variables\" >&2\n  exit 1\nfi\n\nPACKAGE_PATH=\"$SRCROOT/Packages/OdysseyLocalAgent\"\nOUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/bin\"\nRUNTIME_OUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/runtime\"\nSWIFT_BIN=\"$(xcrun --find swift)\"\nMANAGED_TOOLS_ROOT=\"${HOME}/.odyssey/local-agent\"\nMANAGED_RUNNER=\"${MANAGED_TOOLS_ROOT}/bin/llm-tool\"\nMANAGED_RUNTIME=\"${MANAGED_TOOLS_ROOT}/runtime/llm-tool-release\"\n\nmkdir -p \"$OUTPUT_DIR\"\nmkdir -p \"$RUNTIME_OUTPUT_DIR\"\n\n\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost\n\nBIN_DIR=\"$(\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost --show-bin-path)\"\nHOST_BINARY=\"$BIN_DIR/OdysseyLocalAgentHost\"\nif [[ ! -x \"$HOST_BINARY\" ]]; then\n  echo \"OdysseyLocalAgentHost binary not found at $HOST_BINARY\" >&2\n  exit 1\nfi\n\ncp \"$HOST_BINARY\" \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\nchmod +x \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\n# Sign with Hardened Runtime so the binary passes notarization.\n# Use the Xcode-provided identity when available, otherwise ad-hoc — Xcode's\n# distribution step will re-sign with Developer ID but preserves the runtime flag.\nSIGN_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\ncodesign --force --sign \"$SIGN_IDENTITY\" --options runtime \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\nif [[ -x \"$MANAGED_RUNNER\" ]]; then\n  cp \"$MANAGED_RUNNER\" \"$OUTPUT_DIR/llm-tool\"\n  chmod +x \"$OUTPUT_DIR/llm-tool\"\nfi\n\nif [[ -d \"$MANAGED_RUNTIME\" ]]; then\n  rm -rf \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\n  cp -R \"$MANAGED_RUNTIME\" \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\nfi\n";
+			shellScript = "#!/bin/zsh\nset -euo pipefail\n\nif [[ -z \"${SRCROOT:-}\" || -z \"${TARGET_BUILD_DIR:-}\" || -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]]; then\n  echo \"build-local-agent-host.sh requires Xcode build environment variables\" >&2\n  exit 1\nfi\n\nPACKAGE_PATH=\"$SRCROOT/Packages/OdysseyLocalAgent\"\nOUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/bin\"\nRUNTIME_OUTPUT_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-agent/runtime\"\nSWIFT_BIN=\"$(xcrun --find swift)\"\nMANAGED_TOOLS_ROOT=\"${HOME}/.odyssey/local-agent\"\nMANAGED_RUNNER=\"${MANAGED_TOOLS_ROOT}/bin/llm-tool\"\nMANAGED_RUNTIME=\"${MANAGED_TOOLS_ROOT}/runtime/llm-tool-release\"\n\nmkdir -p \"$OUTPUT_DIR\"\nmkdir -p \"$RUNTIME_OUTPUT_DIR\"\n\n\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost\n\nBIN_DIR=\"$(\"$SWIFT_BIN\" build --package-path \"$PACKAGE_PATH\" --product OdysseyLocalAgentHost --show-bin-path)\"\nHOST_BINARY=\"$BIN_DIR/OdysseyLocalAgentHost\"\nif [[ ! -x \"$HOST_BINARY\" ]]; then\n  echo \"OdysseyLocalAgentHost binary not found at $HOST_BINARY\" >&2\n  exit 1\nfi\n\ncp \"$HOST_BINARY\" \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\nchmod +x \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\n# Sign with Hardened Runtime so the binary passes notarization.\n# Use the Xcode-provided identity when available, otherwise ad-hoc — Xcode's\n# distribution step will re-sign with Developer ID but preserves the runtime flag.\nSIGN_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\ncodesign --force --sign \"$SIGN_IDENTITY\" --options runtime \"$OUTPUT_DIR/OdysseyLocalAgentHost\"\n\nif [[ -x \"$MANAGED_RUNNER\" ]]; then\n  cp \"$MANAGED_RUNNER\" \"$OUTPUT_DIR/llm-tool\"\n  chmod +x \"$OUTPUT_DIR/llm-tool\"\n  codesign --force --sign \"$SIGN_IDENTITY\" --options runtime \"$OUTPUT_DIR/llm-tool\"\nfi\n\nif [[ -d \"$MANAGED_RUNTIME\" ]]; then\n  rm -rf \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\n  cp -R \"$MANAGED_RUNTIME\" \"$RUNTIME_OUTPUT_DIR/llm-tool-release\"\n  # Sign all executables in the runtime directory with hardened runtime\n  find \"$RUNTIME_OUTPUT_DIR/llm-tool-release\" -type f -perm +0111 | while read -r bin; do\n    codesign --force --sign \"$SIGN_IDENTITY\" --options runtime \"$bin\" 2>/dev/null || true\n  done\nfi\n";
 		};
 		6290FD80F81945A2A104FBFB /* Bundle Sidecar Binary */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1822,7 +1822,7 @@
 				CODE_SIGN_ENTITLEMENTS = Odyssey/Resources/Odyssey.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1834,7 +1834,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
@@ -1889,7 +1889,7 @@
 				CODE_SIGN_ENTITLEMENTS = Odyssey/Resources/Odyssey.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = U6BSY4N9E3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1901,7 +1901,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
