@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 @MainActor
 struct QuickActionsSettingsView: View {
@@ -7,62 +6,11 @@ struct QuickActionsSettingsView: View {
     @State private var editingConfig: QuickActionConfig? = nil
     @State private var showAddSheet = false
     @State private var showResetConfirmation = false
-    @State private var draggedId: UUID? = nil
 
     var body: some View {
         Form {
             Section {
-                ForEach(store.configs) { config in
-                    HStack(spacing: 10) {
-                        Image(systemName: "line.3.horizontal")
-                            .frame(width: 16)
-                            .foregroundStyle(.tertiary)
-                            .accessibilityLabel("Drag to reorder \(config.name)")
-                            .accessibilityIdentifier("settings.quickActions.dragHandle.\(config.id.uuidString)")
-
-                        Image(systemName: config.symbolName)
-                            .frame(width: 20)
-                            .foregroundStyle(.secondary)
-
-                        Text(config.name)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Button("Edit") { editingConfig = config }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Color.accentColor)
-                            .accessibilityIdentifier("settings.quickActions.editButton.\(config.id.uuidString)")
-
-                        Button {
-                            store.delete(id: config.id)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Delete \(config.name)")
-                        .accessibilityIdentifier("settings.quickActions.deleteButton.\(config.id.uuidString)")
-                    }
-                    .accessibilityIdentifier("settings.quickActions.row.\(config.id.uuidString)")
-                    .opacity(draggedId == config.id ? 0.4 : 1.0)
-                    .onDrag {
-                        draggedId = config.id
-                        return NSItemProvider(object: config.id.uuidString as NSString)
-                    }
-                    .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
-                        guard let draggedId,
-                              draggedId != config.id,
-                              let fromIndex = store.configs.firstIndex(where: { $0.id == draggedId }),
-                              let toIndex = store.configs.firstIndex(where: { $0.id == config.id })
-                        else { return false }
-                        store.move(
-                            fromOffsets: IndexSet(integer: fromIndex),
-                            toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
-                        )
-                        self.draggedId = nil
-                        return true
-                    }
-                }
-
+                chipList
                 Button {
                     showAddSheet = true
                 } label: {
@@ -109,5 +57,44 @@ struct QuickActionsSettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
         .navigationTitle("Quick Actions")
+    }
+
+    // List lives outside the Form so macOS's native drag machinery works.
+    private var chipList: some View {
+        List {
+            ForEach(store.configs) { config in
+                HStack(spacing: 10) {
+                    Image(systemName: config.symbolName)
+                        .frame(width: 20)
+                        .foregroundStyle(.secondary)
+
+                    Text(config.name)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button("Edit") { editingConfig = config }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityIdentifier("settings.quickActions.editButton.\(config.id.uuidString)")
+
+                    Button {
+                        store.delete(id: config.id)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete \(config.name)")
+                    .accessibilityIdentifier("settings.quickActions.deleteButton.\(config.id.uuidString)")
+                }
+                .accessibilityIdentifier("settings.quickActions.row.\(config.id.uuidString)")
+            }
+            .onMove { from, to in
+                store.move(fromOffsets: from, toOffset: to)
+            }
+        }
+        .listStyle(.plain)
+        .frame(height: CGFloat(store.configs.count) * 32 + 2)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
     }
 }
