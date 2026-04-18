@@ -13,8 +13,7 @@ struct WelcomeView: View {
     var onStartAgent: (Agent) -> Void
     var onStartGroup: (AgentGroup) -> Void
 
-    @State private var showBrowseSheet = false
-    @State private var browseInitialTab: AgentBrowseTab = .agents
+    @State private var browseSheetTab: AgentBrowseTab? = nil
 
     // MARK: - Computed
 
@@ -57,9 +56,9 @@ struct WelcomeView: View {
         }
         .stableXrayId("welcome.scrollView")
         .background(Color(nsColor: .controlBackgroundColor))
-        .sheet(isPresented: $showBrowseSheet) {
+        .sheet(item: $browseSheetTab) { tab in
             AgentBrowseSheet(
-                initialTab: browseInitialTab,
+                initialTab: tab,
                 projectId: windowState.selectedProjectId,
                 projectDirectory: windowState.projectDirectory
             )
@@ -114,8 +113,7 @@ struct WelcomeView: View {
                 color: .orange,
                 identifier: "welcome.quickAction.browseAgents"
             ) {
-                browseInitialTab = .agents
-                showBrowseSheet = true
+                browseSheetTab = .agents
             }
             quickActionCard(
                 title: "Browse Groups",
@@ -125,8 +123,7 @@ struct WelcomeView: View {
                 color: .teal,
                 identifier: "welcome.quickAction.browseGroups"
             ) {
-                browseInitialTab = .groups
-                showBrowseSheet = true
+                browseSheetTab = .groups
             }
             quickActionCard(
                 title: "Schedules",

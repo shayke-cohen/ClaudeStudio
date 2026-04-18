@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
 
-enum AgentBrowseTab: String, CaseIterable {
+enum AgentBrowseTab: String, CaseIterable, Identifiable {
     case agents = "Agents"
     case groups = "Groups"
+    var id: String { rawValue }
 }
 
 struct AgentBrowseSheet: View {
@@ -21,8 +22,15 @@ struct AgentBrowseSheet: View {
     @Query(sort: \Skill.name) private var allSkills: [Skill]
     @Query(sort: \MCPServer.name) private var allMCPs: [MCPServer]
 
-    @State private var selectedTab: AgentBrowseTab = .agents
+    @State private var selectedTab: AgentBrowseTab
     @State private var searchText = ""
+
+    init(initialTab: AgentBrowseTab, projectId: UUID?, projectDirectory: String) {
+        self.initialTab = initialTab
+        self.projectId = projectId
+        self.projectDirectory = projectDirectory
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     private var enabledAgents: [Agent] { allAgents.filter(\.isEnabled) }
     private var enabledGroups: [AgentGroup] { allGroups.filter(\.isEnabled) }
@@ -46,7 +54,6 @@ struct AgentBrowseSheet: View {
             content
         }
         .frame(minWidth: 680, minHeight: 520)
-        .onAppear { selectedTab = initialTab }
     }
 
     // MARK: - Header
@@ -298,19 +305,19 @@ private struct GroupBrowseCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header row
+        VStack(alignment: .leading, spacing: 10) {
+            // Header: icon + name + badges + Start Chat
             HStack(spacing: 10) {
                 Text(group.icon)
                     .font(.title2)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                     .background(Color.fromAgentColor(group.color).opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(group.name)
                         .font(.headline)
                         .lineLimit(1)
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Text("\(group.agentIds.count) agent\(group.agentIds.count == 1 ? "" : "s")")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
@@ -325,82 +332,98 @@ private struct GroupBrowseCard: View {
                 Spacer()
                 Button("Start Chat") { onStart() }
                     .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
-
-            // Description
-            if !group.groupDescription.isEmpty {
-                Text(group.groupDescription)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            // Group instruction snippet
-            if !group.groupInstruction.isEmpty {
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "text.quote")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 2)
-                    Text(group.groupInstruction)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(8)
-                .background(.secondary.opacity(0.07))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .controlSize(.regular)
             }
 
             Divider()
 
-            // Member list
-            if !memberAgents.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("MEMBERS")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
-                        spacing: 6
-                    ) {
-                        ForEach(memberAgents.prefix(8), id: \.agent.id) { member in
-                            memberRow(member.agent, role: member.role)
+            // Two-column body: left = purpose, right = structure
+            HStack(alignment: .top, spacing: 0) {
+                // Left pane — description + instruction
+                VStack(alignment: .leading, spacing: 8) {
+                    if !group.groupDescription.isEmpty {
+                        Text(group.groupDescription)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("No description")
+                            .font(.callout)
+                            .foregroundStyle(.quaternary)
+                            .italic()
+                    }
+                    if !group.groupInstruction.isEmpty {
+                        HStack(alignment: .top, spacing: 5) {
+                            Image(systemName: "text.quote")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 2)
+                            Text(group.groupInstruction)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(8)
+                        .background(.secondary.opacity(0.07))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                // Vertical divider
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(width: 1)
+                    .padding(.horizontal, 14)
+
+                // Right pane — members + workflow
+                VStack(alignment: .leading, spacing: 10) {
+                    if !memberAgents.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("MEMBERS")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(memberAgents.prefix(6), id: \.agent.id) { member in
+                                    memberRow(member.agent, role: member.role)
+                                }
+                            }
+                            if memberAgents.count > 6 {
+                                Text("+\(memberAgents.count - 6) more")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
                     }
-                    if memberAgents.count > 8 {
-                        Text("+\(memberAgents.count - 8) more")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                    if !workflowSteps.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 4) {
+                                Text("WORKFLOW")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                                Text("· \(workflowSteps.count) steps")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(Array(workflowSteps.prefix(5).enumerated()), id: \.offset) { idx, step in
+                                    workflowStepRow(index: idx + 1, step: step)
+                                }
+                            }
+                            if workflowSteps.count > 5 {
+                                Text("+\(workflowSteps.count - 5) more")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.leading, 22)
+                            }
+                        }
                     }
+                    Spacer(minLength: 0)
                 }
-            }
-
-            // Workflow steps
-            if !workflowSteps.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("WORKFLOW")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                        Text("\(workflowSteps.count) steps")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                    }
-                    ForEach(Array(workflowSteps.prefix(5).enumerated()), id: \.offset) { idx, step in
-                        workflowStepRow(index: idx + 1, step: step)
-                    }
-                    if workflowSteps.count > 5 {
-                        Text("+\(workflowSteps.count - 5) more steps")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .padding(.leading, 20)
-                    }
-                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .padding(16)

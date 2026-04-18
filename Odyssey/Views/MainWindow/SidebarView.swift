@@ -1159,7 +1159,7 @@ struct SidebarView: View {
             onNewChat: {
                 if let convoId = appState.startGroupChat(
                     group: group,
-                    projectDirectory: windowState.projectDirectory,
+                    projectDirectory: "",
                     projectId: nil,
                     modelContext: modelContext
                 ) {
@@ -2080,11 +2080,12 @@ struct SidebarView: View {
         if let existing = conversationsForGroup(group, in: project).first(where: { !$0.isArchived }) {
             windowState.selectedConversationId = existing.id
         } else {
-            let targetProject = project ?? sortedProjects.first(where: { $0.id == windowState.selectedProjectId })
+            // Only use project context when one was explicitly passed (group nested under a project).
+            // Never inherit windowState — independent groups use their own home dir as project root.
             if let convoId = appState.startGroupChat(
                 group: group,
-                projectDirectory: targetProject?.rootPath ?? windowState.projectDirectory,
-                projectId: targetProject?.id ?? windowState.selectedProjectId,
+                projectDirectory: project?.rootPath ?? "",
+                projectId: project?.id,
                 modelContext: modelContext
             ) {
                 expandedGroupIds.insert(group.id)
