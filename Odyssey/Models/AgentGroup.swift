@@ -20,6 +20,7 @@ final class AgentGroup {
     var agentIds: [UUID]
     var sortOrder: Int
     var isEnabled: Bool = true
+    var showInSidebar: Bool = true
     var configSlug: String?
     var createdAt: Date
 
@@ -127,6 +128,7 @@ final class AgentGroup {
         self.agentIds = agentIds
         self.sortOrder = sortOrder
         self.isEnabled = true
+        self.showInSidebar = true
         self.configSlug = nil
         self.createdAt = Date()
         self.autoReplyEnabled = true

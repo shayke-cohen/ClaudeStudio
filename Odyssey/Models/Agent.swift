@@ -54,6 +54,7 @@ final class Agent {
     var isResident: Bool = false
     var isShared: Bool
     var isEnabled: Bool = true
+    var showInSidebar: Bool = true
     var configSlug: String?
     var createdAt: Date
     var updatedAt: Date
@@ -157,6 +158,7 @@ final class Agent {
         self.isResident = false
         self.isShared = false
         self.isEnabled = true
+        self.showInSidebar = true
         self.configSlug = nil
         self.createdAt = Date()
         self.updatedAt = Date()
