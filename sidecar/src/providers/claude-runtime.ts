@@ -286,7 +286,7 @@ export class ClaudeRuntime implements ProviderRuntime {
       : ClaudeRuntime.resolveModel(config.model);
     const usePlanMode = planMode === true;
     if (usePlanMode && !useOllamaBackend) {
-      resolvedModel = "claude-opus-4-6";
+      resolvedModel = ClaudeRuntime.resolveModel("opus");
       if (maxTurns < 30) maxTurns = 30;
     }
 

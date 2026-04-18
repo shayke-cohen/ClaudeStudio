@@ -273,16 +273,16 @@ final class AppTextSizeShortcutMonitor {
 }
 
 enum ClaudeModel: String, CaseIterable, Identifiable {
-    case sonnet = "claude-sonnet-4-6"
-    case opus = "claude-opus-4-6"
-    case haiku = "claude-haiku-4-5-20251001"
+    case sonnet = "sonnet"
+    case opus = "opus"
+    case haiku = "haiku"
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .sonnet: "Claude Sonnet 4.6"
-        case .opus: "Claude Opus 4.6"
+        case .opus: "Claude Opus 4.7"
         case .haiku: "Claude Haiku 4.5"
         }
     }
