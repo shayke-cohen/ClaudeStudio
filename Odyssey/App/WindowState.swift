@@ -238,6 +238,7 @@ final class WindowState {
     var selectedConversationId: UUID? {
         didSet {
             if selectedConversationId != nil { selectedGroupId = nil }
+            if selectedConversationId == nil { chatTitle = nil }
             // Update AppState's visible set for notification gating
             if let old = oldValue { appState?.visibleConversationIds.remove(old) }
             if let new = selectedConversationId {
@@ -247,11 +248,18 @@ final class WindowState {
         }
     }
     var selectedGroupId: UUID? {
-        didSet { if selectedGroupId != nil { selectedConversationId = nil } }
+        didSet {
+            if selectedGroupId != nil { selectedConversationId = nil }
+            if selectedGroupId == nil { chatTitle = nil }
+        }
     }
     /// Set by ChatView when the active conversation's agent/group name is known.
     /// Used by WindowTitleSetter to build the breadcrumb title.
     var chatTitle: String? = nil
+
+    var isDefaultProject: Bool {
+        projectName == "Playground" || projectName == "No Project"
+    }
     /// Fire-and-forget signal: SidebarView observes this via onChange, expands the owning
     /// agent/group tree, then nils it out. Note: if the same UUID is set twice in a row
     /// without the sidebar consuming and clearing it first, the second onChange won't fire.

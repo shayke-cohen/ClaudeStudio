@@ -491,8 +491,8 @@ private struct WindowTitleSetter: NSViewRepresentable {
 
     private var computedTitle: String {
         guard let name = chatTitle, !name.isEmpty else { return projectName }
-        let isDefaultProject = projectName == "Playground" || projectName == "No Project"
-        return isDefaultProject ? name : "\(projectName) / \(name)"
+        let isDefault = projectName == "Playground" || projectName == "No Project"
+        return isDefault ? name : "\(projectName) / \(name)"
     }
 
     func makeNSView(context: Context) -> NSView {
