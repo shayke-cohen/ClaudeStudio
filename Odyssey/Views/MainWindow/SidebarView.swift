@@ -196,6 +196,7 @@ struct SidebarView: View {
     @State private var cachedSortedProjects: [Project] = []
     @State private var cachedResidentAgents: [Agent] = []
     @State private var cachedNonResidentAgents: [Agent] = []
+    @State private var conversationToAgentIndex: [UUID: UUID] = [:]
 
     private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
     private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
@@ -339,6 +340,17 @@ struct SidebarView: View {
                 expandForReveal(convId)
                 windowState.sidebarRevealConversationId = nil
             }
+            .onAppear {
+                rebuildProjectCache()
+                rebuildAgentCaches()
+                rebuildConversationIndex()
+            }
+            .onChange(of: projects.count) { _, _ in rebuildProjectCache() }
+            .onChange(of: agents.count) { _, _ in
+                rebuildAgentCaches()
+                rebuildConversationIndex()
+            }
+            .onChange(of: conversations.count) { _, _ in rebuildConversationIndex() }
     }
 
     private var sidebarList: some View {
@@ -473,6 +485,18 @@ struct SidebarView: View {
     private func rebuildAgentCaches() {
         cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
         cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }.sorted { $0.name < $1.name }
+    }
+
+    private func rebuildConversationIndex() {
+        var index: [UUID: UUID] = [:]
+        for agent in agents {
+            for session in agent.sessions {
+                for convo in session.conversations {
+                    index[convo.id] = agent.id
+                }
+            }
+        }
+        conversationToAgentIndex = index
     }
 
     private var projectsHeader: some View {
@@ -1926,14 +1950,9 @@ struct SidebarView: View {
             return
         }
 
-        for agent in agents {
-            let inActive = conversationsForAgent(agent).contains { $0.id == conversationId }
-            let inArchived = archivedConversationsForAgent(agent).contains { $0.id == conversationId }
-            if inActive || inArchived {
-                expandedAgentIds.insert(agent.id)
-                if inArchived { expandedArchivedAgentIds.insert(agent.id) }
-                return
-            }
+        if let agentId = conversationToAgentIndex[conversationId] {
+            expandedAgentIds.insert(agentId)
+            if isArchived { expandedArchivedAgentIds.insert(agentId) }
         }
     }
 

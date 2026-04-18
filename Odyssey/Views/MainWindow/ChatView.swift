@@ -251,7 +251,6 @@ struct ChatView: View {
     @Query private var allMCPs: [MCPServer]
     @Query private var allGroups: [AgentGroup]
     @Query private var allAgents: [Agent]
-    @Query(sort: \Session.startedAt) private var allSessions: [Session]
     @Query private var allTemplates: [PromptTemplate]
 
     private let autoScrollThreshold: CGFloat = 120
@@ -281,13 +280,8 @@ struct ChatView: View {
         conversationSessions.filter { $0.status == .interrupted }
     }
 
-    /// Sessions for this conversation — relationship first, manual query fallback.
     private var conversationSessions: [Session] {
-        let relSessions = conversation?.sessions ?? []
-        if !relSessions.isEmpty { return relSessions }
-        return allSessions.filter { session in
-            session.conversations.contains { $0.id == conversationId }
-        }
+        conversation?.sessions ?? []
     }
 
     private var sortedMessages: [ConversationMessage] { cachedSortedMessages }
