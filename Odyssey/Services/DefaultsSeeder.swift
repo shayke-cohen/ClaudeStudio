@@ -304,6 +304,24 @@ enum DefaultsSeeder {
                 ],
                 roles: ["Attacker": "coordinator"]
             ),
+            GroupSpec(
+                name: "Security & Perf Audit",
+                description: "Audit for security and performance issues, then fix them.",
+                icon: "🔍", color: "red",
+                instruction: "Reviewer audits for security vulnerabilities. Performance agent audits for bottlenecks. Orchestrator synthesizes findings into a prioritized fix plan. Coder implements the fixes.",
+                defaultMission: nil,
+                agentNames: ["Reviewer", "Performance", "Orchestrator", "Coder"],
+                sortOrder: 16,
+                workflowAgentNames: [
+                    (agent: "Reviewer", instruction: "Audit the codebase for security vulnerabilities: injection points, auth bypasses, data exposure, insecure defaults, and logical flaws. Write all findings to the blackboard under review.security.{component}. Mark critical findings as review.security.{component}.blocking = true.", label: "Security Audit", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Performance", instruction: "Audit the codebase for performance issues: algorithmic complexity, memory leaks, actor contention, SwiftUI rendering inefficiencies, and blocking I/O. Write all findings to the blackboard under perf.{component}.{finding}. Mark critical findings as perf.{component}.critical = true.", label: "Perf Audit", autoAdvance: true, condition: nil, artifactGate: nil),
+                    (agent: "Orchestrator", instruction: "Read all security (review.security.*) and performance (perf.*) findings from the blackboard. Synthesize them into a prioritized fix plan ordered by severity and impact. Present the plan in chat, persist it to the blackboard under audit.fix-plan, and pause for explicit approval before Coder begins.", label: "Prioritize", autoAdvance: true, condition: nil, artifactGate: WorkflowArtifactGate(profile: "audit-report", approvalRequired: true, publishRepoDoc: true, blockedDownstreamAgentNames: ["Coder"])),
+                    (agent: "Coder", instruction: "Implement the fixes from the audit fix plan. Address items in priority order. For each fix, note which finding it resolves.", label: "Fix", autoAdvance: false, condition: nil, artifactGate: nil),
+                ],
+                roles: ["Orchestrator": "coordinator"],
+                autonomousCapable: true,
+                coordinatorAgentName: "Orchestrator"
+            ),
         ]
 
         for spec in specs {
