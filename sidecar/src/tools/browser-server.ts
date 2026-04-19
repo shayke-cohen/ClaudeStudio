@@ -15,7 +15,7 @@ export function createBrowserServer(ctx: ToolContext) {
   const definitions = createBrowserTools(ctx);
   const tools = definitions.map((definition) => toClaudeTool(definition));
 
-  const toolNames = tools.map((t: any) => t.name).join(", ");
+  const toolNames = tools.map((t) => (t as { name: string }).name).join(", ");
   logger.debug("browser", `Creating browser SDK MCP server with ${tools.length} tools: [${toolNames}]`);
 
   return createSdkMcpServer({

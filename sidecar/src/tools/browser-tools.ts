@@ -112,7 +112,7 @@ export function createBrowserTools(ctx: ToolContext) {
       "Type text into an input field on the current page. Clears the field first, then types the given text.",
       {
         selector: z.string().describe("CSS selector for the input element (e.g. '#search', 'input[name=email]')"),
-        text: z.string().describe("Text to type into the field"),
+        text: z.string().max(100_000).describe("Text to type into the field"),
       },
       async (args, extra) => {
         const sessionId = extra?.sessionId ?? "";
@@ -243,7 +243,14 @@ export function createBrowserTools(ctx: ToolContext) {
         logger.info("browser", `browser_yield_to_user: session=${sessionId} message="${args.message.substring(0, 80)}"`);
 
         const data = await new Promise<string>((resolve) => {
-          ctx.pendingBrowserBlocking.set(sessionId, resolve);
+          const timer = setTimeout(() => {
+            ctx.pendingBrowserBlocking.delete(sessionId);
+            resolve("[Timed out waiting for user interaction]");
+          }, 600_000);
+          ctx.pendingBrowserBlocking.set(sessionId, (value: string) => {
+            clearTimeout(timer);
+            resolve(value);
+          });
           ctx.broadcast({
             type: "browser.yieldToUser",
             sessionId,
@@ -262,13 +269,22 @@ export function createBrowserTools(ctx: ToolContext) {
       {
         html: z.string().describe("Full HTML content to render in the browser"),
         title: z.string().optional().describe("Optional page title shown in the browser chrome"),
+        timeoutMs: z.number().positive().optional().describe("Maximum time to wait for user interaction in milliseconds (default: 300000)"),
       },
       async (args, extra) => {
         const sessionId = extra?.sessionId ?? "";
-        logger.info("browser", `browser_render_html: session=${sessionId} title="${args.title ?? "(untitled)"}" html length=${args.html.length}`);
+        const effectiveTimeoutMs = args.timeoutMs ?? 300_000;
+        logger.info("browser", `browser_render_html: session=${sessionId} title="${args.title ?? "(untitled)"}" html length=${args.html.length} timeout=${effectiveTimeoutMs}ms`);
 
         const data = await new Promise<string>((resolve) => {
-          ctx.pendingBrowserBlocking.set(sessionId, resolve);
+          const timer = setTimeout(() => {
+            ctx.pendingBrowserBlocking.delete(sessionId);
+            resolve("[Timed out waiting for user interaction]");
+          }, effectiveTimeoutMs);
+          ctx.pendingBrowserBlocking.set(sessionId, (value: string) => {
+            clearTimeout(timer);
+            resolve(value);
+          });
           ctx.broadcast({
             type: "browser.renderHtml",
             sessionId,

@@ -101,6 +101,22 @@ export class WsServer {
         close: (ws) => {
           this.clients.delete(ws);
           logger.info("ws", `Swift client disconnected (total: ${this.clients.size})`);
+
+          // Sweep all pending browser operations — they can never resolve now.
+          if (this.ctx.pendingBrowserBlocking.size > 0) {
+            logger.warn("ws", `Sweeping ${this.ctx.pendingBrowserBlocking.size} pending browser blocking calls after disconnect`);
+            for (const resolver of this.ctx.pendingBrowserBlocking.values()) {
+              resolver("[Browser disconnected]");
+            }
+            this.ctx.pendingBrowserBlocking.clear();
+          }
+          if (this.ctx.pendingBrowserResults.size > 0) {
+            logger.warn("ws", `Sweeping ${this.ctx.pendingBrowserResults.size} pending browser results after disconnect`);
+            for (const resolver of this.ctx.pendingBrowserResults.values()) {
+              resolver("[Browser disconnected]");
+            }
+            this.ctx.pendingBrowserResults.clear();
+          }
         },
       },
     });
