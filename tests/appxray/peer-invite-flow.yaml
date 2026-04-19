@@ -1,0 +1,157 @@
+name: Peer Invite Flow
+description: |
+  Tests the peer invite / pairing flows accessible from Settings.
+
+  Covers three tabs that appear when the federation feature flag is enabled:
+    - iOS Pairing  (settings.tab.iosPairing)
+    - Accept Invite (settings.tab.acceptInvite)
+    - Advanced      (settings.tab.advanced)  — Nostr identity and relay config
+
+  Prerequisites:
+    - Odyssey DEBUG build running (AppXray on port 19480 or auto-discovered)
+    - Federation feature flag enabled:
+        defaults write com.odyssey.app.default odyssey.features.showAdvanced -bool true
+        defaults write com.odyssey.app.default odyssey.features.federation -bool true
+      (Then reopen Settings for the new tabs to appear.)
+    - Sidecar connected (so nostrPublicKeyHex is populated and the npub field renders)
+    - Settings window open on the General tab
+
+tests:
+
+  # ─── iOS PAIRING TAB ─────────────────────────────────────────────────────
+
+  - name: "PI-1: iOS Pairing tab shows pairing UI"
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("settings.tab.iosPairing")'
+      - interact:
+          action: waitFor
+          condition: text
+          text: "iOS Pairing"
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "ios-pairing-tab"
+    assert:
+      - screenshot_contains: "iOS Pairing"
+      - screenshot_contains: "Pair a New Device"
+
+  - name: "PI-2: iOS Pairing tab has Refresh QR and Copy Invite Link buttons"
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("settings.tab.iosPairing")'
+      - interact:
+          action: screenshot
+          label: "ios-pairing-buttons"
+    assert:
+      - screenshot_contains: "Refresh QR"
+      - screenshot_contains: "Copy Invite Link"
+
+  # ─── ACCEPT INVITE TAB ───────────────────────────────────────────────────
+
+  - name: "PI-3: Accept Invite tab renders invite code input"
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("settings.tab.acceptInvite")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("settings.acceptInvite.textEditor")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "accept-invite-tab"
+    assert:
+      - element_exists: '@testId("settings.acceptInvite.textEditor")'
+      - element_exists: '@testId("settings.acceptInvite.submitButton")'
+      - screenshot_contains: "Invite Code"
+      - screenshot_contains: "Pair with another Mac"
+
+  - name: "PI-4: Accept Invite button is disabled when input is empty"
+    description: |
+      The button carries .disabled(inviteText.isEmpty) so tapping it when the
+      text editor is empty should have no effect — no error element appears.
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("settings.acceptInvite.submitButton")'
+      - interact:
+          action: screenshot
+          label: "accept-button-empty"
+    assert:
+      - element_exists: '@testId("settings.acceptInvite.submitButton")'
+      # Error element must NOT be present when input is empty
+      - element_not_exists: '@testId("settings.acceptInvite.error")'
+
+  - name: "PI-5: Submitting a malformed invite code shows an error"
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("settings.acceptInvite.textEditor")'
+      - interact:
+          action: type
+          text: "this-is-not-a-valid-invite-code"
+      - interact:
+          action: tap
+          selector: '@testId("settings.acceptInvite.submitButton")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("settings.acceptInvite.error")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "malformed-invite-error"
+    assert:
+      - element_exists: '@testId("settings.acceptInvite.error")'
+      - screenshot_contains: "Invalid invite"
+
+  # ─── NOSTR IDENTITY (ADVANCED TAB) ───────────────────────────────────────
+
+  - name: "PI-6: Advanced tab shows Nostr Identity section with npub"
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("settings.tab.advanced")'
+      - interact:
+          action: waitFor
+          condition: element
+          selector: '@testId("settings.advanced.nostrNpubLabel")'
+          timeout: 3000
+      - interact:
+          action: screenshot
+          label: "advanced-nostr-identity"
+    assert:
+      - element_exists: '@testId("settings.advanced.nostrNpubLabel")'
+      - element_exists: '@testId("settings.advanced.nostrCopyNpubButton")'
+      - screenshot_contains: "Nostr Identity"
+      - screenshot_contains: "Public Key"
+
+  - name: "PI-7: Nostr relay fields show correct defaults"
+    steps:
+      - interact:
+          action: find
+          selector: '@testId("settings.advanced.nostrRelay1Field")'
+      - interact:
+          action: screenshot
+          label: "nostr-relay-defaults"
+    assert:
+      - element_exists: '@testId("settings.advanced.nostrRelay1Field")'
+      - element_exists: '@testId("settings.advanced.nostrRelay2Field")'
+      - screenshot_contains: "relay.damus.io"
+      - screenshot_contains: "relay.nostr.band"
+
+  - name: "PI-8: Copy npub button works without crashing"
+    steps:
+      - interact:
+          action: tap
+          selector: '@testId("settings.advanced.nostrCopyNpubButton")'
+      - interact:
+          action: screenshot
+          label: "after-copy-npub"
+    assert:
+      # Button must still be present after tap (no crash / disappearance)
+      - element_exists: '@testId("settings.advanced.nostrCopyNpubButton")'
