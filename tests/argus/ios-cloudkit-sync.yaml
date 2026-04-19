@@ -1,0 +1,47 @@
+# iOS CloudKit Sync Test
+#
+# Verifies that a project created on the Mac appears on the iOS device
+# after CloudKit sync (requires real device on same Apple ID, up to 60s wait).
+#
+# Prerequisites:
+#   - Mac app running with a project named "CloudKit Sync Test <timestamp>"
+#   - iOS device connected and enrolled on the same Apple ID
+#   - Both targets built with CloudKit entitlement and iCloud.com.odyssey.app container
+#
+# Run: argus test tests/argus/ios-cloudkit-sync.yaml
+
+name: iOS CloudKit Sync
+platform: ios
+app: com.odyssey.app.ios
+
+steps:
+  - name: Allocate device
+    action: device
+    params:
+      action: allocate
+      platform: ios
+      app: com.odyssey.app.ios
+
+  - name: Wait for app to launch
+    action: wait
+    params:
+      selector: "@testId(tab.conversations)"
+      timeout: 30
+
+  - name: Navigate to projects tab (if exists)
+    action: navigate
+    params:
+      tab: projects
+    optional: true
+
+  - name: Assert synced project appears
+    action: assert
+    params:
+      selector: "@text(CloudKit Sync Test)"
+      timeout: 60
+      message: "Project created on Mac should appear on iOS within 60s via CloudKit sync"
+
+  - name: Release device
+    action: device
+    params:
+      action: release

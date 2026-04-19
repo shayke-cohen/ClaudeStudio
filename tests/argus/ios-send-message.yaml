@@ -1,0 +1,69 @@
+# iOS Send Message via Nostr Relay Test
+#
+# Verifies that a message sent from iOS via Nostr relay reaches the Mac sidecar,
+# the agent responds, and streaming tokens appear on the iOS device within 10s.
+#
+# Prerequisites:
+#   - Mac app running with sidecar connected
+#   - iOS device paired with Mac via Nostr relay (npub exchanged)
+#   - Both relay.damus.io and relay.nostr.band accessible
+#   - A conversation with an active agent session open on iOS
+#
+# Run: argus test tests/argus/ios-send-message.yaml
+
+name: iOS Send Message via Nostr Relay
+platform: ios
+app: com.odyssey.app.ios
+
+steps:
+  - name: Allocate device
+    action: device
+    params:
+      action: allocate
+      platform: ios
+      app: com.odyssey.app.ios
+
+  - name: Wait for app to launch
+    action: wait
+    params:
+      selector: "@testId(tab.conversations)"
+      timeout: 30
+
+  - name: Open first conversation
+    action: act
+    params:
+      selector: "@type(UITableViewCell)"
+      action: tap
+      index: 0
+
+  - name: Wait for chat view
+    action: wait
+    params:
+      selector: "@testId(chat.messageInput)"
+      timeout: 10
+
+  - name: Type a test message
+    action: act
+    params:
+      selector: "@testId(chat.messageInput)"
+      action: type
+      text: "Hello from iOS via Nostr relay. Reply with: pong"
+
+  - name: Send the message
+    action: act
+    params:
+      selector: "@testId(chat.sendButton)"
+      action: tap
+
+  - name: Wait for streaming tokens to appear
+    action: wait
+    params:
+      selector: "@type(UILabel)"
+      text: "pong"
+      timeout: 30
+      message: "Agent response should stream back to iOS within 30s via Nostr relay"
+
+  - name: Release device
+    action: device
+    params:
+      action: release

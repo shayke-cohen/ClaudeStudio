@@ -233,6 +233,7 @@
 		CDEF4AD317D07A2EB11AC966 /* OdysseyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 00DF31B8DD35DAB899D426E8 /* OdysseyCore */; };
 		CE00B318FECF52AAFDFB18AA /* ChatTranscriptExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D3408DC8586DFF18B6EAE0 /* ChatTranscriptExportTests.swift */; };
 		CE02965FC93F7E9B6EDF6833 /* LegacyInstanceMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205EC472186F69C7D555BAF0 /* LegacyInstanceMigrationTests.swift */; };
+		CE4A77C7B5327316F5EA538D /* NostrSidecarBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A594D1041B3E82228DBCCB /* NostrSidecarBridge.swift */; };
 		CF854EC04E835FF88BD229E4 /* ChatSessionWatchdogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B825E07A50DA62311401233 /* ChatSessionWatchdogTests.swift */; };
 		CFDE3032A714FCE874B3DB67 /* ProjectRecordMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4657FC0736A6190F8CCDD9AD /* ProjectRecordMigrationTests.swift */; };
 		D1AE38C4F3A38BDD5984D777 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A097C053510092E27208C3 /* Session.swift */; };
@@ -422,6 +423,7 @@
 		50772C4077BF40542C2672AF /* ScheduleRunCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleRunCoordinatorTests.swift; sourceTree = "<group>"; };
 		50B66C7EBC5FF6107D51D48F /* ConfigurationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationUITests.swift; sourceTree = "<group>"; };
 		537C26050DE39CC1805CD62C /* SidecarManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarManagerTests.swift; sourceTree = "<group>"; };
+		54A594D1041B3E82228DBCCB /* NostrSidecarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrSidecarBridge.swift; sourceTree = "<group>"; };
 		558615E63E7CD517950BA9C3 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSyncService.swift; sourceTree = "<group>"; };
 		5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeManager.swift; sourceTree = "<group>"; };
@@ -1242,6 +1244,7 @@
 		F3C473E2D5C806A5C981F52B /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				54A594D1041B3E82228DBCCB /* NostrSidecarBridge.swift */,
 				5E2C170AA2F56532C715364E /* PeerCredentialStore.swift */,
 				30809E54858B1E55149AF108 /* RemoteSidecarManager.swift */,
 			);
@@ -1770,6 +1773,7 @@
 			files = (
 				F0C9DEDAE028D9FDEA85F7AD /* ConnectionStatusView.swift in Sources */,
 				DE332450801B32FB2AC8C109 /* ConversationListView.swift in Sources */,
+				CE4A77C7B5327316F5EA538D /* NostrSidecarBridge.swift in Sources */,
 				294BC34BDE64BFFCABE9F4AB /* OdysseyiOSApp.swift in Sources */,
 				368823DB07364B3B89DFF6E6 /* PeerCredentialStore.swift in Sources */,
 				3BC013B7B29FFA2E33F97B72 /* QRScannerSheet.swift in Sources */,
