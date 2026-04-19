@@ -56,9 +56,7 @@ struct OdysseyApp: App {
 
         do {
             let storeURL = InstanceConfig.dataDirectory.appendingPathComponent("Odyssey.store")
-            let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            let cloudKit: ModelConfiguration.CloudKitDatabase = isRunningTests ? .none : .private("iCloud.com.odyssey.app")
-            let config = ModelConfiguration(url: storeURL, cloudKitDatabase: cloudKit)
+            let config = ModelConfiguration(url: storeURL)
             let schema = Schema([
                 Project.self,
                 Agent.self,

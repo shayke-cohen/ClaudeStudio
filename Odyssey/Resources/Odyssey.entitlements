@@ -10,9 +10,5 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<key>com.apple.developer.icloud-services</key>
-	<array>
-		<string>CloudKit</string>
-	</array>
 </dict>
 </plist>
