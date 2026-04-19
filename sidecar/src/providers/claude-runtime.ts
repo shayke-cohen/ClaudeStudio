@@ -26,6 +26,7 @@ import {
 } from "../mcp-session-state.js";
 import { buildSkillsSection } from "../utils/prompt-builder.js";
 import { createPeerBusServer } from "../tools/peerbus-server.js";
+import { createBrowserServer } from "../tools/browser-server.js";
 import type {
   ProviderRuntime,
   RuntimeDependencies,
@@ -352,6 +353,7 @@ export class ClaudeRuntime implements ProviderRuntime {
 
     const isInteractive = config.interactive ?? false;
     mcpServers.peerbus = createPeerBusServer(this.deps.toolCtx, sessionId, isInteractive);
+    mcpServers.browser = createBrowserServer(this.deps.toolCtx);
     options.mcpServers = mcpServers;
 
     if (backendSessionId) {

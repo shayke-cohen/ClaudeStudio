@@ -48,6 +48,7 @@ export type SidecarCommand =
   | { type: "browser.error";       sessionId: string; commandType: string; error: string }
   | { type: "browser.pageLoaded";  sessionId: string; url: string; title: string }
   | { type: "browser.userSubmit";  sessionId: string; data: string }
+  | { type: "browser.resume";      sessionId: string }
   | { type: "browser.stateChange"; sessionId: string; state: "agentDriving" | "userDriving" | "yieldedToUser" };
 
 export interface PeerAgentWire {

@@ -28,6 +28,18 @@ export interface ToolContext {
   broadcast: (event: SidecarEvent) => void;
 
   /**
+   * Pending browser command results — keyed by `${sessionId}:${commandType}`.
+   * Resolved when Swift sends back a browser.result command.
+   */
+  pendingBrowserResults: Map<string, (payload: string) => void>;
+
+  /**
+   * Pending blocking browser calls (yieldToUser, renderHtml) — keyed by sessionId.
+   * Resolved when Swift sends back browser.userSubmit or browser.resume.
+   */
+  pendingBrowserBlocking: Map<string, (data: string) => void>;
+
+  /**
    * Spawn a new autonomous session for delegation.
    * Returns a promise that resolves when the session completes (if waitForResult)
    * or immediately with the session ID.
