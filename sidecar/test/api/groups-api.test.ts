@@ -15,7 +15,6 @@ import { BlackboardStore } from "../../src/stores/blackboard-store.js";
 import { MessageStore } from "../../src/stores/message-store.js";
 import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
 import { WorkspaceStore } from "../../src/stores/workspace-store.js";
-import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
 import { SseManager } from "../../src/sse-manager.js";
@@ -45,7 +44,6 @@ function makeAgentConfig(overrides: Partial<AgentConfig> = {}): AgentConfig {
 function makeContext(agentDefs: Map<string, AgentConfig>): ApiContext {
   const toolCtx: ToolContext = {
     blackboard: new BlackboardStore(`groups-api-${Date.now()}`),
-    taskBoard: new TaskBoardStore(`groups-api-${Date.now()}`),
     sessions: new SessionRegistry(),
     messages: new MessageStore(),
     channels: new ChatChannelStore(),

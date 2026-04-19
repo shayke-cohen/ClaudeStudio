@@ -9,7 +9,6 @@ import { BlackboardStore } from "../../src/stores/blackboard-store.js";
 import { MessageStore } from "../../src/stores/message-store.js";
 import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
 import { WorkspaceStore } from "../../src/stores/workspace-store.js";
-import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
 import { ConversationStore } from "../../src/stores/conversation-store.js";
@@ -23,7 +22,6 @@ import type { ApiContext, AgentConfig } from "../../src/types.js";
 function buildApiCtx(): { ctx: ApiContext; sseManager: SseManager } {
   const toolCtx: ToolContext = {
     blackboard: new BlackboardStore(`api-router-${Date.now()}-${Math.random()}`),
-    taskBoard: new TaskBoardStore(`api-router-${Date.now()}-${Math.random()}`),
     sessions: new SessionRegistry(),
     messages: new MessageStore(),
     channels: new ChatChannelStore(),
@@ -193,33 +191,6 @@ describe("api-router basics", () => {
     expect(res!.status).toBe(400);
     const body = await res!.json();
     expect((body as any).error).toBe("invalid_request");
-  });
-
-  test("POST /api/v1/tasks creates task and GET lists it", async () => {
-    const created = await post(
-      "/api/v1/tasks",
-      { title: "Do thing", createdBy: "user" },
-      ctx,
-    );
-    expect(created.status).toBe(201);
-    expect(created.body.title).toBe("Do thing");
-
-    const listed = await get("/api/v1/tasks", ctx);
-    expect(listed.status).toBe(200);
-    expect(listed.body.tasks).toHaveLength(1);
-    expect(listed.body.tasks[0].title).toBe("Do thing");
-  });
-
-  test("PATCH /api/v1/tasks/:id not found returns 404", async () => {
-    const res = await handleApiRequest(
-      new Request("http://test/api/v1/tasks/ghost", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "done" }),
-      }),
-      ctx,
-    );
-    expect(res!.status).toBe(404);
   });
 
   test("GET /api/v1/peers returns list", async () => {

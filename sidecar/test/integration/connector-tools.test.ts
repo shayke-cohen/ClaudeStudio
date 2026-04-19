@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { BlackboardStore } from "../../src/stores/blackboard-store.js";
-import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { SessionRegistry } from "../../src/stores/session-registry.js";
 import { MessageStore } from "../../src/stores/message-store.js";
 import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
@@ -16,7 +15,6 @@ function createContext() {
   const events: SidecarEvent[] = [];
   const ctx: ToolContext = {
     blackboard: new BlackboardStore(`connectors-${Date.now()}`),
-    taskBoard: new TaskBoardStore(`connectors-${Date.now()}`),
     sessions: new SessionRegistry(),
     messages: new MessageStore(),
     channels: new ChatChannelStore(),

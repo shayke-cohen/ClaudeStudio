@@ -19,7 +19,6 @@ import { DelegationStore } from "../../src/stores/delegation-store.js";
 import { SessionRegistry } from "../../src/stores/session-registry.js";
 import { MessageStore } from "../../src/stores/message-store.js";
 import { BlackboardStore } from "../../src/stores/blackboard-store.js";
-import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
 import { WorkspaceStore } from "../../src/stores/workspace-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
@@ -71,7 +70,6 @@ function buildCtx(
       opts.spawnSession ??
       (async (sid) => ({ sessionId: sid, result: "mock answer" })),
     blackboard: new BlackboardStore(`test-${Date.now()}-${Math.random()}`),
-    taskBoard: new TaskBoardStore(`test-${Date.now()}-${Math.random()}`),
     channels: new ChatChannelStore(),
     workspaces: new WorkspaceStore(),
     peerRegistry: new PeerRegistry(),

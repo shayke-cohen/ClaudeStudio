@@ -16,7 +16,6 @@ import { BlackboardStore } from "../../src/stores/blackboard-store.js";
 import { MessageStore } from "../../src/stores/message-store.js";
 import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
 import { WorkspaceStore } from "../../src/stores/workspace-store.js";
-import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
 import { ConversationStore } from "../../src/stores/conversation-store.js";
@@ -48,7 +47,6 @@ function buildCtx(
 ): ToolContext {
   return {
     blackboard: new BlackboardStore(`mg-test-${Date.now()}-${Math.random()}`),
-    taskBoard: new TaskBoardStore(`mg-test-${Date.now()}-${Math.random()}`),
     sessions: registry,
     messages: new MessageStore(),
     channels: new ChatChannelStore(),
