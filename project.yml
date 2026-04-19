@@ -50,6 +50,8 @@ targets:
         type: folder
       - path: Odyssey/Resources/DefaultPromptTemplates
         type: folder
+      - path: Odyssey/Browser/Resources/browser-inspector.js
+        type: file
     dependencies:
       - package: AppXray
       - package: MarkdownUI
