@@ -44,10 +44,10 @@ export type SidecarCommand =
   | { type: "conversation.clear"; conversationId: string }
   | { type: "session.updateModel"; sessionId: string; model: string }
   | { type: "session.updateEffort"; sessionId: string; effort: "low" | "medium" | "high" | "max" }
-  | { type: "browser.result";      sessionId: string; commandType: string; payload: unknown }
+  | { type: "browser.result";      sessionId: string; commandType: string; payload: string }
   | { type: "browser.error";       sessionId: string; commandType: string; error: string }
   | { type: "browser.pageLoaded";  sessionId: string; url: string; title: string }
-  | { type: "browser.userSubmit";  sessionId: string; data: unknown }
+  | { type: "browser.userSubmit";  sessionId: string; data: string }
   | { type: "browser.stateChange"; sessionId: string; state: "agentDriving" | "userDriving" | "yieldedToUser" };
 
 export interface PeerAgentWire {
@@ -422,6 +422,7 @@ export type { OdysseyP2PEnvelope } from './relay/nostr-transport.js'
 
 // ─── Browser wire types ─────────────────────────────────────────────────────
 
+// Named aliases for browser-tools.ts — BrowserCommand is Sidecar→Swift, BrowserEvent is Swift→Sidecar
 export type BrowserCommand =
   | { type: 'browser.navigate';        sessionId: string; url: string }
   | { type: 'browser.click';           sessionId: string; selector: string }
@@ -438,8 +439,8 @@ export type BrowserCommand =
   | { type: 'browser.resume';          sessionId: string }
 
 export type BrowserEvent =
-  | { type: 'browser.result';      sessionId: string; commandType: string; payload: unknown }
+  | { type: 'browser.result';      sessionId: string; commandType: string; payload: string }
   | { type: 'browser.error';       sessionId: string; commandType: string; error: string }
   | { type: 'browser.pageLoaded';  sessionId: string; url: string; title: string }
-  | { type: 'browser.userSubmit';  sessionId: string; data: unknown }
+  | { type: 'browser.userSubmit';  sessionId: string; data: string }
   | { type: 'browser.stateChange'; sessionId: string; state: 'agentDriving' | 'userDriving' | 'yieldedToUser' }
