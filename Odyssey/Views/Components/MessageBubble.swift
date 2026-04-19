@@ -81,6 +81,8 @@ struct MessageBubble: View {
                 richContentView
             case .systemEvaluation:
                 EmptyView()
+            case .browserSession:
+                InlineBrowserCard(message: message)
             }
         }
         .xrayId("messageBubble.\(message.type.rawValue).\(message.id.uuidString)")

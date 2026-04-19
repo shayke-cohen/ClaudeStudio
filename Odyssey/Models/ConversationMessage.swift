@@ -15,6 +15,7 @@ enum MessageType: String, Codable, Sendable {
     case question
     case richContent
     case systemEvaluation
+    case browserSession
 
     var isPeerChannel: Bool {
         switch self {

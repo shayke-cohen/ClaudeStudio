@@ -87,6 +87,9 @@ final class AppState {
     var browserCoordinators: [String: BrowserOverlayCoordinator] = [:]
     var activeBrowserSessionId: String? = nil
     var activeBrowserPanelVisible: Bool = false
+    /// Tracks session IDs for which a `.browserSession` inline card has already been emitted,
+    /// so we only ever emit one card per browser session.
+    private var browserSessionMessageEmitted: Set<String> = []
 
     struct AgentQuestion: Identifiable {
         let id: String  // questionId
@@ -1129,6 +1132,34 @@ final class AppState {
         return controller
     }
 
+    /// Emits a `.browserSession` ConversationMessage into the session's conversation the first
+    /// time a browser event fires for a given `sessionId`. Subsequent calls for the same
+    /// sessionId are no-ops (guarded by `browserSessionMessageEmitted`).
+    private func emitBrowserSessionCardIfNeeded(sessionId: String) {
+        guard !browserSessionMessageEmitted.contains(sessionId) else { return }
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first,
+              let convo = session.conversations.first else { return }
+
+        browserSessionMessageEmitted.insert(sessionId)
+
+        let msg = ConversationMessage(
+            senderParticipantId: nil,
+            text: "Browser session started",
+            type: .browserSession,
+            conversation: convo
+        )
+        msg.toolOutput = sessionId
+        convo.messages.append(msg)
+        ctx.insert(msg)
+        try? ctx.save()
+
+        let convId = convo.id
+        Task { await sidecarManager?.pushMessageAppend(conversationId: convId, message: msg) }
+    }
+
     private func handleEvent(_ event: SidecarEvent) {
         switch event {
         case .streamToken(let sessionId, let text):
@@ -1467,6 +1498,7 @@ final class AppState {
         case .browserNavigate(let sessionId, let url):
             activeBrowserSessionId = sessionId
             activeBrowserPanelVisible = true
+            emitBrowserSessionCardIfNeeded(sessionId: sessionId)
             Task {
                 let controller = browserController(for: sessionId)
                 browserCoordinators[sessionId]?.logAction("Navigate: \(url)")
@@ -1600,6 +1632,7 @@ final class AppState {
             }
 
         case .browserRenderHtml(let sessionId, let html, _):
+            emitBrowserSessionCardIfNeeded(sessionId: sessionId)
             Task {
                 let controller = browserController(for: sessionId)
                 browserCoordinators[sessionId]?.logAction("Render HTML")

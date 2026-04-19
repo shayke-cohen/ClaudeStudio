@@ -404,6 +404,8 @@ enum ChatTranscriptExport {
                 )))
             case .systemEvaluation:
                 break
+            case .browserSession:
+                break
             }
         }
 
