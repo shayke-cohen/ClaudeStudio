@@ -226,6 +226,7 @@ final class AppState {
     private static let iso8601 = ISO8601DateFormatter()
 
     private(set) var sidecarManager: SidecarManager?
+    private var nostrEventRelay: NostrEventRelay?
     private var eventTask: Task<Void, Never>?
     private var conversationSyncTimer: Task<Void, Never>?
     var modelContext: ModelContext?
@@ -668,6 +669,7 @@ final class AppState {
                 listenForEvents(from: manager)
                 registerAgentDefinitions()
                 registerConnections()
+                startNostrRelay(for: manager)
                 // Push conversation/project snapshot so iOS can read them immediately
                 if let ctx = modelContext {
                     await manager.pushConversationSync(modelContext: ctx, pushMessages: true)
@@ -692,9 +694,19 @@ final class AppState {
     func disconnectSidecar() {
         eventTask?.cancel()
         eventTask = nil
+        nostrEventRelay?.stop()
+        nostrEventRelay = nil
         sidecarManager?.stop()
         sidecarManager = nil
         sidecarStatus = .disconnected
+    }
+
+    private func startNostrRelay(for manager: SidecarManager) {
+        guard let kp = try? IdentityManager.shared.nostrKeypair(for: InstanceConfig.name) else { return }
+        let relays = AppSettings.nostrRelays()
+        let relay = NostrEventRelay(sidecarManager: manager)
+        nostrEventRelay = relay
+        relay.start(privkeyHex: kp.privkeyHex, pubkeyHex: kp.pubkeyHex, relays: relays)
     }
 
     func sendToSidecar(_ command: SidecarCommand) {

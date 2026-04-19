@@ -34,7 +34,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: session,
             latestUserMessageText: "Hello",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertEqual(text, "Hello")
     }
@@ -79,7 +79,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Next",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertTrue(built.contains("Group thread"))
         XCTAssertTrue(built.contains("[You]:"))
@@ -131,7 +131,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Latest",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertFalse(built.contains("OLD"))
         XCTAssertTrue(built.contains("NEW"))
@@ -266,7 +266,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Next",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertTrue(built.contains("visible"))
         XCTAssertFalse(built.contains("HIDDEN_SYSTEM"))
@@ -312,7 +312,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s2,
             latestUserMessageText: "Q",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertTrue(built.contains("Display A1: from agent line"))
     }
@@ -358,7 +358,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "short",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertTrue(built.contains("… (truncated)"))
         XCTAssertTrue(built.count < huge.count + 500)
@@ -804,7 +804,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hi",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertTrue(built.contains("Group Communication Protocol"))
         XCTAssertTrue(built.contains("@Name"))
@@ -831,7 +831,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: session,
             latestUserMessageText: "Hello",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
         XCTAssertFalse(text.contains("Group Communication Protocol"))
     }

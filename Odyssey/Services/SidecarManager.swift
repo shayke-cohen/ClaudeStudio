@@ -39,6 +39,10 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
     private let config: Config
     private let hooks: Hooks
 
+    /// Called with every raw JSON string received from the sidecar before it is parsed.
+    /// Used by NostrEventRelay to forward messages to iOS devices.
+    var rawMessageInterceptor: ((String) -> Void)?
+
     /// The instance name used for Keychain key namespacing and TLS cert paths.
     var instanceName: String { config.instanceName }
     /// DER bytes of the self-signed TLS cert generated for this instance.
@@ -125,6 +129,10 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
         guard let text = String(data: data, encoding: .utf8) else {
             throw SidecarError.encodingFailed
         }
+        try await sendRaw(text)
+    }
+
+    func sendRaw(_ text: String) async throws {
         guard let task = webSocketTask else {
             throw SidecarError.notConnected
         }
@@ -321,14 +329,21 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
 
     private nonisolated func decodeAndYield(_ message: URLSessionWebSocketTask.Message) async {
         let data: Data
+        let rawText: String?
         switch message {
         case .string(let text):
             data = Data(text.utf8)
+            rawText = text
         case .data(let d):
             data = d
+            rawText = String(data: d, encoding: .utf8)
         @unknown default:
             await MainActor.run { self.receiveMessages() }
             return
+        }
+
+        if let text = rawText {
+            await MainActor.run { self.rawMessageInterceptor?(text) }
         }
 
         guard let wire = try? JSONDecoder().decode(IncomingWireMessage.self, from: data),

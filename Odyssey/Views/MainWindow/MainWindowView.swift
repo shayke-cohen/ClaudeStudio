@@ -22,6 +22,15 @@ private struct AddProjectActionKey: FocusedValueKey {
     typealias Value = AddProjectAction
 }
 
+struct ShowWelcomeGuideAction {
+    let handler: () -> Void
+    func callAsFunction() { handler() }
+}
+
+private struct ShowWelcomeGuideActionKey: FocusedValueKey {
+    typealias Value = ShowWelcomeGuideAction
+}
+
 extension FocusedValues {
     var openProjectSettingsAction: OpenProjectSettingsAction? {
         get { self[OpenProjectSettingsActionKey.self] }
@@ -31,6 +40,11 @@ extension FocusedValues {
     var addProjectAction: AddProjectAction? {
         get { self[AddProjectActionKey.self] }
         set { self[AddProjectActionKey.self] = newValue }
+    }
+
+    var showWelcomeGuideAction: ShowWelcomeGuideAction? {
+        get { self[ShowWelcomeGuideActionKey.self] }
+        set { self[ShowWelcomeGuideActionKey.self] = newValue }
     }
 }
 
@@ -238,6 +252,13 @@ struct MainWindowView: View {
         .focusedSceneValue(
             \.openProjectSettingsAction,
             OpenProjectSettingsAction { windowState.openSettings() }
+        )
+        .focusedSceneValue(
+            \.showWelcomeGuideAction,
+            ShowWelcomeGuideAction {
+                AppSettings.store.removeObject(forKey: AppSettings.fteShownKey)
+                windowState.showFTE = true
+            }
         )
     }
 

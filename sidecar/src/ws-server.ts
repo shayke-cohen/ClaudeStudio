@@ -229,6 +229,15 @@ export class WsServer {
         this.ctx.nostrTransport.removePeer(command.name)
         logger.info("nostr", `Removed Nostr peer "${command.name}"`)
         break
+      case "nostr.peerAnnounce":
+        // Mac Swift sets its own identity on the transport at startup
+        this.ctx.nostrTransport.setIdentity(
+          process.env.ODYSSEY_NOSTR_PRIVKEY_HEX ?? "",
+          command.pubkeyHex,
+          command.relays,
+        )
+        logger.info("nostr", `Nostr identity announced: pubkey ${command.pubkeyHex.slice(0, 8)}…`)
+        break
 
       case "nostr.injectCommand":
         // Swift NostrRelayManager decrypts a remote command and injects it here.

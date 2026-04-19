@@ -411,7 +411,7 @@ final class MultiModelGroupsTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Implement fizzbuzz.",
-            participants: convo.participants
+            participants: convo.participants ?? []
         )
 
         XCTAssertFalse(text.isEmpty)

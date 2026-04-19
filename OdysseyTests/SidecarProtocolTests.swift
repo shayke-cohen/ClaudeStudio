@@ -39,7 +39,7 @@ final class SidecarProtocolTests: XCTestCase {
             maxThinkingTokens: nil,
             workingDirectory: "/tmp",
             skills: [
-                AgentConfig.SkillContent(name: "Skill A", content: "Follow the skill."),
+                AgentConfig.SkillContent(name: "Skill A", description: nil, content: "Follow the skill."),
             ],
             interactive: nil,
             instancePolicy: "spawn",
@@ -81,8 +81,8 @@ final class SidecarProtocolTests: XCTestCase {
             maxThinkingTokens: nil,
             workingDirectory: "/tmp/worker",
             skills: [
-                AgentConfig.SkillContent(name: "Review", content: "Review carefully."),
-                AgentConfig.SkillContent(name: "Test", content: "Test thoroughly."),
+                AgentConfig.SkillContent(name: "Review", description: nil, content: "Review carefully."),
+                AgentConfig.SkillContent(name: "Test", description: nil, content: "Test thoroughly."),
             ]
         )
 

@@ -16,6 +16,7 @@ enum SidecarCommand: Sendable {
     case nostrAddPeer(name: String, pubkeyHex: String, relays: [String])
     case nostrRemovePeer(name: String)
     indirect case nostrInjectCommand(command: SidecarCommand)
+    case nostrPeerAnnounce(pubkeyHex: String, relays: [String])
     case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
     case generateSkill(requestId: String, prompt: String, availableCategories: [String], availableMCPs: [MCPCatalogEntry])
     case generateTemplate(requestId: String, intent: String, agentName: String, agentSystemPrompt: String)
@@ -110,6 +111,10 @@ enum SidecarCommand: Sendable {
         case .nostrRemovePeer(let name):
             return try encoder.encode(
                 NostrRemovePeerWire(type: "nostr.removePeer", name: name)
+            )
+        case .nostrPeerAnnounce(let pubkeyHex, let relays):
+            return try encoder.encode(
+                NostrPeerAnnounceWire(type: "nostr.peerAnnounce", pubkeyHex: pubkeyHex, relays: relays)
             )
         case .nostrInjectCommand(let inner):
             let innerData = try inner.encodeToJSON()
@@ -408,6 +413,12 @@ private struct NostrAddPeerWire: Encodable {
 private struct NostrRemovePeerWire: Encodable {
     let type: String
     let name: String
+}
+
+private struct NostrPeerAnnounceWire: Encodable {
+    let type: String
+    let pubkeyHex: String
+    let relays: [String]
 }
 
 private struct QuestionAnswerWire: Encodable {

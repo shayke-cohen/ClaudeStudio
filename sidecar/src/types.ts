@@ -23,6 +23,7 @@ export type SidecarCommand =
   | { type: "nostr.addPeer"; name: string; pubkeyHex: string; relays: string[] }
   | { type: "nostr.removePeer"; name: string }
   | { type: "nostr.injectCommand"; command: SidecarCommand }
+  | { type: "nostr.peerAnnounce"; pubkeyHex: string; relays: string[] }
   | { type: "generate.agent"; requestId: string; prompt: string; availableSkills: SkillCatalogEntry[]; availableMCPs: MCPCatalogEntry[] }
   | { type: "generate.skill"; requestId: string; prompt: string; availableCategories: string[]; availableMCPs: MCPCatalogEntry[] }
   | { type: "generate.template"; requestId: string; intent: string; agentName: string; agentSystemPrompt: string }

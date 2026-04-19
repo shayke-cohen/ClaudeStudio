@@ -18,6 +18,7 @@ struct OdysseyApp: App {
     @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
     @FocusedValue(\.openProjectSettingsAction) private var openProjectSettingsAction
     @FocusedValue(\.addProjectAction) private var addProjectAction
+    @FocusedValue(\.showWelcomeGuideAction) private var showWelcomeGuideAction
 
     @Environment(\.openWindow) private var openWindow
 
@@ -186,6 +187,12 @@ struct OdysseyApp: App {
                 }
             }
             CommandGroup(after: .appInfo) {
+                Button("Welcome Guide\u{2026}") {
+                    showWelcomeGuideAction?()
+                }
+                .disabled(showWelcomeGuideAction == nil)
+                .accessibilityIdentifier("appMenu.welcomeGuide")
+
                 Button("Check for Updates\u{2026}") {
                     updaterController.updater.checkForUpdates()
                 }

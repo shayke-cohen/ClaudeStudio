@@ -105,6 +105,8 @@ targets:
       - OdysseyiOS
     dependencies:
       - package: OdysseyCore
+      - package: secp256k1
+        product: P256K
   OdysseyiOSTests:
     type: bundle.unit-test
     platform: iOS

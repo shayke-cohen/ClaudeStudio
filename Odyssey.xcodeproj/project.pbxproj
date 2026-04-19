@@ -10,6 +10,7 @@
 		0083173AEC8CFAC590A07E1C /* AcceptInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */; };
 		00E2394C0D8E3B3B624E0A37 /* ScheduleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E66DBCD1DC9CCFE067172E /* ScheduleDetailView.swift */; };
 		01AD288AAD7C1C206D8311A2 /* QuickActionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF134C6E798CB85E421324B /* QuickActionsSettingsView.swift */; };
+		046B4625F3BCF356703A819F /* NostrRelayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFC7728E9C8020F71F960F1 /* NostrRelayManagerTests.swift */; };
 		04E888332678007B119BC156 /* ScheduledMissionRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE135214E24F6248D5EA9CF /* ScheduledMissionRun.swift */; };
 		051D4B295377527541A64837 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FD67A4B246106B4021B8EA /* MainWindowView.swift */; };
 		05DC85A4A120D1D2706D08AC /* P2PNetworkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28E92529E4209BE458AE21E /* P2PNetworkManager.swift */; };
@@ -113,6 +114,7 @@
 		5F46EB78FFF081437DE618C8 /* DefaultPermissionPresets.json in Resources */ = {isa = PBXBuildFile; fileRef = 7B22A5D272BEE59AA3D3C5D8 /* DefaultPermissionPresets.json */; };
 		5F8662A6260DEBB1CE795148 /* WorkflowStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB62C74A43DCE83306BBC94 /* WorkflowStep.swift */; };
 		5FD01F053C0953E2D5D16037 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795EF2C6E716A348A0270D65 /* StatusBadge.swift */; };
+		60C0D3C6AADE1C9FFAAB32DA /* NostrRelayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8588D41494F09D2218993E56 /* NostrRelayManager.swift */; };
 		611FF1DC9720480DD394009D /* OdysseyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 71C4795AA6D3021C09D3E9B8 /* OdysseyCore */; };
 		618C6BB69769BEE8D46340F4 /* GroupRoutingPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B514C051E09F9DB44B346FC /* GroupRoutingPlanner.swift */; };
 		61AA8D4CB7CB4FEC986544C7 /* ScheduleRunCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA749B0226815BDB29452D7 /* ScheduleRunCoordinator.swift */; };
@@ -164,7 +166,9 @@
 		94202B2B5FD645E1DA50D3EF /* SharedRoomInviteInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B401E198A5564D7C7A02D22 /* SharedRoomInviteInboxView.swift */; };
 		947E7AFD5F84A3DF60FE9526 /* ChatComposerAvailabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0241E93E60A7151197834BB4 /* ChatComposerAvailabilityTests.swift */; };
 		94F4006DAA2E7F9DD02FE393 /* ThreadCreationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC1AAF636772EC3F0816EC8 /* ThreadCreationTests.swift */; };
+		9689F78ABD0E0CF3C5293A02 /* P256K in Frameworks */ = {isa = PBXBuildFile; productRef = F66B1EEA705AB4C58F6D1D15 /* P256K */; };
 		98DCB062B28189240A60ACD5 /* ColorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854257D624FF2888BB09A84C /* ColorExtension.swift */; };
+		991E7FF029554D5A87D1C6EA /* NostrEventRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F957F8F690575E83C8D9F44D /* NostrEventRelay.swift */; };
 		99388C4AD47BFF06F5DE2BB1 /* ScheduleEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB790454E54F2DCB7D70F0BA /* ScheduleEditorView.swift */; };
 		9AB194C87E586BF47D321A56 /* GroupCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC26D4E32A839A08B8E5E0C8 /* GroupCardView.swift */; };
 		9BD78B6E2A75C023FFFAEFF4 /* LaunchIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F0356CCB7C03690085BBE3 /* LaunchIntent.swift */; };
@@ -216,6 +220,7 @@
 		C22D3EF143B574D87A23A4AE /* FTEView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265C87F30DB00387FBF15701 /* FTEView.swift */; };
 		C27D781988D0C6FF39D8D1BC /* InlineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B6D25343D34D77AC95F302 /* InlineDiffView.swift */; };
 		C29D1EB99325012A6F225E6B /* PasteableTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79283BBF8FDB8B117970161D /* PasteableTextField.swift */; };
+		C2A6270171B7F8B5BD871779 /* NIP44.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24847777365362A22AE1715A /* NIP44.swift */; };
 		C2EBCFA6AD5C2DB295FD2239 /* SlashCommandDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B71FF07BC56B7505F0D1BF /* SlashCommandDropdown.swift */; };
 		C3013C6A6A591C7F37DFCDA6 /* InstanceConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 421BD35AD8A7D15F8F0F18F9 /* InstanceConfig.swift */; };
 		C40F6210764976E1F49D7582 /* AttachmentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1DFAE13EB9916F8F9D7F19 /* AttachmentStore.swift */; };
@@ -363,6 +368,7 @@
 		2182693FA416534F9E4EDFC2 /* RecentDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentDirectories.swift; sourceTree = "<group>"; };
 		226B39199F165D6EB3A78B0A /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		22938BDBDBDAEB685A0E99BD /* OdysseyiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OdysseyiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		24847777365362A22AE1715A /* NIP44.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NIP44.swift; sourceTree = "<group>"; };
 		259022059191B4C04C04B5A3 /* PeerCredentialStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerCredentialStoreTests.swift; sourceTree = "<group>"; };
 		265C87F30DB00387FBF15701 /* FTEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTEView.swift; sourceTree = "<group>"; };
 		26A7E87F81289AFA2925E531 /* PeerWireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerWireModels.swift; sourceTree = "<group>"; };
@@ -462,6 +468,7 @@
 		8178426EAF73CEBAF9D098EC /* UnifiedLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedLogEntry.swift; sourceTree = "<group>"; };
 		81F86B99E423BFFA56B8DFFC /* CatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogService.swift; sourceTree = "<group>"; };
 		854257D624FF2888BB09A84C /* ColorExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtension.swift; sourceTree = "<group>"; };
+		8588D41494F09D2218993E56 /* NostrRelayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrRelayManager.swift; sourceTree = "<group>"; };
 		8608F80F90E94DFDDBF60AC0 /* AgentPickerPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPickerPopover.swift; sourceTree = "<group>"; };
 		878FC3C2221FECA24ABBCF8F /* SymbolPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolPickerView.swift; sourceTree = "<group>"; };
 		88B3B3EEAD46AD1834476DAA /* WorkflowEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowEditorView.swift; sourceTree = "<group>"; };
@@ -563,6 +570,7 @@
 		DC2B79A68879850C3C9E9AA1 /* AgentProvisionerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProvisionerTests.swift; sourceTree = "<group>"; };
 		DDAE26CE88D20910117AC22D /* PeerAgentImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerAgentImporter.swift; sourceTree = "<group>"; };
 		DDDDBE5CD946AABBA32DB09C /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
+		DDFC7728E9C8020F71F960F1 /* NostrRelayManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrRelayManagerTests.swift; sourceTree = "<group>"; };
 		DE39C3CFD123135B0B9BCCE3 /* PeerChannelMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerChannelMessageTests.swift; sourceTree = "<group>"; };
 		DEBB5F451810E6E796C0EBDD /* iOSPairingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPairingSettingsView.swift; sourceTree = "<group>"; };
 		DF369C5D3AF50A92FAA9A7CB /* GitHubIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubIntegration.swift; sourceTree = "<group>"; };
@@ -604,6 +612,7 @@
 		F8575CAE7FCD08CDE2BA7635 /* Odyssey.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Odyssey.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F8B7E6259BD1595509588D1F /* AutonomousGroupEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutonomousGroupEngine.swift; sourceTree = "<group>"; };
 		F8C46F59BAEAB2220DA42BB1 /* BrowserWebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWebViewRepresentable.swift; sourceTree = "<group>"; };
+		F957F8F690575E83C8D9F44D /* NostrEventRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrEventRelay.swift; sourceTree = "<group>"; };
 		FAE20ED171033AD353B53568 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FB47CB1FF7ECC13A7E4F60C4 /* ConfigFileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFileManager.swift; sourceTree = "<group>"; };
 		FB790454E54F2DCB7D70F0BA /* ScheduleEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEditorView.swift; sourceTree = "<group>"; };
@@ -649,6 +658,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				611FF1DC9720480DD394009D /* OdysseyCore in Frameworks */,
+				9689F78ABD0E0CF3C5293A02 /* P256K in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1035,6 +1045,15 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		B501E6C9D872977C1BB0874F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				24847777365362A22AE1715A /* NIP44.swift */,
+				8588D41494F09D2218993E56 /* NostrRelayManager.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		C3FB1C4166132BFB88903BE8 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
@@ -1102,6 +1121,7 @@
 				B4D275D926FA0A8CCDDF578E /* MatrixClient.swift */,
 				BF50A910B05D937FF4A593D2 /* MatrixKeychainStore.swift */,
 				1AEE8206BDCADE014FF65EB4 /* MatrixTransport.swift */,
+				F957F8F690575E83C8D9F44D /* NostrEventRelay.swift */,
 				97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */,
 				B28E92529E4209BE458AE21E /* P2PNetworkManager.swift */,
 				DDAE26CE88D20910117AC22D /* PeerAgentImporter.swift */,
@@ -1122,6 +1142,7 @@
 				F284C7E821B9B70D3FF28CF5 /* TransportManager.swift */,
 				2E6F214B3DA3B4C401EBC4CE /* WorktreeCleanup.swift */,
 				5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */,
+				B501E6C9D872977C1BB0874F /* Shared */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1171,6 +1192,7 @@
 				D666CF47FEE49605F45E2E30 /* LocalProviderSupportTests.swift */,
 				BC9DCC77E362953C9BA85724 /* MatrixClientTests.swift */,
 				B3D0C567417516A60FC55FDF /* MultiModelGroupsTests.swift */,
+				DDFC7728E9C8020F71F960F1 /* NostrRelayManagerTests.swift */,
 				64E578B5DF4181B43F9663DD /* OllamaCatalogServiceTests.swift */,
 				62C8965D33658ECD15A3A342 /* P2PNetworkManagerTests.swift */,
 				DE39C3CFD123135B0B9BCCE3 /* PeerChannelMessageTests.swift */,
@@ -1257,6 +1279,7 @@
 			name = OdysseyiOS;
 			packageProductDependencies = (
 				71C4795AA6D3021C09D3E9B8 /* OdysseyCore */,
+				F66B1EEA705AB4C58F6D1D15 /* P256K */,
 			);
 			productName = OdysseyiOS;
 			productReference = 22938BDBDBDAEB685A0E99BD /* OdysseyiOS.app */;
@@ -1498,6 +1521,7 @@
 				0FA2E25ECB30D6044CDAA9FC /* LocalProviderSupportTests.swift in Sources */,
 				EAF78F4C67040AE9043A941D /* MatrixClientTests.swift in Sources */,
 				DFB9C92E84E2AC850A55748C /* MultiModelGroupsTests.swift in Sources */,
+				046B4625F3BCF356703A819F /* NostrRelayManagerTests.swift in Sources */,
 				7C7B93621F68BB54BB2AC6FD /* OllamaCatalogServiceTests.swift in Sources */,
 				E645A966571BBA5C436C0B25 /* P2PNetworkManagerTests.swift in Sources */,
 				3395077A3A96CF4451AF6DF4 /* PeerChannelMessageTests.swift in Sources */,
@@ -1659,9 +1683,12 @@
 				107791653EBBFB4968915655 /* MermaidDiagramView.swift in Sources */,
 				F8316EFD14F9359D17C039EB /* MessageAttachment.swift in Sources */,
 				2A43F6C6D519EE4046F8D48C /* MessageBubble.swift in Sources */,
+				C2A6270171B7F8B5BD871779 /* NIP44.swift in Sources */,
 				2E20FAA5CAD426395D5BE5B1 /* NewGroupThreadSheet.swift in Sources */,
 				1DE9CE05CAF686E47698C3AB /* NewSessionSheet.swift in Sources */,
+				991E7FF029554D5A87D1C6EA /* NostrEventRelay.swift in Sources */,
 				2BE0D4A4E22AFBFFDB75FEBD /* NostrPeer.swift in Sources */,
+				60C0D3C6AADE1C9FFAAB32DA /* NostrRelayManager.swift in Sources */,
 				438A8185A2A921F2F912027A /* OdysseyApp.swift in Sources */,
 				C7E04ED21BAE8762652B422A /* OllamaCatalogService.swift in Sources */,
 				05DC85A4A120D1D2706D08AC /* P2PNetworkManager.swift in Sources */,
@@ -2196,6 +2223,11 @@
 		F472AA3C0069B43CB2B3D9F8 /* AppXray */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppXray;
+		};
+		F66B1EEA705AB4C58F6D1D15 /* P256K */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2AD6770F347809905B6D5F5F /* XCRemoteSwiftPackageReference "secp256k1.swift" */;
+			productName = P256K;
 		};
 		FF59A43515E1DC605C1B167A /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;
