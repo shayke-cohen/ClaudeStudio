@@ -390,6 +390,23 @@ export class WsServer {
         await this.conversationEvaluator.evaluate(command, this.broadcast.bind(this));
         break;
       }
+
+      // ─── Browser event stubs (Step 1: wire types only) ──────────────────────
+      case "browser.result":
+        logger.debug("ws", `[browser] received: ${command.type}`);
+        break;
+      case "browser.error":
+        logger.debug("ws", `[browser] received: ${command.type}`);
+        break;
+      case "browser.pageLoaded":
+        logger.debug("ws", `[browser] received: ${command.type}`);
+        break;
+      case "browser.userSubmit":
+        logger.debug("ws", `[browser] received: ${command.type}`);
+        break;
+      case "browser.stateChange":
+        logger.debug("ws", `[browser] received: ${command.type}`);
+        break;
     }
   }
 

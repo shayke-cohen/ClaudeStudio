@@ -1423,6 +1423,21 @@ final class AppState {
             pendingQuestions.removeAll()
             pendingConfirmations.removeAll()
             startDisconnectTimer()
+
+        // ─── Browser command stubs (Step 1: wire types only) ─────────────────
+        case .browserNavigate:      break
+        case .browserClick:         break
+        case .browserType:          break
+        case .browserScroll:        break
+        case .browserScreenshot:    break
+        case .browserReadDom:       break
+        case .browserGetConsoleLogs: break
+        case .browserGetNetworkLogs: break
+        case .browserWaitFor:       break
+        case .browserYieldToUser:   break
+        case .browserRenderHtml:    break
+        case .browserTakeControl:   break
+        case .browserResume:        break
         }
     }
 

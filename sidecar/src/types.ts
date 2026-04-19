@@ -43,7 +43,12 @@ export type SidecarCommand =
   | { type: "ios.registerPush"; apnsToken: string; appId: string }
   | { type: "conversation.clear"; conversationId: string }
   | { type: "session.updateModel"; sessionId: string; model: string }
-  | { type: "session.updateEffort"; sessionId: string; effort: "low" | "medium" | "high" | "max" };
+  | { type: "session.updateEffort"; sessionId: string; effort: "low" | "medium" | "high" | "max" }
+  | { type: "browser.result";      sessionId: string; commandType: string; payload: unknown }
+  | { type: "browser.error";       sessionId: string; commandType: string; error: string }
+  | { type: "browser.pageLoaded";  sessionId: string; url: string; title: string }
+  | { type: "browser.userSubmit";  sessionId: string; data: unknown }
+  | { type: "browser.stateChange"; sessionId: string; state: "agentDriving" | "userDriving" | "yieldedToUser" };
 
 export interface PeerAgentWire {
   name: string;
@@ -255,7 +260,20 @@ export type SidecarEvent =
   | { type: "connector.audit"; sessionId?: string; connectionId: string; provider: ConnectorProvider; action: string; outcome: string; summary: string }
   | { type: "ios.pushRegistered"; apnsToken: string; success: boolean; error?: string }
   | { type: "nostr.status"; connectedRelays: number; totalRelays: number }
-  | { type: "conversation.cleared"; conversationId: string };
+  | { type: "conversation.cleared"; conversationId: string }
+  | { type: "browser.navigate";        sessionId: string; url: string }
+  | { type: "browser.click";           sessionId: string; selector: string }
+  | { type: "browser.type";            sessionId: string; selector: string; text: string }
+  | { type: "browser.scroll";          sessionId: string; direction: "up" | "down"; px: number }
+  | { type: "browser.screenshot";      sessionId: string }
+  | { type: "browser.readDom";         sessionId: string }
+  | { type: "browser.getConsoleLogs";  sessionId: string }
+  | { type: "browser.getNetworkLogs";  sessionId: string }
+  | { type: "browser.waitFor";         sessionId: string; selector: string; timeoutMs: number }
+  | { type: "browser.yieldToUser";     sessionId: string; message: string }
+  | { type: "browser.renderHtml";      sessionId: string; html: string; title?: string }
+  | { type: "browser.takeControl";     sessionId: string }
+  | { type: "browser.resume";          sessionId: string };
 
 export interface QuestionOption {
   label: string;
@@ -401,3 +419,27 @@ export interface WebhookRegistration {
 }
 
 export type { OdysseyP2PEnvelope } from './relay/nostr-transport.js'
+
+// ─── Browser wire types ─────────────────────────────────────────────────────
+
+export type BrowserCommand =
+  | { type: 'browser.navigate';        sessionId: string; url: string }
+  | { type: 'browser.click';           sessionId: string; selector: string }
+  | { type: 'browser.type';            sessionId: string; selector: string; text: string }
+  | { type: 'browser.scroll';          sessionId: string; direction: 'up' | 'down'; px: number }
+  | { type: 'browser.screenshot';      sessionId: string }
+  | { type: 'browser.readDom';         sessionId: string }
+  | { type: 'browser.getConsoleLogs';  sessionId: string }
+  | { type: 'browser.getNetworkLogs';  sessionId: string }
+  | { type: 'browser.waitFor';         sessionId: string; selector: string; timeoutMs: number }
+  | { type: 'browser.yieldToUser';     sessionId: string; message: string }
+  | { type: 'browser.renderHtml';      sessionId: string; html: string; title?: string }
+  | { type: 'browser.takeControl';     sessionId: string }
+  | { type: 'browser.resume';          sessionId: string }
+
+export type BrowserEvent =
+  | { type: 'browser.result';      sessionId: string; commandType: string; payload: unknown }
+  | { type: 'browser.error';       sessionId: string; commandType: string; error: string }
+  | { type: 'browser.pageLoaded';  sessionId: string; url: string; title: string }
+  | { type: 'browser.userSubmit';  sessionId: string; data: unknown }
+  | { type: 'browser.stateChange'; sessionId: string; state: 'agentDriving' | 'userDriving' | 'yieldedToUser' }

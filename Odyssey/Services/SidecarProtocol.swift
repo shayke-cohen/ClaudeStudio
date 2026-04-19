@@ -37,6 +37,11 @@ enum SidecarCommand: Sendable {
     case sessionUpdateModel(sessionId: String, model: String)
     case sessionUpdateEffort(sessionId: String, effort: String)
     case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?, sessionIds: [String])
+    case browserResult(sessionId: String, commandType: String, payload: Data)
+    case browserError(sessionId: String, commandType: String, error: String)
+    case browserPageLoaded(sessionId: String, url: String, title: String)
+    case browserUserSubmit(sessionId: String, data: Data)
+    case browserStateChange(sessionId: String, state: String)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -198,6 +203,28 @@ enum SidecarCommand: Sendable {
                 coordinatorSessionId: coordinatorSessionId,
                 sessionIds: sessionIds
             ))
+        case .browserResult(let sessionId, let commandType, let payload):
+            let payloadString = String(decoding: payload, as: UTF8.self)
+            return try encoder.encode(
+                BrowserResultWire(type: "browser.result", sessionId: sessionId, commandType: commandType, payload: payloadString)
+            )
+        case .browserError(let sessionId, let commandType, let error):
+            return try encoder.encode(
+                BrowserErrorWire(type: "browser.error", sessionId: sessionId, commandType: commandType, error: error)
+            )
+        case .browserPageLoaded(let sessionId, let url, let title):
+            return try encoder.encode(
+                BrowserPageLoadedWire(type: "browser.pageLoaded", sessionId: sessionId, url: url, title: title)
+            )
+        case .browserUserSubmit(let sessionId, let data):
+            let dataString = String(decoding: data, as: UTF8.self)
+            return try encoder.encode(
+                BrowserUserSubmitWire(type: "browser.userSubmit", sessionId: sessionId, data: dataString)
+            )
+        case .browserStateChange(let sessionId, let state):
+            return try encoder.encode(
+                BrowserStateChangeWire(type: "browser.stateChange", sessionId: sessionId, state: state)
+            )
         }
     }
 }
@@ -488,6 +515,39 @@ private struct ConfigSetOllamaWire: Encodable {
     let baseURL: String
 }
 
+private struct BrowserResultWire: Encodable {
+    let type: String
+    let sessionId: String
+    let commandType: String
+    let payload: String
+}
+
+private struct BrowserErrorWire: Encodable {
+    let type: String
+    let sessionId: String
+    let commandType: String
+    let error: String
+}
+
+private struct BrowserPageLoadedWire: Encodable {
+    let type: String
+    let sessionId: String
+    let url: String
+    let title: String
+}
+
+private struct BrowserUserSubmitWire: Encodable {
+    let type: String
+    let sessionId: String
+    let data: String
+}
+
+private struct BrowserStateChangeWire: Encodable {
+    let type: String
+    let sessionId: String
+    let state: String
+}
+
 struct ConnectorWire: Codable, Sendable, Identifiable {
     let id: String
     let provider: String
@@ -590,6 +650,19 @@ enum SidecarEvent: Sendable {
     case disconnected
     case conversationIdle(conversationId: String)
     case conversationIdleResult(conversationId: String, status: ConversationIdleResult.Status, reason: String)
+    case browserNavigate(sessionId: String, url: String)
+    case browserClick(sessionId: String, selector: String)
+    case browserType(sessionId: String, selector: String, text: String)
+    case browserScroll(sessionId: String, direction: String, px: Int)
+    case browserScreenshot(sessionId: String)
+    case browserReadDom(sessionId: String)
+    case browserGetConsoleLogs(sessionId: String)
+    case browserGetNetworkLogs(sessionId: String)
+    case browserWaitFor(sessionId: String, selector: String, timeoutMs: Int)
+    case browserYieldToUser(sessionId: String, message: String)
+    case browserRenderHtml(sessionId: String, html: String, title: String?)
+    case browserTakeControl(sessionId: String)
+    case browserResume(sessionId: String)
 }
 
 struct QuestionOption: Codable, Sendable, Identifiable {
@@ -714,6 +787,17 @@ struct IncomingWireMessage: Codable, Sendable {
     let isFallback: Bool?
     let targetAgentName: String?
     let delegatedAnswer: String?
+    // Browser wire fields
+    let url: String?
+    let selector: String?
+    let direction: String?
+    let px: Int?
+    let html: String?
+    let timeoutMs: Int?
+    let browserState: String?
+    let commandType: String?
+    let payload: String?
+    let browserData: String?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, conversationId, status, text, tool, input, output, result, cost
@@ -733,6 +817,10 @@ struct IncomingWireMessage: Codable, Sendable {
         case connectedRelays, totalRelays
         case timeoutSeconds, autoRouting, answeredBy, isFallback, targetAgentName
         case delegatedAnswer = "answer"
+        case url, selector, direction, px, html, timeoutMs
+        case browserState = "state"
+        case commandType, payload
+        case browserData = "data"
     }
 
     func toEvent() -> SidecarEvent? {
@@ -868,6 +956,45 @@ struct IncomingWireMessage: Codable, Sendable {
             guard let cid = conversationId, let statusRaw = status,
                   let s = ConversationIdleResult.Status(rawValue: statusRaw) else { return nil }
             return .conversationIdleResult(conversationId: cid, status: s, reason: reason ?? "")
+        case "browser.navigate":
+            guard let sid = sessionId, let u = url else { return nil }
+            return .browserNavigate(sessionId: sid, url: u)
+        case "browser.click":
+            guard let sid = sessionId, let sel = selector else { return nil }
+            return .browserClick(sessionId: sid, selector: sel)
+        case "browser.type":
+            guard let sid = sessionId, let sel = selector, let t = text else { return nil }
+            return .browserType(sessionId: sid, selector: sel, text: t)
+        case "browser.scroll":
+            guard let sid = sessionId, let dir = direction, let p = px else { return nil }
+            return .browserScroll(sessionId: sid, direction: dir, px: p)
+        case "browser.screenshot":
+            guard let sid = sessionId else { return nil }
+            return .browserScreenshot(sessionId: sid)
+        case "browser.readDom":
+            guard let sid = sessionId else { return nil }
+            return .browserReadDom(sessionId: sid)
+        case "browser.getConsoleLogs":
+            guard let sid = sessionId else { return nil }
+            return .browserGetConsoleLogs(sessionId: sid)
+        case "browser.getNetworkLogs":
+            guard let sid = sessionId else { return nil }
+            return .browserGetNetworkLogs(sessionId: sid)
+        case "browser.waitFor":
+            guard let sid = sessionId, let sel = selector, let tms = timeoutMs else { return nil }
+            return .browserWaitFor(sessionId: sid, selector: sel, timeoutMs: tms)
+        case "browser.yieldToUser":
+            guard let sid = sessionId, let msg = message else { return nil }
+            return .browserYieldToUser(sessionId: sid, message: msg)
+        case "browser.renderHtml":
+            guard let sid = sessionId, let h = html else { return nil }
+            return .browserRenderHtml(sessionId: sid, html: h, title: title)
+        case "browser.takeControl":
+            guard let sid = sessionId else { return nil }
+            return .browserTakeControl(sessionId: sid)
+        case "browser.resume":
+            guard let sid = sessionId else { return nil }
+            return .browserResume(sessionId: sid)
         default:
             return nil
         }
