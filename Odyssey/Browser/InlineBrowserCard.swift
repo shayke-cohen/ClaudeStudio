@@ -86,24 +86,32 @@ struct InlineBrowserCard: View {
                     NSWorkspace.shared.open(url)
                 }
             } label: {
-                Image(systemName: "safari")
-                    .font(.system(size: 12))
+                Text("Safari")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color(.quaternarySystemFill))
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Open in Safari")
             .accessibilityIdentifier("inlineBrowser.safariButton")
             .accessibilityLabel("Open in Safari")
 
             Button {
                 appState.activeBrowserPanelVisible = true
             } label: {
-                Image(systemName: "rectangle.split.2x1")
-                    .font(.system(size: 12))
+                Text("Panel")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(appState.activeBrowserPanelVisible ? Color.blue.opacity(0.15) : Color(.quaternarySystemFill))
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
             }
             .buttonStyle(.plain)
             .foregroundStyle(appState.activeBrowserPanelVisible ? .blue : .secondary)
-            .help("Open in panel")
             .accessibilityIdentifier("inlineBrowser.expandButton")
             .accessibilityLabel("Open in panel")
         }
