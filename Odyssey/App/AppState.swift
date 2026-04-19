@@ -1509,7 +1509,6 @@ final class AppState {
 
         case .browserNavigate(let sessionId, let url):
             activeBrowserSessionId = sessionId
-            activeBrowserPanelVisible = true
             emitBrowserSessionCardIfNeeded(sessionId: sessionId)
             Task {
                 let controller = browserController(for: sessionId)
@@ -1645,7 +1644,6 @@ final class AppState {
 
         case .browserRenderHtml(let sessionId, let html, _):
             activeBrowserSessionId = sessionId
-            activeBrowserPanelVisible = true
             emitBrowserSessionCardIfNeeded(sessionId: sessionId)
             Task {
                 let controller = browserController(for: sessionId)
