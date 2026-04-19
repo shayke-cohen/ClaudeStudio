@@ -18,5 +18,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/shayke-cohen/Odyssey-releases/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>A7W74NfevXsrD2sHEG5MSk5y0K8TfA+8Lcnt+m8VwSw=</string>
 </dict>
 </plist>

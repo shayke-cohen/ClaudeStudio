@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 import XCTest
 @testable import Odyssey
 
@@ -82,7 +83,7 @@ final class ChatViewDataTests: XCTestCase {
     // MARK: - Fix 6: participantAppearanceMap building logic
 
     func testParticipantAppearanceMap_singleSession_returnsNil() throws {
-        let agent = Agent(name: "Solo", description: "", systemPrompt: "", model: "claude-sonnet-4-6")
+        let agent = Agent(name: "Solo", agentDescription: "", systemPrompt: "", model: "claude-sonnet-4-6")
         context.insert(agent)
 
         let conv = makeConversation()
@@ -99,8 +100,8 @@ final class ChatViewDataTests: XCTestCase {
     }
 
     func testParticipantAppearanceMap_multiSession_buildsMap() throws {
-        let agent1 = Agent(name: "Alpha", description: "", systemPrompt: "", model: "claude-sonnet-4-6")
-        let agent2 = Agent(name: "Beta", description: "", systemPrompt: "", model: "claude-sonnet-4-6")
+        let agent1 = Agent(name: "Alpha", agentDescription: "", systemPrompt: "", model: "claude-sonnet-4-6")
+        let agent2 = Agent(name: "Beta", agentDescription: "", systemPrompt: "", model: "claude-sonnet-4-6")
         agent1.color = "blue"
         agent2.color = "red"
         context.insert(agent1)
@@ -114,8 +115,8 @@ final class ChatViewDataTests: XCTestCase {
         context.insert(session1)
         context.insert(session2)
 
-        let participant1 = Participant(type: .agentSession(sessionId: session1.id))
-        let participant2 = Participant(type: .agentSession(sessionId: session2.id))
+        let participant1 = Participant(type: .agentSession(sessionId: session1.id), displayName: "Alpha")
+        let participant2 = Participant(type: .agentSession(sessionId: session2.id), displayName: "Beta")
         conv.participants.append(participant1)
         conv.participants.append(participant2)
         context.insert(participant1)

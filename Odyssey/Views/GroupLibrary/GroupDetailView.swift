@@ -510,6 +510,7 @@ struct GroupDetailView: View {
     }
 
     private func deleteGroup(_ group: AgentGroup) {
+        for template in group.promptTemplates { modelContext.delete(template) }
         modelContext.delete(group)
         try? modelContext.save()
         windowState.selectedGroupId = nil

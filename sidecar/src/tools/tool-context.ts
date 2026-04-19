@@ -10,6 +10,7 @@ import type { ConversationStore } from "../stores/conversation-store.js";
 import type { ProjectStore } from "../stores/project-store.js";
 import type { NostrTransport } from "../relay/nostr-transport.js";
 import type { DelegationStore } from "../stores/delegation-store.js";
+import type { TaskBoardStore } from "../stores/task-board-store.js";
 import type { SidecarEvent, AgentConfig } from "../types.js";
 
 export interface ToolContext {
@@ -25,6 +26,7 @@ export interface ToolContext {
   projectStore: ProjectStore;
   nostrTransport: NostrTransport;
   delegation: DelegationStore;
+  taskBoard: TaskBoardStore;
   broadcast: (event: SidecarEvent) => void;
 
   /**

@@ -20,6 +20,10 @@ import { ChatChannelStore } from "../../src/stores/chat-channel-store.js";
 import { WorkspaceStore } from "../../src/stores/workspace-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
+import { ConversationStore } from "../../src/stores/conversation-store.js";
+import { ProjectStore } from "../../src/stores/project-store.js";
+import { DelegationStore } from "../../src/stores/delegation-store.js";
+import { NostrTransport } from "../../src/relay/nostr-transport.js";
 import type { SidecarEvent } from "../../src/types.js";
 import type { ToolContext } from "../../src/tools/tool-context.js";
 
@@ -42,6 +46,10 @@ function makeToolContext(): ToolContext {
     workspaces: new WorkspaceStore(),
     peerRegistry: new PeerRegistry(),
     connectors: new ConnectorStore(),
+    conversationStore: new ConversationStore(),
+    projectStore: new ProjectStore(),
+    delegation: new DelegationStore(),
+    nostrTransport: new NostrTransport(() => {}),
     relayClient: {
       isConnected: () => false,
       connect: async () => {},

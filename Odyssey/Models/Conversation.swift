@@ -130,13 +130,13 @@ final class Conversation {
     @Transient var pendingQuestionRouting: [String: String] = [:]
     @Transient var resolvedQuestions: [String: ResolvedQuestionInfo] = [:]
 
-    @Relationship(deleteRule: .cascade, inverse: \Session.conversations)
+    @Relationship(deleteRule: .nullify, inverse: \Session.conversations)
     var sessions: [Session] = []
 
-    @Relationship(deleteRule: .cascade, inverse: \Participant.conversation)
+    @Relationship(deleteRule: .nullify, inverse: \Participant.conversation)
     var participants: [Participant] = []
 
-    @Relationship(deleteRule: .cascade, inverse: \ConversationMessage.conversation)
+    @Relationship(deleteRule: .nullify, inverse: \ConversationMessage.conversation)
     var messages: [ConversationMessage] = []
 
     init(

@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 import Network
 import OdysseyCore
@@ -16,8 +15,6 @@ final class P2PNetworkManager: ObservableObject {
     @Published private(set) var peers: [DiscoveredLanPeer] = []
     @Published private(set) var isRunning = false
     @Published var lastError: String?
-    @Published private(set) var wanMappingStatus: UPnPPortMapper.MappingStatus = .idle
-    @Published private(set) var turnStatus: TURNAllocator.AllocatorStatus = .idle
 
     private var browser: NWBrowser?
     private let server: PeerCatalogServer
@@ -26,13 +23,6 @@ final class P2PNetworkManager: ObservableObject {
     weak var sidecarManager: SidecarManager?
     weak var sharedRoomService: SharedRoomService?
     private var previousPeerNames: Set<String> = []
-    private let natManager = NATTraversalManager()
-    private var natCancellable: AnyCancellable?
-    private var stunDiscoveryTask: Task<Void, Never>? = nil
-    private let upnpMapper = UPnPPortMapper()
-    private var upnpTask: Task<Void, Never>? = nil
-    private let turnAllocator = TURNAllocator()
-    private var turnAllocationTask: Task<Void, Never>? = nil
 
     init() {
         let empty = try! JSONEncoder().encode(WireAgentExportList(agents: []))
@@ -42,17 +32,7 @@ final class P2PNetworkManager: ObservableObject {
                 await self?.handleRoomSyncHint(hint)
             }
         }
-        // NATTraversalManager is @MainActor, so $publicEndpoint already publishes on the main actor.
-        // No .receive(on:) needed — removing it avoids a redundant hop and keeps the assignment
-        // on the main actor, which is required by nonisolated(unsafe) on publicWANEndpoint.
-        natCancellable = natManager.$publicEndpoint
-            .sink { [weak self] endpoint in
-                self?.server.publicWANEndpoint = endpoint
-            }
     }
-
-    /// Exposes the underlying NAT traversal manager for inspection or hole-punching.
-    var natTraversalManager: NATTraversalManager { natManager }
 
     func attach(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -75,81 +55,14 @@ final class P2PNetworkManager: ObservableObject {
         startBrowser()
         isRunning = true
         refreshExportCache()
-        let localPort = server.sidecarWsPort ?? 9849
-        stunDiscoveryTask = Task {
-            await natManager.discoverPublicEndpoint(localPort: localPort)
-        }
-        upnpTask = Task { [weak self] in
-            guard let self else { return }
-            let result = await self.upnpMapper.mapPort(localPort)
-            // Task inherits @MainActor isolation from start(), so assignments are safe.
-            self.wanMappingStatus = result
-            if case .mapped(let ip, let port) = result {
-                // UPnP confirmed a mapping — use this endpoint instead of the
-                // STUN-discovered one because it guarantees the mapping exists.
-                self.natManager.setPublicEndpoint("\(ip):\(port)")
-            }
-        }
-
-        // Start TURN allocation if the user has enabled it in settings.
-        let turnEnabled = AppSettings.store.bool(forKey: AppSettings.turnEnabledKey)
-        if turnEnabled {
-            let url = AppSettings.store.string(forKey: AppSettings.turnURLKey) ?? AppSettings.defaultTurnURL
-            let username = AppSettings.store.string(forKey: AppSettings.turnUsernameKey) ?? AppSettings.defaultTurnUsername
-            let credential = AppSettings.store.string(forKey: AppSettings.turnCredentialKey) ?? AppSettings.defaultTurnCredential
-            let config = OdysseyCore.TURNConfig(url: url, username: username, credential: credential)
-            let allocator = turnAllocator
-            turnAllocationTask = Task { [weak self] in
-                guard let self else { return }
-                do {
-                    let relay = try await allocator.allocate(config: config)
-                    await MainActor.run {
-                        self.turnStatus = .allocated(relayEndpoint: relay)
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.turnStatus = .failed(error.localizedDescription)
-                    }
-                }
-            }
-        }
     }
 
     func stop() {
-        stunDiscoveryTask?.cancel()
-        stunDiscoveryTask = nil
-        upnpTask?.cancel()
-        upnpTask = nil
-        turnAllocationTask?.cancel()
-        turnAllocationTask = nil
         browser?.cancel()
         browser = nil
         server.stop()
         peers = []
         isRunning = false
-        wanMappingStatus = .idle
-        turnStatus = .idle
-        // Fire-and-forget removal so we don't block the main actor during teardown
-        let mapper = upnpMapper
-        let allocator = turnAllocator
-        Task.detached {
-            await mapper.removeMapping()
-            await allocator.stop()
-        }
-    }
-
-    /// Returns the pre-allocated TURN relay endpoint string if the allocator has succeeded.
-    var currentTurnRelay: String? {
-        if case .allocated(let relay) = turnStatus { return relay }
-        return nil
-    }
-
-    /// Re-attempt UPnP/NAT-PMP port mapping. Call this after a network change.
-    func refreshWANMapping() async {
-        wanMappingStatus = await upnpMapper.renewMapping()
-        if case .mapped(let ip, let port) = wanMappingStatus {
-            natManager.setPublicEndpoint("\(ip):\(port)")
-        }
     }
 
     func refreshExportCache() {

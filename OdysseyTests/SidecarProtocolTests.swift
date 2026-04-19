@@ -413,6 +413,18 @@ final class SidecarProtocolTests: XCTestCase {
         }
     }
 
+    func testNostrInjectCommand_encodesInnerCommand() throws {
+        let inner = SidecarCommand.sessionPause(sessionId: "s-abc")
+        let outer = SidecarCommand.nostrInjectCommand(command: inner)
+        let data = try outer.encodeToJSON()
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "nostr.injectCommand")
+        let innerObj = try XCTUnwrap(json["command"] as? [String: Any])
+        XCTAssertEqual(innerObj["type"] as? String, "session.pause")
+        XCTAssertEqual(innerObj["sessionId"] as? String, "s-abc")
+    }
+
     func testConversationClearedPreservesId() {
         let uuid = UUID().uuidString
         let payload: [String: Any] = ["type": "conversation.cleared", "conversationId": uuid]

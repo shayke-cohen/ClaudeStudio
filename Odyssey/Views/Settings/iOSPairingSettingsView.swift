@@ -30,8 +30,6 @@ struct iOSPairingSettingsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 allowToggleSection
                 Divider()
-                wanAccessSection
-                Divider()
                 qrSection
                 Divider()
                 pairedDevicesSection
@@ -59,36 +57,6 @@ struct iOSPairingSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .stableXrayId("settings.iosPairing.firewallNote")
-            }
-        }
-    }
-
-    // MARK: - Internet Access Section
-
-    @ViewBuilder
-    private var wanAccessSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Internet Access")
-                .font(.headline)
-            switch p2pNetworkManager.wanMappingStatus {
-            case .mapped(let ip, let port):
-                Label("Internet reachable at \(ip):\(port)", systemImage: "globe")
-                    .foregroundStyle(.green)
-                    .accessibilityIdentifier("settings.ios.wanStatus")
-            case .discovering:
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Checking router for automatic port mapping…")
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityIdentifier("settings.ios.wanStatus")
-            case .failed:
-                Label("Manual port forwarding required for internet access", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("settings.ios.wanStatus")
-            case .idle:
-                EmptyView()
             }
         }
     }
@@ -193,9 +161,6 @@ struct iOSPairingSettingsView: View {
         isGenerating = true
         generateError = nil
         do {
-            let wanHint = p2pNetworkManager.natTraversalManager.publicEndpoint
-            let lanHint = UPnPPortMapper.localIPAddress()
-
             let instanceName = appState.sidecarManager?.instanceName ?? "default"
             let wsPort = appState.allocatedWsPort > 0 ? appState.allocatedWsPort : 9849
             let payload = try await InviteCodeGenerator.generateDevice(
@@ -203,11 +168,10 @@ struct iOSPairingSettingsView: View {
                 wsPort: wsPort,
                 expiresIn: 300,
                 singleUse: true,
-                lanHint: lanHint,
-                wanHint: wanHint,
-                turnRelay: p2pNetworkManager.currentTurnRelay,
+                lanHint: nil,
+                wanHint: nil,
                 nostrPubkey: appState.nostrPublicKeyHex,
-                nostrRelays: UserDefaults.standard.stringArray(forKey: AppSettings.nostrRelaysKey)
+                nostrRelays: AppSettings.nostrRelays()
             )
             currentPayload = payload
             qrImage = InviteCodeGenerator.qrCode(for: payload, size: 300)

@@ -60,10 +60,10 @@ final class Agent {
     var updatedAt: Date
     var identityBundleJSON: String? = nil
 
-    @Relationship(deleteRule: .cascade, inverse: \Session.agent)
+    @Relationship(deleteRule: .nullify, inverse: \Session.agent)
     var sessions: [Session] = []
 
-    @Relationship(deleteRule: .cascade, inverse: \PromptTemplate.agent)
+    @Relationship(deleteRule: .nullify, inverse: \PromptTemplate.agent)
     var promptTemplates: [PromptTemplate] = []
 
     static func defaultHomePath(for name: String) -> String {

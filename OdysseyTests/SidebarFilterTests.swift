@@ -34,7 +34,7 @@ final class SidebarFilterTests: XCTestCase {
     private func makeAgent(name: String = "TestAgent") -> Agent {
         let agent = Agent(
             name: name,
-            description: "",
+            agentDescription: "",
             systemPrompt: "",
             model: "claude-sonnet-4-6"
         )

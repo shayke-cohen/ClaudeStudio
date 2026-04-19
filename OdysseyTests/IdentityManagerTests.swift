@@ -16,6 +16,9 @@ final class IdentityManagerTests: XCTestCase {
         try? IdentityManager.shared.deleteKeychainItem(
             forKey: "odyssey.wstoken.\(testInstance)"
         )
+        IdentityManager.shared.deleteNostrKeypair(for: testInstance)
+        IdentityManager.shared.deleteNostrKeypair(for: "\(testInstance)-a")
+        IdentityManager.shared.deleteNostrKeypair(for: "\(testInstance)-b")
     }
 
     // MARK: - IM1: Keypair generation and persistence
@@ -142,6 +145,38 @@ final class IdentityManagerTests: XCTestCase {
         // fingerprint registry is not yet wired up. Once Phase 1 is complete, this test
         // should be updated to assert a non-nil display name for a known owner bundle.
         throw XCTSkip("ownerDisplayName lookup not yet implemented (Phase 1 stub)")
+    }
+
+    // MARK: - IM11: Nostr secp256k1 keypair
+
+    func testIM11_nostrPubkeyIs64HexChars() throws {
+        let (_, pubkeyHex) = try IdentityManager.shared.nostrKeypair(for: testInstance)
+        XCTAssertEqual(pubkeyHex.count, 64, "x-only pubkey must be 64 hex characters (32 bytes)")
+        XCTAssertTrue(pubkeyHex.allSatisfy { $0.isHexDigit }, "pubkey must contain only hex digits")
+    }
+
+    func testIM12_nostrKeypairPersistsAcrossCalls() throws {
+        let (_, pubkeyHex1) = try IdentityManager.shared.nostrKeypair(for: testInstance)
+        let (_, pubkeyHex2) = try IdentityManager.shared.nostrKeypair(for: testInstance)
+        XCTAssertEqual(pubkeyHex1, pubkeyHex2,
+            "Same instance must return same Nostr pubkey on repeated calls")
+    }
+
+    func testIM13_nostrDifferentInstancesProduceDifferentKeys() throws {
+        let instanceA = "\(testInstance)-a"
+        let instanceB = "\(testInstance)-b"
+        let (_, pubkeyA) = try IdentityManager.shared.nostrKeypair(for: instanceA)
+        let (_, pubkeyB) = try IdentityManager.shared.nostrKeypair(for: instanceB)
+        XCTAssertNotEqual(pubkeyA, pubkeyB,
+            "Different instance names must produce different Nostr keypairs")
+    }
+
+    func testIM14_nostrDeleteAndRegenerateProducesNewKey() throws {
+        let (_, pubkeyBefore) = try IdentityManager.shared.nostrKeypair(for: testInstance)
+        IdentityManager.shared.deleteNostrKeypair(for: testInstance)
+        let (_, pubkeyAfter) = try IdentityManager.shared.nostrKeypair(for: testInstance)
+        XCTAssertNotEqual(pubkeyBefore, pubkeyAfter,
+            "After deleting Nostr keypair, regeneration must produce a different pubkey")
     }
 
     // MARK: - IM7: TLS bundle generation

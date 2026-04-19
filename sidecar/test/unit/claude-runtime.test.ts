@@ -8,6 +8,10 @@ import { WorkspaceStore } from "../../src/stores/workspace-store.js";
 import { TaskBoardStore } from "../../src/stores/task-board-store.js";
 import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
+import { ConversationStore } from "../../src/stores/conversation-store.js";
+import { ProjectStore } from "../../src/stores/project-store.js";
+import { DelegationStore } from "../../src/stores/delegation-store.js";
+import { NostrTransport } from "../../src/relay/nostr-transport.js";
 import type { SidecarEvent } from "../../src/types.js";
 import type { ToolContext } from "../../src/tools/tool-context.js";
 import { makeAgentConfig } from "../helpers.js";
@@ -33,6 +37,10 @@ function makeToolContext(sessions: SessionRegistry, emit: (event: SidecarEvent) 
     workspaces: new WorkspaceStore(),
     peerRegistry: new PeerRegistry(),
     connectors: new ConnectorStore(),
+    conversationStore: new ConversationStore(),
+    projectStore: new ProjectStore(),
+    delegation: new DelegationStore(),
+    nostrTransport: new NostrTransport(() => {}),
     relayClient: {
       isConnected: () => false,
       connect: async () => {},
@@ -101,7 +109,7 @@ describe("ClaudeRuntime Ollama routing", () => {
       true,
     );
 
-    expect(options.model).toBe("claude-opus-4-6");
+    expect(options.model).toBe("claude-opus-4-7");
     expect(options.maxTurns).toBe(30);
   });
 

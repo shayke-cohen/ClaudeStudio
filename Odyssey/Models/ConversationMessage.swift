@@ -81,7 +81,7 @@ final class ConversationMessage {
     private var roomDeliveryModeRaw: String?
     var conversation: Conversation?
 
-    @Relationship(deleteRule: .cascade, inverse: \MessageAttachment.message)
+    @Relationship(deleteRule: .nullify, inverse: \MessageAttachment.message)
     var attachments: [MessageAttachment] = []
 
     init(

@@ -243,6 +243,12 @@ struct SidebarView: View {
                             windowState.selectedConversationId = nil
                         }
                         appState.clearSessionActivity(for: convo.sessions.map(\.id.uuidString))
+                        for msg in convo.messages {
+                            for att in msg.attachments { modelContext.delete(att) }
+                            modelContext.delete(msg)
+                        }
+                        for participant in convo.participants { modelContext.delete(participant) }
+                        for session in convo.sessions { modelContext.delete(session) }
                         modelContext.delete(convo)
                         try? modelContext.save()
                     }
@@ -2235,6 +2241,12 @@ struct SidebarView: View {
                 modelContext.delete(schedule)
             }
             for conversation in projectConversations {
+                for msg in conversation.messages {
+                    for att in msg.attachments { modelContext.delete(att) }
+                    modelContext.delete(msg)
+                }
+                for participant in conversation.participants { modelContext.delete(participant) }
+                for session in conversation.sessions { modelContext.delete(session) }
                 modelContext.delete(conversation)
             }
             modelContext.delete(project)

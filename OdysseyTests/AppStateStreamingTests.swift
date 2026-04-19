@@ -124,7 +124,7 @@ final class AppStateStreamingTests: XCTestCase {
 
         appState.handleEventForTesting(.sessionResult(
             sessionId: sid,
-            resultText: "final result",
+            result: "final result",
             cost: 0,
             tokenCount: 1,
             toolCallCount: 0

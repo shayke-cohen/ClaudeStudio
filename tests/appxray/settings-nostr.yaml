@@ -1,0 +1,68 @@
+name: Nostr Relay Settings
+description: Verify Nostr identity and relay URL fields in Settings → Advanced
+
+tests:
+  - name: "NOSTR-1: Advanced tab has Nostr Identity section"
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId(mainWindow.settingsButton)"
+      - interact:
+          action: tap
+          selector: "@testId(settings.nav.advanced)"
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains: "Nostr Identity"
+
+  - name: "NOSTR-2: Nostr Relays section is present"
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId(settings.nav.advanced)"
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains: "Nostr Relays"
+
+  - name: "NOSTR-3: Primary relay field has default value"
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId(settings.nav.advanced)"
+      - inspect:
+          selector: "@testId(settings.advanced.nostrRelay1Field)"
+    assert:
+      element_value_contains: "relay.damus.io"
+
+  - name: "NOSTR-4: Secondary relay field has default value"
+    steps:
+      - inspect:
+          selector: "@testId(settings.advanced.nostrRelay2Field)"
+    assert:
+      element_value_contains: "relay.nostr.band"
+
+  - name: "NOSTR-5: Copy npub button is visible when identity exists"
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId(settings.nav.advanced)"
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains: "Copy"
+
+  - name: "NOSTR-6: Primary relay field accepts custom value"
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId(settings.advanced.nostrRelay1Field)"
+      - interact:
+          action: clear
+      - interact:
+          action: type
+          text: "wss://custom.relay.test"
+      - interact:
+          action: screenshot
+    assert:
+      screenshot_contains: "custom.relay.test"

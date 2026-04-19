@@ -66,6 +66,18 @@ enum AppSettings {
     static let sharedRoomUserIdKey = "odyssey.sharedRoom.userId"
     static let sharedRoomDisplayNameKey = "odyssey.sharedRoom.displayName"
     static let nostrRelaysKey = "nostrRelays"
+    static let nostrRelay1Key = "odyssey.nostrRelay1"
+    static let nostrRelay2Key = "odyssey.nostrRelay2"
+    static let defaultNostrRelay1 = "wss://relay.damus.io"
+    static let defaultNostrRelay2 = "wss://relay.nostr.band"
+
+    /// Returns the configured Nostr relay URLs, falling back to defaults.
+    static func nostrRelays() -> [String] {
+        let store = InstanceConfig.userDefaults
+        let r1 = store.string(forKey: nostrRelay1Key) ?? defaultNostrRelay1
+        let r2 = store.string(forKey: nostrRelay2Key) ?? defaultNostrRelay2
+        return [r1, r2].filter { !$0.isEmpty }
+    }
 
     // MARK: - Defaults
     static let defaultWsPort = 9849

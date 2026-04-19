@@ -58,7 +58,9 @@ final class PromptTemplateTests: XCTestCase {
         XCTAssertEqual(agent.promptTemplates.first?.name, "Review PR")
     }
 
-    func testPromptTemplate_cascadeDeleteWhenAgentRemoved() throws {
+    // Delete rules changed from .cascade to .nullify for CloudKit compatibility.
+    // Production delete paths manually delete children before the parent.
+    func testPromptTemplate_manualDeleteBeforeAgent() throws {
         let agent = Agent(name: "Coder")
         context.insert(agent)
         let a = PromptTemplate(name: "A", prompt: "A body", agent: agent, configSlug: "agents/coder/a")
@@ -69,13 +71,30 @@ final class PromptTemplateTests: XCTestCase {
 
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 2)
 
+        // Simulate the production AgentLibraryView.deleteAgent() pattern
+        for t in agent.promptTemplates { context.delete(t) }
         context.delete(agent)
         try context.save()
 
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 0)
     }
 
-    func testPromptTemplate_cascadeDeleteWhenGroupRemoved() throws {
+    func testPromptTemplate_nullifyWhenAgentDeletedDirectly() throws {
+        // Verify that direct parent delete leaves templates with nil agent (CloudKit nullify).
+        let agent = Agent(name: "Coder")
+        context.insert(agent)
+        let a = PromptTemplate(name: "A", prompt: "A body", agent: agent, configSlug: "agents/coder/a")
+        context.insert(a)
+        try context.save()
+
+        context.delete(agent)
+        try context.save()
+
+        // Template still exists (nullify, not cascade)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 1)
+    }
+
+    func testPromptTemplate_manualDeleteBeforeGroup() throws {
         let group = AgentGroup(name: "Security Audit")
         context.insert(group)
         let t = PromptTemplate(
@@ -87,6 +106,8 @@ final class PromptTemplateTests: XCTestCase {
 
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 1)
 
+        // Simulate GroupLibraryView.deleteGroup() pattern
+        for tmpl in group.promptTemplates { context.delete(tmpl) }
         context.delete(group)
         try context.save()
 

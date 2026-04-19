@@ -4,5 +4,9 @@
 <dict>
     <key>com.apple.security.network.client</key>
     <true/>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
 </dict>
 </plist>

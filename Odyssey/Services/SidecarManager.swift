@@ -180,19 +180,13 @@ final class SidecarManager: NSObject, ObservableObject, Sendable {
             process.environment?["ODYSSEY_NOSTR_PUBKEY_HEX"] = nostrKP.pubkeyHex
         }
         // Inject relay list from UserDefaults (fallback: sidecar uses hardcoded defaults)
-        let relays = UserDefaults.standard.stringArray(forKey: AppSettings.nostrRelaysKey) ?? []
+        let relays = AppSettings.nostrRelays()
         if !relays.isEmpty {
             process.environment?["ODYSSEY_NOSTR_RELAYS"] = relays.joined(separator: ",")
         }
 
-        // Inject TLS cert + key paths and cache the DER bytes for cert pinning
-        if let tlsBundle = try? IdentityManager.shared.tlsCertificate(for: config.instanceName) {
-            process.environment?["ODYSSEY_TLS_CERT"] = tlsBundle.certPEMPath
-            process.environment?["ODYSSEY_TLS_KEY"] = tlsBundle.keyPEMPath
-            process.environment?["CLAUDESTUDIO_TLS_CERT"] = tlsBundle.certPEMPath
-            process.environment?["CLAUDESTUDIO_TLS_KEY"] = tlsBundle.keyPEMPath
-            self.pinnedCertDERData = tlsBundle.certDERData
-        }
+        // TLS is intentionally disabled for localhost IPC — bearer token auth is sufficient,
+        // and self-signed cert pinning caused connection failures on first-run DMG installs.
 
         let logDir = config.logDirectory ?? "\(NSHomeDirectory())/.odyssey/instances/default/logs"
         try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)

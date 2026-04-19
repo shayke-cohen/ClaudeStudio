@@ -223,6 +223,8 @@ struct AgentLibraryView: View {
     }
 
     private func deleteAgent(_ agent: Agent) {
+        for session in agent.sessions { modelContext.delete(session) }
+        for template in agent.promptTemplates { modelContext.delete(template) }
         modelContext.delete(agent)
         try? modelContext.save()
     }

@@ -4845,6 +4845,7 @@ struct ChatView: View {
     private func clearMessages() {
         guard let convo = conversation else { return }
         for message in convo.messages {
+            for attachment in message.attachments { modelContext.delete(attachment) }
             modelContext.delete(message)
         }
         convo.messages.removeAll()

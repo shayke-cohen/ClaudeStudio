@@ -353,6 +353,12 @@ private struct GeneralSettingsTab: View {
 
     private func deleteAllHistory() {
         for conversation in conversations {
+            for msg in conversation.messages {
+                for att in msg.attachments { modelContext.delete(att) }
+                modelContext.delete(msg)
+            }
+            for participant in conversation.participants { modelContext.delete(participant) }
+            for session in conversation.sessions { modelContext.delete(session) }
             modelContext.delete(conversation)
         }
         try? modelContext.save()
@@ -1881,10 +1887,6 @@ private struct AdvancedSettingsTab: View {
     @AppStorage(AppSettings.autoConnectSidecarKey, store: AppSettings.store) private var autoConnectSidecar = true
     @AppStorage(AppSettings.wsPortKey, store: AppSettings.store) private var wsPort = AppSettings.defaultWsPort
     @AppStorage(AppSettings.httpPortKey, store: AppSettings.store) private var httpPort = AppSettings.defaultHttpPort
-    @AppStorage(AppSettings.turnEnabledKey, store: AppSettings.store) private var turnEnabled = false
-    @AppStorage(AppSettings.turnURLKey, store: AppSettings.store) private var turnURL = AppSettings.defaultTurnURL
-    @AppStorage(AppSettings.turnUsernameKey, store: AppSettings.store) private var turnUsername = AppSettings.defaultTurnUsername
-    @AppStorage(AppSettings.turnCredentialKey, store: AppSettings.store) private var turnCredential = AppSettings.defaultTurnCredential
     @AppStorage(AppSettings.bunPathOverrideKey, store: AppSettings.store) private var bunPathOverride = ""
     @AppStorage(AppSettings.sidecarPathKey, store: AppSettings.store) private var sidecarPath = ""
     @AppStorage(AppSettings.localAgentHostPathOverrideKey, store: AppSettings.store) private var localAgentHostPathOverride = ""
@@ -1892,7 +1894,10 @@ private struct AdvancedSettingsTab: View {
     @AppStorage(AppSettings.dataDirectoryKey, store: AppSettings.store) private var dataDirectory = AppSettings.defaultDataDirectory
     @AppStorage(AppSettings.logLevelKey, store: AppSettings.store) private var logLevel = AppSettings.defaultLogLevel
     @AppStorage(AppSettings.builtInConfigOverridePolicyKey, store: AppSettings.store) private var builtInConfigOverridePolicy = AppSettings.defaultBuiltInConfigOverridePolicy
+    @AppStorage(AppSettings.nostrRelay1Key, store: AppSettings.store) private var nostrRelay1 = AppSettings.defaultNostrRelay1
+    @AppStorage(AppSettings.nostrRelay2Key, store: AppSettings.store) private var nostrRelay2 = AppSettings.defaultNostrRelay2
     @State private var showResetConfirmation = false
+    @State private var copiedNpub = false
 
     private var selectedLogLevel: Binding<LogLevel> {
         Binding(
@@ -1953,41 +1958,50 @@ private struct AdvancedSettingsTab: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section {
-                Toggle("Enable TURN relay for internet access", isOn: $turnEnabled)
-                    .xrayId("settings.advanced.turnToggle")
-
-                if turnEnabled {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TURN Server URL")
-                            .font(.callout)
-                        TextField(AppSettings.defaultTurnURL, text: $turnURL)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.advanced.turnURLField")
+            Section("Nostr Identity") {
+                HStack {
+                    Text("Public Key (npub)")
+                    Spacer()
+                    if let npub = appState.nostrPublicKeyHex {
+                        Text(String(npub.prefix(16)) + "…")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .xrayId("settings.advanced.nostrNpubLabel")
+                        Button(copiedNpub ? "Copied!" : "Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(npub, forType: .string)
+                            copiedNpub = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                copiedNpub = false
+                            }
+                        }
+                        .xrayId("settings.advanced.nostrCopyNpubButton")
+                    } else {
+                        Text("Not generated yet")
+                            .foregroundStyle(.tertiary)
                     }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Username")
-                            .font(.callout)
-                        TextField(AppSettings.defaultTurnUsername, text: $turnUsername)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.advanced.turnUsernameField")
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Credential")
-                            .font(.callout)
-                        SecureField(AppSettings.defaultTurnCredential, text: $turnCredential)
-                            .textFieldStyle(.roundedBorder)
-                            .xrayId("settings.advanced.turnCredentialField")
-                    }
-
-                    turnRelayStatusRow
                 }
-            } header: {
-                Text("Remote Access (TURN Relay)")
-            } footer: {
-                Text("TURN relay allows iOS to reach this Mac from any network, even through strict NATs. Uses openrelay.metered.ca by default (free, rate-limited). For production use, configure your own TURN server.")
+            }
+
+            Section("Nostr Relays") {
+                HStack {
+                    Text("Primary")
+                    Spacer()
+                    TextField(AppSettings.defaultNostrRelay1, text: $nostrRelay1)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 280)
+                        .xrayId("settings.advanced.nostrRelay1Field")
+                }
+                HStack {
+                    Text("Secondary")
+                    Spacer()
+                    TextField(AppSettings.defaultNostrRelay2, text: $nostrRelay2)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 280)
+                        .xrayId("settings.advanced.nostrRelay2Field")
+                }
+                Text("Changes take effect after restarting the sidecar.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -2202,29 +2216,6 @@ private struct AdvancedSettingsTab: View {
 
         case .connecting:
             EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private var turnRelayStatusRow: some View {
-        switch p2pNetworkManager.turnStatus {
-        case .idle:
-            EmptyView()
-        case .allocating:
-            HStack(spacing: 8) {
-                ProgressView().scaleEffect(0.7)
-                Text("Allocating relay…")
-                    .foregroundStyle(.secondary)
-            }
-            .xrayId("settings.advanced.turnStatus")
-        case .allocated(let relay):
-            Label("Relay active: \(relay)", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .xrayId("settings.advanced.turnStatus")
-        case .failed(let msg):
-            Label("Relay failed: \(msg)", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.secondary)
-                .xrayId("settings.advanced.turnStatus")
         }
     }
 

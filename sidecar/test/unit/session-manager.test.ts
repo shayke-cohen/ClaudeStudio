@@ -17,6 +17,7 @@ import { PeerRegistry } from "../../src/stores/peer-registry.js";
 import { ConnectorStore } from "../../src/stores/connector-store.js";
 import { ConversationStore } from "../../src/stores/conversation-store.js";
 import { ProjectStore } from "../../src/stores/project-store.js";
+import { DelegationStore } from "../../src/stores/delegation-store.js";
 import { NostrTransport } from "../../src/relay/nostr-transport.js";
 import type { ToolContext } from "../../src/tools/tool-context.js";
 import type { AgentConfig, SidecarEvent } from "../../src/types.js";
@@ -33,6 +34,7 @@ function buildCtx(broadcast: (e: SidecarEvent) => void = () => {}): ToolContext 
     connectors: new ConnectorStore(),
     conversationStore: new ConversationStore(),
     projectStore: new ProjectStore(),
+    delegation: new DelegationStore(),
     nostrTransport: new NostrTransport(() => {}),
     relayClient: {
       isConnected: () => false,

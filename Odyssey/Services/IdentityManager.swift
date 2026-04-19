@@ -231,12 +231,22 @@ final class IdentityManager {
         let keyPath = "\(dir)/tls.key.pem"
         let fm = FileManager.default
 
-        // If cert already exists, read DER bytes and return
+        // If cert already exists, check it is RSA (EC certs with explicit curve params
+        // are rejected by Bun/BoringSSL, causing the sidecar to fall back to plain ws://
+        // while Swift still tries wss:// — resulting in a TLS error on every launch).
         if fm.fileExists(atPath: certPath) && fm.fileExists(atPath: keyPath) {
-            let derData = try readDERFromPEM(certPEMPath: certPath)
-            let bundle = TLSBundle(certPEMPath: certPath, keyPEMPath: keyPath, certDERData: derData)
-            tlsCache[instanceName] = bundle
-            return bundle
+            let keyContent = (try? String(contentsOfFile: keyPath, encoding: .utf8)) ?? ""
+            if keyContent.contains("EC PRIVATE KEY") {
+                // Old EC key — delete and regenerate as RSA below
+                try? fm.removeItem(atPath: certPath)
+                try? fm.removeItem(atPath: keyPath)
+                Log.sidecar.warning("IdentityManager: replaced EC cert with RSA for '\(instanceName, privacy: .public)'")
+            } else {
+                let derData = try readDERFromPEM(certPEMPath: certPath)
+                let bundle = TLSBundle(certPEMPath: certPath, keyPEMPath: keyPath, certDERData: derData)
+                tlsCache[instanceName] = bundle
+                return bundle
+            }
         }
 
         // Create the directory

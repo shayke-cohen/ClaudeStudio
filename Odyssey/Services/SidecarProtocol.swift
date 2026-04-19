@@ -15,6 +15,7 @@ enum SidecarCommand: Sendable {
     case peerRemove(name: String)
     case nostrAddPeer(name: String, pubkeyHex: String, relays: [String])
     case nostrRemovePeer(name: String)
+    indirect case nostrInjectCommand(command: SidecarCommand)
     case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
     case generateSkill(requestId: String, prompt: String, availableCategories: [String], availableMCPs: [MCPCatalogEntry])
     case generateTemplate(requestId: String, intent: String, agentName: String, agentSystemPrompt: String)
@@ -105,6 +106,13 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 NostrRemovePeerWire(type: "nostr.removePeer", name: name)
             )
+        case .nostrInjectCommand(let inner):
+            let innerData = try inner.encodeToJSON()
+            guard var innerObj = try JSONSerialization.jsonObject(with: innerData) as? [String: Any] else {
+                throw EncodingError.invalidValue(inner, .init(codingPath: [], debugDescription: "inner command not a JSON object"))
+            }
+            let wrapper: [String: Any] = ["type": "nostr.injectCommand", "command": innerObj]
+            return try JSONSerialization.data(withJSONObject: wrapper)
         case .generateAgent(let requestId, let prompt, let skills, let mcps):
             return try encoder.encode(
                 GenerateAgentWire(type: "generate.agent", requestId: requestId, prompt: prompt, availableSkills: skills, availableMCPs: mcps)

@@ -214,6 +214,12 @@ export class WsServer {
         logger.info("nostr", `Removed Nostr peer "${command.name}"`)
         break
 
+      case "nostr.injectCommand":
+        // Swift NostrRelayManager decrypts a remote command and injects it here.
+        // Re-dispatch the inner command as if it arrived locally.
+        await this.handleCommand(command.command)
+        break
+
       case "generate.agent":
         this.handleGenerateAgent(command).catch((err) => {
           logger.error("ws", `generate.agent handler error: ${err}`);
