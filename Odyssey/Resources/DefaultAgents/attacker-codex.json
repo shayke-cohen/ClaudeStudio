@@ -3,7 +3,7 @@
   "enabled": true,
   "agentDescription": "Adversarial security agent. Probes implementations for vulnerabilities, edge cases, and exploit vectors. Powered by OpenAI Codex.",
   "provider": "codex",
-  "model": "gpt-5-codex",
+  "model": "gpt-5.4",
   "icon": "shield.slash",
   "color": "red",
   "skillNames": [

@@ -86,7 +86,7 @@ enum AppSettings {
     static let defaultMaxBudget = 0.0
     static let defaultProvider = ProviderSelection.claude.rawValue
     static let defaultClaudeModel = ClaudeModel.sonnet.rawValue
-    static let defaultCodexModel = CodexModel.gpt5Codex.rawValue
+    static let defaultCodexModel = CodexModel.gpt54.rawValue
     static let defaultFoundationModel = FoundationModel.system.rawValue
     static let defaultMLXModel = MLXModel.defaultModel.rawValue
     static let defaultOllamaModelsEnabled = true

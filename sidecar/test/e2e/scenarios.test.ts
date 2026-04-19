@@ -106,7 +106,7 @@ describe("SKILL: Live skill wiring smokes", () => {
         agentConfig: makeAgentConfig({
           name: "CodexSkillSmoke",
           provider: "codex",
-          model: "gpt-5-codex",
+          model: "gpt-5.4",
           systemPrompt: "Follow the configured skills exactly.",
           skills: [
             {

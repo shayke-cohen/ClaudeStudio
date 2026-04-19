@@ -140,7 +140,7 @@ describe("WebSocket Command Dispatch", () => {
     },
     {
       provider: "codex",
-      model: "gpt-5-codex",
+      model: "gpt-5.4",
     },
   ])("session.create dispatches $provider provider config to SessionManager", async ({ provider, model }) => {
     const ws = await wsConnect();
@@ -831,7 +831,7 @@ describe("WebSocket Delegation Policy Routing", () => {
               allowedTools: [],
               mcpServers: [],
               provider: "codex",
-              model: "gpt-5-codex",
+              model: "gpt-5.4",
               maxTurns: 3,
               workingDirectory: "/tmp/recover-b",
               skills: [],
@@ -867,7 +867,7 @@ describe("WebSocket Delegation Policy Routing", () => {
             allowedTools: [],
             mcpServers: [],
             provider: "codex",
-            model: "gpt-5-codex",
+            model: "gpt-5.4",
             maxTurns: 3,
             workingDirectory: "/tmp/recover-b",
             skills: [],

@@ -87,11 +87,8 @@ export class CodexRuntime implements ProviderRuntime {
     cachedInputUsdPerMillion: number;
     outputUsdPerMillion: number;
   }> = {
-    "gpt-5-codex": { inputUsdPerMillion: 1.25, cachedInputUsdPerMillion: 0.125, outputUsdPerMillion: 10 },
-    "gpt-5.1-codex": { inputUsdPerMillion: 1.25, cachedInputUsdPerMillion: 0.125, outputUsdPerMillion: 10 },
-    "gpt-5.1-codex-max": { inputUsdPerMillion: 1.25, cachedInputUsdPerMillion: 0.125, outputUsdPerMillion: 10 },
-    "gpt-5.1-codex-mini": { inputUsdPerMillion: 0.25, cachedInputUsdPerMillion: 0.025, outputUsdPerMillion: 2 },
-    "codex-mini-latest": { inputUsdPerMillion: 1.5, cachedInputUsdPerMillion: 0.375, outputUsdPerMillion: 6 },
+    "gpt-5.4": { inputUsdPerMillion: 3.0, cachedInputUsdPerMillion: 0.75, outputUsdPerMillion: 12 },
+    "gpt-5.4-mini": { inputUsdPerMillion: 0.4, cachedInputUsdPerMillion: 0.1, outputUsdPerMillion: 1.6 },
   };
 
   private readonly clientsBySession = new Map<string, SessionClientContext>();
@@ -519,15 +516,20 @@ export class CodexRuntime implements ProviderRuntime {
 
   private resolveModel(model: string | undefined, planMode?: boolean): string {
     if (planMode === true) {
-      return "gpt-5-codex";
+      return "gpt-5.4";
     }
 
     switch (model) {
       case "sonnet":
       case "opus":
       case "haiku":
+      case "gpt-5-codex":
+      case "gpt-5.1-codex":
+      case "gpt-5.1-codex-max":
+      case "gpt-5.1-codex-mini":
+      case "codex-mini-latest":
       case undefined:
-        return "gpt-5-codex";
+        return "gpt-5.4";
       default:
         return model;
     }

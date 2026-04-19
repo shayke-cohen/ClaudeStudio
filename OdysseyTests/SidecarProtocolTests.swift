@@ -33,7 +33,7 @@ final class SidecarProtocolTests: XCTestCase {
                 AgentConfig.MCPServerConfig(name: "Octocode", command: "npx", args: ["-y", "octocode-mcp"], env: ["DEBUG": "1"], url: nil),
             ],
             provider: "codex",
-            model: "gpt-5-codex",
+            model: "gpt-5.4",
             maxTurns: 5,
             maxBudget: nil,
             maxThinkingTokens: nil,
@@ -54,7 +54,7 @@ final class SidecarProtocolTests: XCTestCase {
         let agentConfig = json["agentConfig"] as? [String: Any]
         XCTAssertEqual(agentConfig?["name"] as? String, "TestBot")
         XCTAssertEqual(agentConfig?["provider"] as? String, "codex")
-        XCTAssertEqual(agentConfig?["model"] as? String, "gpt-5-codex")
+        XCTAssertEqual(agentConfig?["model"] as? String, "gpt-5.4")
         XCTAssertEqual(agentConfig?["instancePolicy"] as? String, "spawn")
         let mcpServers = try XCTUnwrap(agentConfig?["mcpServers"] as? [[String: Any]])
         XCTAssertEqual(mcpServers.count, 1)
@@ -121,7 +121,7 @@ final class SidecarProtocolTests: XCTestCase {
             allowedTools: ["Read"],
             mcpServers: [],
             provider: "codex",
-            model: "gpt-5-codex",
+            model: "gpt-5.4",
             maxTurns: 5,
             maxBudget: 1.5,
             maxThinkingTokens: 8000,

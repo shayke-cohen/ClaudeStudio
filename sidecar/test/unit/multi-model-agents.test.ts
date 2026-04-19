@@ -38,7 +38,7 @@ describe("SessionRegistry — multi-provider agents", () => {
     const config = makeConfig({
       name: "Coder (Codex)",
       provider: "codex",
-      model: "gpt-5-codex",
+      model: "gpt-5.4",
     });
     const state = registry.create("sess-codex-1", config);
     expect(state).toBeDefined();
@@ -48,7 +48,7 @@ describe("SessionRegistry — multi-provider agents", () => {
     // AgentConfig is accessible via getConfig
     const cfg = registry.getConfig("sess-codex-1");
     expect(cfg!.provider).toBe("codex");
-    expect(cfg!.model).toBe("gpt-5-codex");
+    expect(cfg!.model).toBe("gpt-5.4");
   });
 
   test("creates a foundation (local) agent session", () => {
@@ -79,7 +79,7 @@ describe("SessionRegistry — multi-provider agents", () => {
   });
 
   test("multiple sessions with different providers coexist independently", () => {
-    const codexConfig = makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" });
+    const codexConfig = makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" });
     const claudeConfig = makeConfig({ name: "Coder", provider: "claude", model: "opus" });
     const localConfig = makeConfig({ name: "Coder (Local)", provider: "foundation", model: "foundation.system" });
 
@@ -93,7 +93,7 @@ describe("SessionRegistry — multi-provider agents", () => {
   });
 
   test("list returns all sessions with their provider", () => {
-    registry.create("s1", makeConfig({ provider: "codex", model: "gpt-5-codex" }));
+    registry.create("s1", makeConfig({ provider: "codex", model: "gpt-5.4" }));
     registry.create("s2", makeConfig({ provider: "claude", model: "opus" }));
 
     const all = registry.list();
@@ -102,7 +102,7 @@ describe("SessionRegistry — multi-provider agents", () => {
 
   test("removing a session does not affect others", () => {
     registry.create("keep", makeConfig({ provider: "claude", model: "opus" }));
-    registry.create("remove-me", makeConfig({ provider: "codex", model: "gpt-5-codex" }));
+    registry.create("remove-me", makeConfig({ provider: "codex", model: "gpt-5.4" }));
 
     registry.remove("remove-me");
 
@@ -116,7 +116,7 @@ describe("SessionRegistry — multi-provider agents", () => {
 describe("agentDefinitions map — multi-model group membership", () => {
   test("dual coder debate agents have distinct providers", () => {
     const definitions = new Map<string, AgentConfig>([
-      ["Coder (Codex)", makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" })],
+      ["Coder (Codex)", makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" })],
       ["Coder", makeConfig({ name: "Coder", provider: "claude", model: "opus" })],
       ["Reviewer", makeConfig({ name: "Reviewer", provider: "claude", model: "sonnet" })],
     ]);
@@ -128,7 +128,7 @@ describe("agentDefinitions map — multi-model group membership", () => {
     expect(codexCoder.provider).toBe("codex");
     expect(claudeCoder.provider).toBe("claude");
     expect(reviewer.provider).toBe("claude");
-    expect(codexCoder.model).toBe("gpt-5-codex");
+    expect(codexCoder.model).toBe("gpt-5.4");
     expect(claudeCoder.model).toBe("opus");
     expect(reviewer.model).toBe("sonnet");
   });
@@ -161,11 +161,11 @@ describe("agentDefinitions map — multi-model group membership", () => {
   test("red team attacker uses codex provider", () => {
     const definitions = new Map<string, AgentConfig>([
       ["Coder", makeConfig({ name: "Coder", provider: "claude", model: "opus" })],
-      ["Attacker", makeConfig({ name: "Attacker", provider: "codex", model: "gpt-5-codex" })],
+      ["Attacker", makeConfig({ name: "Attacker", provider: "codex", model: "gpt-5.4" })],
       ["Tester", makeConfig({ name: "Tester", provider: "claude", model: "sonnet" })],
     ]);
 
     expect(definitions.get("Attacker")!.provider).toBe("codex");
-    expect(definitions.get("Attacker")!.model).toBe("gpt-5-codex");
+    expect(definitions.get("Attacker")!.model).toBe("gpt-5.4");
   });
 });

@@ -72,7 +72,7 @@ final class AgentDefaultsTests: XCTestCase {
 
     func testSessionInheritsSystemProviderAndModelDefaults() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let agent = Agent(name: "System Agent")
         let session = Session(agent: agent, workingDirectory: "/tmp")
@@ -80,17 +80,17 @@ final class AgentDefaultsTests: XCTestCase {
         XCTAssertEqual(agent.provider, ProviderSelection.system.rawValue)
         XCTAssertEqual(agent.model, AgentDefaults.inheritMarker)
         XCTAssertEqual(session.provider, ProviderSelection.codex.rawValue)
-        XCTAssertEqual(session.model, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(session.model, CodexModel.gpt54.rawValue)
     }
 
     func testFreeformSessionInheritsSystemProviderAndModelDefaults() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let session = Session(agent: nil, workingDirectory: "/tmp")
 
         XCTAssertEqual(session.provider, ProviderSelection.codex.rawValue)
-        XCTAssertEqual(session.model, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(session.model, CodexModel.gpt54.rawValue)
         XCTAssertEqual(AgentDefaults.displayName(forProvider: session.provider), "Codex")
     }
 
@@ -347,7 +347,7 @@ final class AgentDefaultsTests: XCTestCase {
     func testSessionOverrideTakesPrecedenceOverAgentAndSystemProviderDefaults() {
         AppSettings.store.set(ProviderSelection.claude.rawValue, forKey: AppSettings.defaultProviderKey)
         AppSettings.store.set(ClaudeModel.sonnet.rawValue, forKey: AppSettings.defaultClaudeModelKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let agent = Agent(
             name: "Inherited Agent",
@@ -366,12 +366,12 @@ final class AgentDefaultsTests: XCTestCase {
         )
 
         XCTAssertEqual(effectiveProvider, ProviderSelection.codex.rawValue)
-        XCTAssertEqual(effectiveModel, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(effectiveModel, CodexModel.gpt54.rawValue)
     }
 
     func testIncompatibleExplicitModelFallsBackToEffectiveProviderDefault() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let agent = Agent(
             name: "Codex Agent",
@@ -381,7 +381,7 @@ final class AgentDefaultsTests: XCTestCase {
         let session = Session(agent: agent, workingDirectory: "/tmp")
 
         XCTAssertEqual(session.provider, ProviderSelection.codex.rawValue)
-        XCTAssertEqual(session.model, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(session.model, CodexModel.gpt54.rawValue)
     }
 
     func testSessionModelOverrideBeatsAgentModelWhenCompatible() {
@@ -399,7 +399,7 @@ final class AgentDefaultsTests: XCTestCase {
 
     func testSessionModelOverrideFallsBackWhenIncompatibleWithEffectiveProvider() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let resolved = AgentDefaults.resolveEffectiveModel(
             sessionOverride: ClaudeModel.opus.rawValue,
@@ -407,7 +407,7 @@ final class AgentDefaultsTests: XCTestCase {
             provider: ProviderSelection.codex.rawValue
         )
 
-        XCTAssertEqual(resolved, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(resolved, CodexModel.gpt54.rawValue)
     }
 
     func testProvisionerUsesSessionEffectiveProviderAndModel() {
@@ -418,19 +418,19 @@ final class AgentDefaultsTests: XCTestCase {
 
         let session = Session(agent: agent, mission: "Ship it", workingDirectory: "/tmp/work")
         session.provider = ProviderSelection.codex.rawValue
-        session.model = CodexModel.gpt5Codex.rawValue
+        session.model = CodexModel.gpt54.rawValue
 
         let provisioner = AgentProvisioner(modelContext: context)
         let config = provisioner.config(for: session)
 
         XCTAssertEqual(config?.provider, ProviderSelection.codex.rawValue)
-        XCTAssertEqual(config?.model, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(config?.model, CodexModel.gpt54.rawValue)
         XCTAssertEqual(config?.workingDirectory, "/tmp/work")
     }
 
     func testFreeformConfigUsesResolvedProviderDisplayNameAndModel() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
 
         let config = AgentDefaults.makeFreeformAgentConfig(
             provider: ProviderSelection.system.rawValue,
@@ -440,7 +440,7 @@ final class AgentDefaultsTests: XCTestCase {
 
         XCTAssertEqual(config.provider, ProviderSelection.codex.rawValue)
         XCTAssertEqual(config.name, "Codex")
-        XCTAssertEqual(config.model, CodexModel.gpt5Codex.rawValue)
+        XCTAssertEqual(config.model, CodexModel.gpt54.rawValue)
         XCTAssertEqual(config.workingDirectory, "/tmp/freeform")
     }
 
@@ -543,7 +543,7 @@ final class AgentDefaultsTests: XCTestCase {
     func testResetAllClearsProviderAndPerProviderModelDefaults() {
         AppSettings.store.set(ProviderSelection.codex.rawValue, forKey: AppSettings.defaultProviderKey)
         AppSettings.store.set(ClaudeModel.haiku.rawValue, forKey: AppSettings.defaultClaudeModelKey)
-        AppSettings.store.set(CodexModel.gpt5Codex.rawValue, forKey: AppSettings.defaultCodexModelKey)
+        AppSettings.store.set(CodexModel.gpt54.rawValue, forKey: AppSettings.defaultCodexModelKey)
         AppSettings.store.set(FoundationModel.system.rawValue, forKey: AppSettings.defaultFoundationModelKey)
         AppSettings.store.set("mlx-community/test-model", forKey: AppSettings.defaultMLXModelKey)
         AppSettings.store.set(true, forKey: AppSettings.ollamaModelsEnabledKey)

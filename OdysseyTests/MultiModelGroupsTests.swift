@@ -63,7 +63,7 @@ final class MultiModelGroupsTests: XCTestCase {
     // MARK: - AgentDefaults: Model Compatibility
 
     func testGpt5CodexIsCompatibleWithCodexProvider() {
-        XCTAssertTrue(AgentDefaults.isModel("gpt-5-codex", compatibleWith: "codex"))
+        XCTAssertTrue(AgentDefaults.isModel("gpt-5.4", compatibleWith: "codex"))
     }
 
     func testOpusIsNotCompatibleWithCodexProvider() {
@@ -75,7 +75,7 @@ final class MultiModelGroupsTests: XCTestCase {
     }
 
     func testGpt5CodexIsNotCompatibleWithClaudeProvider() {
-        XCTAssertFalse(AgentDefaults.isModel("gpt-5-codex", compatibleWith: "claude"))
+        XCTAssertFalse(AgentDefaults.isModel("gpt-5.4", compatibleWith: "claude"))
     }
 
     func testFoundationSystemIsNotCompatibleWithCodexProvider() {
@@ -88,7 +88,7 @@ final class MultiModelGroupsTests: XCTestCase {
         let container = try makeContainer()
         let ctx = ModelContext(container)
 
-        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex")
+        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5.4")
         let claudeCoder = Agent(name: "Coder", provider: "claude", model: "opus")
         let reviewer = Agent(name: "Reviewer", provider: "claude", model: "sonnet")
         ctx.insert(codexCoder); ctx.insert(claudeCoder); ctx.insert(reviewer)
@@ -131,7 +131,7 @@ final class MultiModelGroupsTests: XCTestCase {
         let container = try makeContainer()
         let ctx = ModelContext(container)
 
-        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex")
+        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5.4")
         let claudeCoder = Agent(name: "Coder", provider: "claude", model: "opus")
         let reviewer = Agent(name: "Reviewer", provider: "claude", model: "sonnet")
         ctx.insert(codexCoder); ctx.insert(claudeCoder); ctx.insert(reviewer)
@@ -264,7 +264,7 @@ final class MultiModelGroupsTests: XCTestCase {
         let ctx = ModelContext(container)
 
         let coder = Agent(name: "Coder", provider: "claude", model: "opus")
-        let attacker = Agent(name: "Attacker", provider: "codex", model: "gpt-5-codex")
+        let attacker = Agent(name: "Attacker", provider: "codex", model: "gpt-5.4")
         let tester = Agent(name: "Tester", provider: "claude", model: "sonnet")
         ctx.insert(coder); ctx.insert(attacker); ctx.insert(tester)
 
@@ -384,7 +384,7 @@ final class MultiModelGroupsTests: XCTestCase {
         let container = try makeContainer()
         let ctx = ModelContext(container)
 
-        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex")
+        let codexCoder = Agent(name: "Coder (Codex)", provider: "codex", model: "gpt-5.4")
         codexCoder.agentDescription = "OpenAI Codex engineer"
         let reviewer = Agent(name: "Reviewer", provider: "claude", model: "sonnet")
         reviewer.agentDescription = "Code reviewer"

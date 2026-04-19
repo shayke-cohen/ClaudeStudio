@@ -3,7 +3,7 @@
   "enabled": true,
   "agentDescription": "OpenAI Codex-powered engineer. Generates implementation-first code solutions. Pairs well with Claude reviewer for cross-model coverage.",
   "provider": "codex",
-  "model": "gpt-5-codex",
+  "model": "gpt-5.4",
   "icon": "bolt.horizontal",
   "color": "green",
   "skillNames": [

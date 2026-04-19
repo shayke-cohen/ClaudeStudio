@@ -195,7 +195,7 @@ export function makeAgentConfig(overrides: Partial<{
     allowedTools: overrides.allowedTools ?? [],
     mcpServers: overrides.mcpServers ?? [],
     model: overrides.model ?? (overrides.provider === "codex"
-      ? "gpt-5-codex"
+      ? "gpt-5.4"
       : overrides.provider === "foundation"
         ? "foundation.system"
         : overrides.provider === "mlx"

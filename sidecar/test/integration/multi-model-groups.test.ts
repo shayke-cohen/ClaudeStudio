@@ -86,7 +86,7 @@ describe("Multi-model group — session registration", () => {
   });
 
   test("Dual Coder Debate creates 3 independent sessions with correct providers", async () => {
-    const codexCoderCfg = makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" });
+    const codexCoderCfg = makeConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" });
     const claudeCoderCfg = makeConfig({ name: "Coder", provider: "claude", model: "opus" });
     const reviewerCfg = makeConfig({ name: "Reviewer", provider: "claude", model: "sonnet" });
 
@@ -96,7 +96,7 @@ describe("Multi-model group — session registration", () => {
     registry.create("sess-reviewer", reviewerCfg);
 
     expect(registry.get("sess-codex")!.provider).toBe("codex");
-    expect(registry.getConfig("sess-codex")!.model).toBe("gpt-5-codex");
+    expect(registry.getConfig("sess-codex")!.model).toBe("gpt-5.4");
 
     expect(registry.get("sess-claude")!.provider).toBe("claude");
     expect(registry.getConfig("sess-claude")!.model).toBe("opus");
@@ -140,12 +140,12 @@ describe("Multi-model group — session registration", () => {
 
   test("Red Team attacker session uses codex while coder and tester use claude", () => {
     registry.create("sess-coder", makeConfig({ name: "Coder", provider: "claude", model: "opus" }));
-    registry.create("sess-attacker", makeConfig({ name: "Attacker", provider: "codex", model: "gpt-5-codex" }));
+    registry.create("sess-attacker", makeConfig({ name: "Attacker", provider: "codex", model: "gpt-5.4" }));
     registry.create("sess-tester", makeConfig({ name: "Tester", provider: "claude", model: "sonnet" }));
 
     const attackerEntry = registry.get("sess-attacker")!;
     expect(attackerEntry.provider).toBe("codex");
-    expect(registry.getConfig("sess-attacker")!.model).toBe("gpt-5-codex");
+    expect(registry.getConfig("sess-attacker")!.model).toBe("gpt-5.4");
 
     // Coder and Tester are Claude — attacker alone is Codex
     const claudeSessions = ["sess-coder", "sess-tester"]

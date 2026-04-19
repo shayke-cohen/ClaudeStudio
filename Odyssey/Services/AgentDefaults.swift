@@ -28,13 +28,15 @@ enum ProviderSelection: String, CaseIterable, Identifiable {
 }
 
 enum CodexModel: String, CaseIterable, Identifiable {
-    case gpt5Codex = "gpt-5-codex"
+    case gpt54 = "gpt-5.4"
+    case gpt54Mini = "gpt-5.4-mini"
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .gpt5Codex: "GPT-5 Codex"
+        case .gpt54: "GPT-5.4"
+        case .gpt54Mini: "GPT-5.4 Mini"
         }
     }
 }

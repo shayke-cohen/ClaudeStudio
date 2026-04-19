@@ -101,7 +101,7 @@ describe("GET /api/v1/agents — multi-model group agents", () => {
     const defs = new Map<string, AgentConfig>([
       [
         "Coder (Codex)",
-        makeAgentConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" }),
+        makeAgentConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" }),
       ],
     ]);
     const ctx = makeContext(defs);
@@ -112,7 +112,7 @@ describe("GET /api/v1/agents — multi-model group agents", () => {
     const agent = body.agents.find((a: any) => a.name === "Coder (Codex)");
     expect(agent).toBeDefined();
     expect(agent.provider).toBe("codex");
-    expect(agent.model).toBe("gpt-5-codex");
+    expect(agent.model).toBe("gpt-5.4");
   });
 
   test("returns foundation agent with provider field", async () => {
@@ -135,7 +135,7 @@ describe("GET /api/v1/agents — multi-model group agents", () => {
 
   test("lists all Dual Coder Debate agents with their providers", async () => {
     const defs = new Map<string, AgentConfig>([
-      ["Coder (Codex)", makeAgentConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" })],
+      ["Coder (Codex)", makeAgentConfig({ name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" })],
       ["Coder", makeAgentConfig({ name: "Coder", provider: "claude", model: "opus" })],
       ["Reviewer", makeAgentConfig({ name: "Reviewer", provider: "claude", model: "sonnet" })],
     ]);
@@ -178,7 +178,7 @@ describe("GET /api/v1/agents/:name — individual multi-model agents", () => {
       ["Coder (Codex)", makeAgentConfig({
         name: "Coder (Codex)",
         provider: "codex",
-        model: "gpt-5-codex",
+        model: "gpt-5.4",
         maxTurns: 50,
         maxBudget: 5.0,
       })],
@@ -190,7 +190,7 @@ describe("GET /api/v1/agents/:name — individual multi-model agents", () => {
     const body = (await res.json()) as any;
     expect(body.name).toBe("Coder (Codex)");
     expect(body.provider).toBe("codex");
-    expect(body.model).toBe("gpt-5-codex");
+    expect(body.model).toBe("gpt-5.4");
     expect(body.maxTurns).toBe(50);
     expect(body.maxBudget).toBe(5.0);
   });
@@ -200,7 +200,7 @@ describe("GET /api/v1/agents/:name — individual multi-model agents", () => {
       ["Attacker", makeAgentConfig({
         name: "Attacker",
         provider: "codex",
-        model: "gpt-5-codex",
+        model: "gpt-5.4",
         maxTurns: 30,
         maxBudget: 3.0,
       })],
@@ -211,7 +211,7 @@ describe("GET /api/v1/agents/:name — individual multi-model agents", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.provider).toBe("codex");
-    expect(body.model).toBe("gpt-5-codex");
+    expect(body.model).toBe("gpt-5.4");
   });
 
   test("returns full config for Coder (Local) with foundation provider", async () => {
@@ -260,8 +260,8 @@ describe("GET /api/v1/agents/:name — individual multi-model agents", () => {
 
 describe("provider field — new multi-model agent types", () => {
   const NEW_AGENTS: Array<{ name: string; provider: string; model: string }> = [
-    { name: "Coder (Codex)", provider: "codex", model: "gpt-5-codex" },
-    { name: "Attacker", provider: "codex", model: "gpt-5-codex" },
+    { name: "Coder (Codex)", provider: "codex", model: "gpt-5.4" },
+    { name: "Attacker", provider: "codex", model: "gpt-5.4" },
     { name: "Coder (Sonnet)", provider: "claude", model: "sonnet" },
     { name: "Tester (Haiku)", provider: "claude", model: "haiku" },
     { name: "Coder (Local)", provider: "foundation", model: "foundation.system" },

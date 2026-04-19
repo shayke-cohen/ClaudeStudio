@@ -103,7 +103,7 @@ describe("Session API recovery routes", () => {
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
     { provider: "claude", model: "ollama:qwen3-coder:latest" },
-    { provider: "codex", model: "gpt-5-codex" },
+    { provider: "codex", model: "gpt-5.4" },
   ])("POST /sessions preserves $provider provider on spawned session config", async ({ provider, model }) => {
     const { ctx, spawnCalls } = makeContext();
     ctx.toolCtx.agentDefinitions.set(`${provider}-agent`, makeAgentConfig({
@@ -139,7 +139,7 @@ describe("Session API recovery routes", () => {
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
     { provider: "claude", model: "ollama:qwen3-coder:latest" },
-    { provider: "codex", model: "gpt-5-codex" },
+    { provider: "codex", model: "gpt-5.4" },
   ])("agent endpoints expose $provider provider metadata", async ({ provider, model }) => {
     const { ctx } = makeContext();
     ctx.toolCtx.agentDefinitions.set(`${provider}-agent`, makeAgentConfig({
@@ -177,7 +177,7 @@ describe("Session API recovery routes", () => {
   test.each([
     { provider: "claude", model: "claude-sonnet-4-6" },
     { provider: "claude", model: "ollama:qwen3-coder:latest" },
-    { provider: "codex", model: "gpt-5-codex" },
+    { provider: "codex", model: "gpt-5.4" },
   ])("session endpoints expose $provider provider metadata", async ({ provider, model }) => {
     const { ctx, sessions } = makeContext();
     const sessionId = `${provider}-session`;

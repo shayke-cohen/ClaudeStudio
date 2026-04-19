@@ -98,7 +98,7 @@ final class AppStateRecoveryTests: XCTestCase {
         )
         XCTAssertEqual(
             entries.first(where: { $0.sessionId == activeSession.id.uuidString })?.agentConfig.model,
-            "gpt-5-codex"
+            "gpt-5.4"
         )
 
         XCTAssertEqual(pausedSession.status, .paused)

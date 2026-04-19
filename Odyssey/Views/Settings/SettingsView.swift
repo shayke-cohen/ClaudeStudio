@@ -824,7 +824,7 @@ private struct ModelsSettingsTab: View {
 
     private func codexRowBinding() -> Binding<CodexModel> {
         Binding(
-            get: { CodexModel(rawValue: AgentDefaults.normalizedModelSelection(defaultCodexModel)) ?? .gpt5Codex },
+            get: { CodexModel(rawValue: AgentDefaults.normalizedModelSelection(defaultCodexModel)) ?? .gpt54 },
             set: {
                 defaultCodexModel = $0.rawValue
                 defaultProvider = ProviderSelection.codex.rawValue
