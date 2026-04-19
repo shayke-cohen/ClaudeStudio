@@ -37,10 +37,10 @@ enum SidecarCommand: Sendable {
     case sessionUpdateModel(sessionId: String, model: String)
     case sessionUpdateEffort(sessionId: String, effort: String)
     case conversationEvaluate(conversationId: String, goal: String?, coordinatorSessionId: String?, sessionIds: [String])
-    case browserResult(sessionId: String, commandType: String, payload: Data)
+    case browserResult(sessionId: String, commandType: String, payload: String)
     case browserError(sessionId: String, commandType: String, error: String)
     case browserPageLoaded(sessionId: String, url: String, title: String)
-    case browserUserSubmit(sessionId: String, data: Data)
+    case browserUserSubmit(sessionId: String, data: String)
     case browserStateChange(sessionId: String, state: String)
 
     func encodeToJSON() throws -> Data {
@@ -204,9 +204,8 @@ enum SidecarCommand: Sendable {
                 sessionIds: sessionIds
             ))
         case .browserResult(let sessionId, let commandType, let payload):
-            let payloadString = String(decoding: payload, as: UTF8.self)
             return try encoder.encode(
-                BrowserResultWire(type: "browser.result", sessionId: sessionId, commandType: commandType, payload: payloadString)
+                BrowserResultWire(type: "browser.result", sessionId: sessionId, commandType: commandType, payload: payload)
             )
         case .browserError(let sessionId, let commandType, let error):
             return try encoder.encode(
@@ -217,9 +216,8 @@ enum SidecarCommand: Sendable {
                 BrowserPageLoadedWire(type: "browser.pageLoaded", sessionId: sessionId, url: url, title: title)
             )
         case .browserUserSubmit(let sessionId, let data):
-            let dataString = String(decoding: data, as: UTF8.self)
             return try encoder.encode(
-                BrowserUserSubmitWire(type: "browser.userSubmit", sessionId: sessionId, data: dataString)
+                BrowserUserSubmitWire(type: "browser.userSubmit", sessionId: sessionId, data: data)
             )
         case .browserStateChange(let sessionId, let state):
             return try encoder.encode(
