@@ -62,6 +62,7 @@ final class Project {
     var color: String
     var pinnedAgentIds: [UUID]
     var pinnedGroupIds: [UUID]
+    var browserSessionMode: String = "project"
 
     init(
         name: String,
