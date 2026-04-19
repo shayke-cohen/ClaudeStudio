@@ -86,17 +86,16 @@ enum SidebarConversationMetadata {
 
     static func lastMessagePreview(_ convo: Conversation) -> (text: String, attachmentIcon: String?)? {
         let latestMessage = convo.messages
-            .sorted { $0.timestamp < $1.timestamp }
-            .last
+            .max(by: { $0.timestamp < $1.timestamp })
         guard let latestMessage else { return nil }
 
         let attachments = latestMessage.attachments
         let text = latestMessage.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasImages = !attachments.isEmpty && attachments.contains { $0.isImage }
+        let hasDocs = !attachments.isEmpty && attachments.contains { $0.isDocument }
 
         let icon: String? = {
             guard !attachments.isEmpty else { return nil }
-            let hasImages = attachments.contains { $0.isImage }
-            let hasDocs = attachments.contains { $0.isDocument }
             if hasImages && hasDocs { return "paperclip" }
             if hasDocs { return "doc.text" }
             return "photo"
@@ -104,8 +103,6 @@ enum SidebarConversationMetadata {
 
         if text.isEmpty && !attachments.isEmpty {
             let count = attachments.count
-            let hasImages = attachments.contains { $0.isImage }
-            let hasDocs = attachments.contains { $0.isDocument }
             let label: String
             if hasImages && !hasDocs {
                 label = count == 1 ? "Image" : "\(count) Images"
@@ -128,8 +125,14 @@ enum SidebarConversationMetadata {
     }
 }
 
+private struct GlobalScheduleEditRequest: Identifiable {
+    let id = UUID()
+    let schedule: ScheduledMission?
+    let draft: ScheduledMissionDraft
+}
+
 struct SidebarView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
@@ -137,23 +140,33 @@ struct SidebarView: View {
     @AppStorage(FeatureFlags.autoAssembleKey, store: AppSettings.store) private var autoAssembleFlag = false
     @AppStorage(FeatureFlags.autonomousMissionsKey, store: AppSettings.store) private var autonomousMissionsFlag = false
     @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
-    @AppStorage("sidebar.showProjectTasksSection") private var showsProjectTasksSection = false
     @AppStorage("sidebar.showProjectSchedulesSection") private var showsProjectSchedulesSection = false
     @Query(sort: \Project.createdAt, order: .reverse) private var projects: [Project]
     @Query(sort: \Conversation.startedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \Agent.name) private var agents: [Agent]
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
-    @Query(sort: \TaskItem.createdAt, order: .reverse) private var taskItems: [TaskItem]
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
     @State private var searchText = ""
-    @State private var isTasksExpanded = true
-    @State private var isCompletedTasksExpanded = false
-    @State private var showTaskCreation = false
-    @State private var editingTask: TaskItem?
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
+    @State private var expandedArchivedAgentIds: Set<UUID> = []
+    @State private var expandedArchivedGroupIds: Set<UUID> = []
+    @State private var showingAgentScheduleEditor = false
+    @State private var agentScheduleDraft = ScheduledMissionDraft(
+        name: "",
+        targetKind: .agent,
+        projectDirectory: "",
+        promptTemplate: ""
+    )
     @State private var editingGroup: AgentGroup?
+    @State private var showingGroupScheduleEditor = false
+    @State private var groupScheduleDraft = ScheduledMissionDraft(
+        name: "",
+        targetKind: .group,
+        projectDirectory: "",
+        promptTemplate: ""
+    )
     @State private var autonomousGroup: AgentGroup?
     @State private var showAutoAssemble = false
     @State private var renamingConversation: Conversation?
@@ -164,8 +177,8 @@ struct SidebarView: View {
     @State private var showDeleteConfirmation = false
     @State private var projectToArchiveThreads: Project?
     @State private var projectToRemove: Project?
-    @State private var showAgentPopover = false
-    @State private var showGroupPopover = false
+    @State private var scheduleToDelete: ScheduledMission?
+    @State private var scheduleForHistory: ScheduledMission?
     @State private var isPinnedExpanded = true
     @State private var isActiveExpanded = true
     @State private var isHistoryExpanded = false
@@ -174,16 +187,177 @@ struct SidebarView: View {
     @State private var hoveredConversationId: UUID?
     @State private var expandedProjectIds: Set<UUID> = []
     @AppStorage("sidebar.nonResidentAgentsExpanded") private var isNonResidentAgentsExpanded: Bool = false
+    @AppStorage("sidebar.agentsExpanded") private var isAgentsSectionExpanded: Bool = true
+    @AppStorage("sidebar.groupsExpanded") private var isGroupsSectionExpanded: Bool = true
+    @AppStorage("sidebar.schedulesExpanded") private var isSchedulesSectionExpanded: Bool = true
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
+    @AppStorage("sidebar.allSchedulesExpanded") private var isAllSchedulesExpanded: Bool = false
+    @State private var globalScheduleEditRequest: GlobalScheduleEditRequest?
+    @State private var cachedSortedProjects: [Project] = []
+    @State private var cachedResidentAgents: [Agent] = []
+    @State private var cachedNonResidentAgents: [Agent] = []
+    @State private var conversationToAgentIndex: [UUID: UUID] = [:]
 
     private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
     private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
     private var autonomousMissionsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autonomousMissionsKey) || (masterFlag && autonomousMissionsFlag) }
 
     var body: some View {
+        sidebarWithSheets
+            .alert("Rename Conversation", isPresented: Binding(
+                get: { renamingConversation != nil },
+                set: { if !$0 { renamingConversation = nil } }
+            )) {
+                TextField("Name", text: $renameText)
+                Button("Rename") {
+                    if let convo = renamingConversation, !renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        convo.topic = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        try? modelContext.save()
+                    }
+                    renamingConversation = nil
+                }
+                Button("Cancel", role: .cancel) { renamingConversation = nil }
+            }
+            .alert("Rename Project", isPresented: Binding(
+                get: { renamingProject != nil },
+                set: { if !$0 { renamingProject = nil } }
+            )) {
+                TextField("Name", text: $projectRenameText)
+                Button("Rename") {
+                    let trimmed = projectRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let project = renamingProject, !trimmed.isEmpty {
+                        project.name = trimmed
+                        try? modelContext.save()
+                        if windowState.selectedProjectId == project.id {
+                            windowState.selectProject(project, preserveSelection: true)
+                        }
+                    }
+                    renamingProject = nil
+                }
+                Button("Cancel", role: .cancel) { renamingProject = nil }
+            }
+            .alert("Delete Conversation?", isPresented: $showDeleteConfirmation) {
+                Button("Delete", role: .destructive) {
+                    if let convo = conversationToDelete {
+                        if windowState.selectedConversationId == convo.id {
+                            windowState.selectedConversationId = nil
+                        }
+                        appState.clearSessionActivity(for: convo.sessions.map(\.id.uuidString))
+                        modelContext.delete(convo)
+                        try? modelContext.save()
+                    }
+                    conversationToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { conversationToDelete = nil }
+            } message: {
+                Text("This conversation and all its messages will be permanently deleted.")
+            }
+            .alert("Archive all threads?", isPresented: Binding(
+                get: { projectToArchiveThreads != nil },
+                set: { if !$0 { projectToArchiveThreads = nil } }
+            )) {
+                Button("Archive", role: .destructive) {
+                    if let project = projectToArchiveThreads {
+                        archiveThreads(in: project)
+                    }
+                    projectToArchiveThreads = nil
+                }
+                Button("Cancel", role: .cancel) { projectToArchiveThreads = nil }
+            } message: {
+                if let project = projectToArchiveThreads {
+                    Text("All threads in \(project.name) will be moved to Archived.")
+                }
+            }
+            .alert("Remove Project?", isPresented: Binding(
+                get: { projectToRemove != nil },
+                set: { if !$0 { projectToRemove = nil } }
+            )) {
+                Button("Remove", role: .destructive) {
+                    if let project = projectToRemove {
+                        removeProject(project)
+                    }
+                    projectToRemove = nil
+                }
+                Button("Cancel", role: .cancel) { projectToRemove = nil }
+            } message: {
+                if let project = projectToRemove {
+                    Text("Remove \(project.name) from the sidebar and delete its local threads, tasks, and schedules. Project files on disk will stay untouched.")
+                }
+            }
+            .alert("Delete Schedule?", isPresented: Binding(
+                get: { scheduleToDelete != nil },
+                set: { if !$0 { scheduleToDelete = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    if let schedule = scheduleToDelete {
+                        deleteGlobalSchedule(schedule)
+                    }
+                    scheduleToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { scheduleToDelete = nil }
+            } message: {
+                if let schedule = scheduleToDelete {
+                    Text("\"\(schedule.name)\" will be permanently deleted.")
+                }
+            }
+            .focusedSceneValue(\.addProjectAction, AddProjectAction { addProjectFolder() })
+    }
+
+    private var sidebarWithSheets: some View {
+        sidebarList
+            .sheet(item: $editingGroup) { group in
+                GroupEditorView(group: group)
+            }
+            .sheet(item: $autonomousGroup) { group in
+                AutonomousMissionSheet(group: group)
+                    .environment(appState)
+            }
+            .sheet(isPresented: $showAutoAssemble) {
+                AutoAssembleSheet()
+                    .environment(appState)
+            }
+            .sheet(isPresented: $showingAgentScheduleEditor) {
+                ScheduleEditorView(schedule: nil, draft: agentScheduleDraft)
+                    .environment(appState)
+                    .environment(\.modelContext, modelContext)
+            }
+            .sheet(isPresented: $showingGroupScheduleEditor) {
+                ScheduleEditorView(schedule: nil, draft: groupScheduleDraft)
+                    .environment(appState)
+                    .environment(\.modelContext, modelContext)
+            }
+            .sheet(item: $globalScheduleEditRequest) { req in
+                ScheduleEditorView(schedule: req.schedule, draft: req.draft)
+                    .environment(appState)
+                    .environment(\.modelContext, modelContext)
+            }
+            .sheet(item: $scheduleForHistory) { schedule in
+                ScheduleHistorySheet(schedule: schedule)
+                    .environment(appState)
+                    .environment(windowState)
+            }
+            .onChange(of: windowState.sidebarRevealConversationId) { _, convId in
+                guard let convId else { return }
+                expandForReveal(convId)
+                windowState.sidebarRevealConversationId = nil
+            }
+            .onAppear {
+                rebuildProjectCache()
+                rebuildAgentCaches()
+                rebuildConversationIndex()
+            }
+            .onChange(of: projects.count) { _, _ in rebuildProjectCache() }
+            .onChange(of: agents.count) { _, _ in
+                rebuildAgentCaches()
+                rebuildConversationIndex()
+            }
+            .onChange(of: conversations.count) { _, _ in rebuildConversationIndex() }
+    }
+
+    private var sidebarList: some View {
         @Bindable var ws = windowState
-        List {
-            utilitySection
+        return List {
+            globalUtilitiesSection
 
             agentsSection
 
@@ -210,239 +384,120 @@ struct SidebarView: View {
             if let selectedProjectId = windowState.selectedProjectId {
                 expandedProjectIds.insert(selectedProjectId)
             }
+            rebuildProjectCache()
+            rebuildAgentCaches()
         }
+        .onChange(of: projects.count) { _, _ in rebuildProjectCache() }
+        .onChange(of: agents.count) { _, _ in rebuildAgentCaches() }
         .onChange(of: windowState.selectedConversationId) { _, newValue in
             guard let selectedId = newValue else { return }
-            if let selectedConversation = conversations.first(where: { $0.id == selectedId }),
-               let projectId = selectedConversation.projectId {
-                windowState.selectProject(id: projectId, preserveSelection: true)
-                expandedProjectIds.insert(projectId)
-            } else if let task = taskItems.first(where: { $0.id == selectedId }) {
-                if let convId = task.conversationId {
-                    DispatchQueue.main.async {
-                        windowState.selectedConversationId = convId
+            handleConversationSelectionChange(selectedId)
+            Task { @MainActor in handleConversationSelectionChange(selectedId) }
+        }
+        .frame(minWidth: 280)
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    ws.openSettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings")
+                .xrayId("mainWindow.settingsButton")
+                .accessibilityLabel("Settings")
+            }
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    ws.showScheduleLibrary = true
+                } label: {
+                    Image(systemName: "clock")
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .help("Schedules (⌘⇧S)")
+                .xrayId("sidebar.schedulesButton")
+                .accessibilityLabel("Schedules")
+            }
+            ToolbarItem(placement: .automatic) {
+                ZStack {
+                    Button("") { }
+                        .frame(width: 0, height: 0).opacity(0)
+                        .popover(isPresented: $ws.showAgentPicker, arrowEdge: .bottom) {
+                            AgentPickerPopover(
+                                projectId: nil,
+                                projectDirectory: "",
+                                isPresented: $ws.showAgentPicker
+                            )
+                            .environment(appState)
+                            .environment(windowState)
+                        }
+                    Button("") { }
+                        .frame(width: 0, height: 0).opacity(0)
+                        .popover(isPresented: $ws.showGroupPicker, arrowEdge: .bottom) {
+                            GroupPickerPopover(
+                                projectId: nil,
+                                projectDirectory: "",
+                                isPresented: $ws.showGroupPicker
+                            )
+                            .environment(appState)
+                            .environment(windowState)
+                        }
+                    Button("") { ws.showAgentPicker = true }
+                        .keyboardShortcut("n", modifiers: .command)
+                        .frame(width: 0, height: 0).opacity(0)
+                    Button("") { ws.showGroupPicker = true }
+                        .keyboardShortcut("n", modifiers: [.command, .option])
+                        .frame(width: 0, height: 0).opacity(0)
+                    Button("") { ws.showAgentPicker = true }
+                        .keyboardShortcut("n", modifiers: [.command, .shift])
+                        .frame(width: 0, height: 0).opacity(0)
+                    Menu {
+                        Button { ws.showAgentPicker = true } label: {
+                            Label("Chat with Agent", systemImage: "cpu")
+                        }
+                        Button { ws.showGroupPicker = true } label: {
+                            Label("Chat with Group", systemImage: "person.3.fill")
+                        }
+                    } label: {
+                        Image(systemName: "square.and.pencil")
                     }
-                } else {
-                    DispatchQueue.main.async {
-                        windowState.selectedConversationId = nil
-                        editingTask = task
-                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("New chat (⌘N)")
+                    .xrayId("sidebar.newMenu")
+                    .accessibilityLabel("New")
                 }
-            }
-        }
-        .frame(minWidth: 240)
-        .sheet(item: $editingGroup) { group in
-            GroupEditorView(group: group)
-        }
-        .sheet(item: $autonomousGroup) { group in
-            AutonomousMissionSheet(group: group)
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $showAutoAssemble) {
-            AutoAssembleSheet()
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $showTaskCreation) {
-            TaskCreationSheet()
-                .environmentObject(appState)
-        }
-        .sheet(item: $editingTask) { task in
-            TaskEditSheet(task: task)
-                .environmentObject(appState)
-        }
-        .alert("Rename Conversation", isPresented: Binding(
-            get: { renamingConversation != nil },
-            set: { if !$0 { renamingConversation = nil } }
-        )) {
-            TextField("Name", text: $renameText)
-            Button("Rename") {
-                if let convo = renamingConversation, !renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    convo.topic = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    try? modelContext.save()
-                }
-                renamingConversation = nil
-            }
-            Button("Cancel", role: .cancel) { renamingConversation = nil }
-        }
-        .alert("Rename Project", isPresented: Binding(
-            get: { renamingProject != nil },
-            set: { if !$0 { renamingProject = nil } }
-        )) {
-            TextField("Name", text: $projectRenameText)
-            Button("Rename") {
-                let trimmed = projectRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let project = renamingProject, !trimmed.isEmpty {
-                    project.name = trimmed
-                    try? modelContext.save()
-                    if windowState.selectedProjectId == project.id {
-                        windowState.selectProject(project, preserveSelection: true)
-                    }
-                }
-                renamingProject = nil
-            }
-            Button("Cancel", role: .cancel) { renamingProject = nil }
-        }
-        .alert("Delete Conversation?", isPresented: $showDeleteConfirmation) {
-            Button("Delete", role: .destructive) {
-                if let convo = conversationToDelete {
-                    if windowState.selectedConversationId == convo.id {
-                        windowState.selectedConversationId = nil
-                    }
-                    appState.clearSessionActivity(for: convo.sessions.map(\.id.uuidString))
-                    modelContext.delete(convo)
-                    try? modelContext.save()
-                }
-                conversationToDelete = nil
-            }
-            Button("Cancel", role: .cancel) { conversationToDelete = nil }
-        } message: {
-            Text("This conversation and all its messages will be permanently deleted.")
-        }
-        .alert("Archive all threads?", isPresented: Binding(
-            get: { projectToArchiveThreads != nil },
-            set: { if !$0 { projectToArchiveThreads = nil } }
-        )) {
-            Button("Archive", role: .destructive) {
-                if let project = projectToArchiveThreads {
-                    archiveThreads(in: project)
-                }
-                projectToArchiveThreads = nil
-            }
-            Button("Cancel", role: .cancel) { projectToArchiveThreads = nil }
-        } message: {
-            if let project = projectToArchiveThreads {
-                Text("All threads in \(project.name) will be moved to Archived.")
-            }
-        }
-        .alert("Remove Project?", isPresented: Binding(
-            get: { projectToRemove != nil },
-            set: { if !$0 { projectToRemove = nil } }
-        )) {
-            Button("Remove", role: .destructive) {
-                if let project = projectToRemove {
-                    removeProject(project)
-                }
-                projectToRemove = nil
-            }
-            Button("Cancel", role: .cancel) { projectToRemove = nil }
-        } message: {
-            if let project = projectToRemove {
-                Text("Remove \(project.name) from the sidebar and delete its local threads, tasks, and schedules. Project files on disk will stay untouched.")
             }
         }
     }
 
-    private var sortedProjects: [Project] {
-        projects.sorted { lhs, rhs in
-            if lhs.isPinned != rhs.isPinned {
-                return lhs.isPinned && !rhs.isPinned
-            }
+
+    private var sortedProjects: [Project] { cachedSortedProjects }
+    private var residentAgents: [Agent] { cachedResidentAgents }
+    private var nonResidentAgents: [Agent] { cachedNonResidentAgents }
+
+    private func rebuildProjectCache() {
+        cachedSortedProjects = projects.sorted { lhs, rhs in
+            if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
             return lhs.createdAt > rhs.createdAt
         }
     }
 
-    private var residentAgents: [Agent] {
-        agents.filter { $0.isEnabled && $0.isResident }
-            .sorted { $0.name < $1.name }
+    private func rebuildAgentCaches() {
+        cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
+        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }.sorted { $0.name < $1.name }
     }
 
-    private var nonResidentAgents: [Agent] {
-        agents.filter { $0.isEnabled && !$0.isResident }
-            .sorted { $0.name < $1.name }
-    }
-
-    // MARK: - Global Utilities
-
-    private var utilitySection: some View {
-        Section {
-            ZStack {
-                // Popover anchors — invisible, sit behind the Menu
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .popover(isPresented: $showAgentPopover, arrowEdge: .bottom) {
-                        AgentPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $showAgentPopover
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-
-                Button("") { }
-                    .frame(width: 0, height: 0)
-                    .popover(isPresented: $showGroupPopover, arrowEdge: .bottom) {
-                        GroupPickerPopover(
-                            projectId: windowState.selectedProjectId,
-                            projectDirectory: windowState.projectDirectory,
-                            isPresented: $showGroupPopover
-                        )
-                        .environmentObject(appState)
-                        .environment(windowState)
-                    }
-
-                // Hidden shortcut buttons — live here so they don't create extra List rows
-                Button("") { showAgentPopover = true }
-                    .keyboardShortcut("n", modifiers: .command)
-                    .frame(width: 0, height: 0)
-                    .hidden()
-                Button("") { showGroupPopover = true }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                    .frame(width: 0, height: 0)
-                    .hidden()
-                Button("") { showAgentPopover = true }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                    .frame(width: 0, height: 0)
-                    .hidden()
-
-                // The actual Menu button (no popover modifiers on it)
-                Menu {
-                    Button { showAgentPopover = true } label: {
-                        Label("Chat with Agent", systemImage: "cpu")
-                    }
-                    .keyboardShortcut("n", modifiers: .command)
-
-                    Button { showGroupPopover = true } label: {
-                        Label("Chat with Group", systemImage: "person.3.fill")
-                    }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .medium))
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(.primary)
-                        Text("New")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.primary)
-                        Spacer(minLength: 8)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .modifier(SidebarChromeButtonModifier(tint: .accentColor))
-                    .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+    private func rebuildConversationIndex() {
+        var index: [UUID: UUID] = [:]
+        for agent in agents {
+            for session in agent.sessions {
+                for convo in session.conversations {
+                    index[convo.id] = agent.id
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .help("Start a new chat with an agent or group")
-                .xrayId("sidebar.utility.newMenu")
-                .accessibilityLabel("New")
-            }
-
-            Button {
-                addProjectFolder()
-            } label: {
-                Label("Add Project", systemImage: "folder.badge.plus")
-            }
-            .buttonStyle(.plain)
-            .appXrayTapProxy(id: "sidebar.utility.addProject") {
-                addProjectFolder()
             }
         }
+        conversationToAgentIndex = index
     }
 
     private var projectsHeader: some View {
@@ -570,7 +625,7 @@ struct SidebarView: View {
 
             let newSession = SidebarBottomBarItem.newSession
             Button {
-                showAgentPopover = true
+                windowState.showAgentPicker = true
             } label: {
                 Image(systemName: newSession.icon)
                     .font(.caption)
@@ -593,11 +648,6 @@ struct SidebarView: View {
 
         if expandedProjectIds.contains(project.id) {
             projectThreadRows(project)
-            if showsProjectTasksSection {
-                projectIndentedRow {
-                    projectTasksSection(project)
-                }
-            }
             if showsProjectSchedulesSection {
                 projectIndentedRow {
                     projectSchedulesSection(project)
@@ -926,16 +976,6 @@ struct SidebarView: View {
             .xrayId("sidebar.projectActions.toggleArchived.\(project.id.uuidString)")
 
             Button {
-                showsProjectTasksSection.toggle()
-            } label: {
-                Label(
-                    showsProjectTasksSection ? "Hide tasks section" : "Show tasks section",
-                    systemImage: showsProjectTasksSection ? "eye.slash" : "checklist"
-                )
-            }
-            .xrayId("sidebar.projectActions.toggleTasks.\(project.id.uuidString)")
-
-            Button {
                 showsProjectSchedulesSection.toggle()
             } label: {
                 Label(
@@ -965,45 +1005,6 @@ struct SidebarView: View {
         .help("Project actions")
         .xrayId("sidebar.projectActions.\(project.id.uuidString)")
         .accessibilityLabel("Project actions for \(project.name)")
-    }
-
-    @ViewBuilder
-    private func projectTasksSection(_ project: Project) -> some View {
-        let tasks = tasksForProject(project)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Label("Tasks", systemImage: "checklist")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    windowState.selectProject(project)
-                    showTaskCreation = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.caption2)
-                }
-                .buttonStyle(.plain)
-                .modifier(SidebarChromeButtonModifier(tint: projectTint(project)))
-                .accessibilityLabel("Add task to \(project.name)")
-                .xrayId("sidebar.projectTasksAdd.\(project.id.uuidString)")
-            }
-
-            if tasks.isEmpty {
-                Text("No tasks")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            } else {
-                ForEach(tasks.prefix(6)) { task in
-                    taskRow(task)
-                }
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(sidebarPanelBackground)
-        .overlay(sidebarPanelStroke)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
@@ -1072,14 +1073,14 @@ struct SidebarView: View {
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                 Button {
-                    windowState.openConfiguration(section: .agents)
+                    addProjectFolder()
                 } label: {
-                    Label("Open Configuration", systemImage: "gearshape")
+                    Label("Add Project", systemImage: "folder.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-                .help("Configure agents and groups")
-                .xrayId("sidebar.emptyState.newSessionButton")
+                .help("Add a project folder")
+                .xrayId("sidebar.emptyState.addProjectButton")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
@@ -1165,316 +1166,114 @@ struct SidebarView: View {
             .onTapGesture { selectConversation(convo) }
     }
 
-    // MARK: - Tasks Section
-
-    @ViewBuilder
-    private var tasksSection: some View {
-        let activeTasks = taskItems.filter { $0.status != .done && $0.status != .failed }
-        let completedTasks = taskItems.filter { $0.status == .done || $0.status == .failed }
-
-        if !taskItems.isEmpty || true { // Always show section for the [+] button
-            Section {
-                DisclosureGroup(isExpanded: $isTasksExpanded) {
-                    // In Progress
-                    ForEach(taskItems.filter { $0.status == .inProgress }) { task in
-                        taskRow(task)
-                    }
-                    // Ready
-                    ForEach(taskItems.filter { $0.status == .ready }) { task in
-                        taskRow(task)
-                    }
-                    // Blocked
-                    ForEach(taskItems.filter { $0.status == .blocked }) { task in
-                        taskRow(task)
-                    }
-                    // Backlog
-                    ForEach(taskItems.filter { $0.status == .backlog }) { task in
-                        taskRow(task)
-                    }
-                    // Completed (foldable)
-                    if !completedTasks.isEmpty {
-                        DisclosureGroup(isExpanded: $isCompletedTasksExpanded) {
-                            ForEach(completedTasks) { task in
-                                taskRow(task)
-                            }
-                        } label: {
-                            Text("Completed (\(completedTasks.count))")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Label("Task Board (\(activeTasks.count))", systemImage: "checklist")
-                        Spacer()
-                        Button {
-                            showTaskCreation = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.caption)
-                                .frame(width: 20, height: 20)
-                        }
-                        .buttonStyle(.plain)
-                        .keyboardShortcut("t", modifiers: [.command, .shift])
-                        .xrayId("sidebar.tasksAddButton")
-                        .accessibilityLabel("Add task")
-                        .contentShape(Rectangle())
-                    }
-                }
-            }
-            .stableXrayId("sidebar.tasksSection")
-        }
-    }
-
-    @ViewBuilder
-    private func taskRow(_ task: TaskItem) -> some View {
-        HStack(spacing: 6) {
-            sidebarSymbolBadge(
-                symbol: taskStatusDescriptor(task.status).symbol,
-                tint: taskStatusDescriptor(task.status).color,
-                size: 22,
-                cornerRadius: 7
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.title)
-                    .lineLimit(1)
-                    .font(.callout)
-                HStack(spacing: 4) {
-                    statusBadge(task.status)
-                    priorityBadge(task.priority)
-                    if let assignedAgentName = task.assignedAgentName
-                        ?? task.assignedAgentId.flatMap({ agentId in agents.first(where: { $0.id == agentId })?.name }) {
-                        Text(assignedAgentName)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer()
-            if task.conversationId != nil {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        // Use task.id as tag — intercepted by onChange to redirect
-        .tag(task.id)
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
-        )
-        .stableXrayId("sidebar.taskRow.\(task.id.uuidString)")
-        .contextMenu { taskContextMenu(for: task) }
-    }
-
-    @ViewBuilder
-    private func taskContextMenu(for task: TaskItem) -> some View {
-        switch task.status {
-        case .backlog:
-            Button("Edit Task...") { editingTask = task }
-                .xrayId("sidebar.taskContext.edit.\(task.id.uuidString)")
-            Button("Mark as Ready") { appState.updateTaskStatus(task, status: .ready) }
-                .xrayId("sidebar.taskContext.markReady.\(task.id.uuidString)")
-            Button("Run with Orchestrator") {
-                appState.runTaskWithOrchestrator(task, modelContext: modelContext, windowState: windowState)
-            }
-            .xrayId("sidebar.taskContext.runOrchestrator.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        case .ready:
-            Button("Edit Task...") { editingTask = task }
-                .xrayId("sidebar.taskContext.edit.\(task.id.uuidString)")
-            Button("Run with Orchestrator") {
-                appState.runTaskWithOrchestrator(task, modelContext: modelContext, windowState: windowState)
-            }
-            .xrayId("sidebar.taskContext.runOrchestrator.\(task.id.uuidString)")
-            Button("Move to Backlog") { appState.updateTaskStatus(task, status: .backlog) }
-                .xrayId("sidebar.taskContext.moveBacklog.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        case .inProgress:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Pause") { appState.updateTaskStatus(task, status: .blocked) }
-                .xrayId("sidebar.taskContext.pause.\(task.id.uuidString)")
-            Divider()
-            Button("Cancel & Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.cancelDelete.\(task.id.uuidString)")
-        case .blocked:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Resume") { appState.updateTaskStatus(task, status: .inProgress) }
-                .xrayId("sidebar.taskContext.resume.\(task.id.uuidString)")
-            Divider()
-            Button("Cancel & Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.cancelDelete.\(task.id.uuidString)")
-        case .done, .failed:
-            if task.conversationId != nil {
-                Button("Go to Conversation") {
-                    windowState.selectedConversationId = task.conversationId
-                }
-                .xrayId("sidebar.taskContext.goToConversation.\(task.id.uuidString)")
-            }
-            Button("Retry") { appState.updateTaskStatus(task, status: .ready) }
-                .xrayId("sidebar.taskContext.retry.\(task.id.uuidString)")
-            Divider()
-            Button("Delete", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
-            }
-            .xrayId("sidebar.taskContext.delete.\(task.id.uuidString)")
-        }
-    }
-
-    @ViewBuilder
-    private func taskStatusIcon(_ status: TaskStatus) -> some View {
-        let descriptor = taskStatusDescriptor(status)
-        Image(systemName: descriptor.symbol)
-            .foregroundStyle(descriptor.color)
-    }
-
-    @ViewBuilder
-    private func statusBadge(_ status: TaskStatus) -> some View {
-        let (label, color): (String, Color) = switch status {
-        case .backlog: ("Backlog", .gray)
-        case .ready: ("Ready", .blue)
-        case .inProgress: ("In Progress", .orange)
-        case .done: ("Done", .green)
-        case .failed: ("Failed", .red)
-        case .blocked: ("Blocked", .yellow)
-        }
-        Text(label)
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .foregroundStyle(color)
-            .background(color.opacity(0.15))
-            .cornerRadius(3)
-    }
-
-    private func priorityBadge(_ priority: TaskPriority) -> some View {
-        Text(priority.rawValue.capitalized)
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(priorityColor(priority).opacity(0.2))
-            .cornerRadius(3)
-    }
-
-    private func priorityColor(_ priority: TaskPriority) -> Color {
-        switch priority {
-        case .low: .gray
-        case .medium: .blue
-        case .high: .orange
-        case .critical: .red
-        }
-    }
-
     // MARK: - Groups Section
+
+    @ViewBuilder
+    private func groupSidebarRow(_ group: AgentGroup) -> some View {
+        GroupSidebarRowView(
+            group: group,
+            conversations: conversationsForGroup(group),
+            archivedConversations: archivedConversationsForGroup(group),
+            allAgents: agents,
+            isExpanded: Binding(
+                get: { expandedGroupIds.contains(group.id) },
+                set: { expanded in
+                    if expanded { expandedGroupIds.insert(group.id) }
+                    else { expandedGroupIds.remove(group.id) }
+                }
+            ),
+            onNewChat: {
+                if let convoId = appState.startGroupChat(
+                    group: group,
+                    projectDirectory: "",
+                    projectId: nil,
+                    modelContext: modelContext
+                ) {
+                    expandedGroupIds.insert(group.id)
+                    windowState.selectedConversationId = convoId
+                }
+            },
+            onNewAutonomousChat: (autonomousMissionsEnabled && group.autonomousCapable) ? {
+                autonomousGroup = group
+            } : nil,
+            onSelectConversation: { conv in windowState.selectedConversationId = conv.id },
+            onSelectGroup: { selectOrCreateGroupChat(group) },
+            onEdit: { editingGroup = group },
+            onRename: { conv in renameText = conv.topic ?? ""; renamingConversation = conv },
+            selectedConversationId: windowState.selectedConversationId,
+            hasActiveSession: groupHasActiveSession(group),
+            onDeleteConversation: { conv in promptDelete(conv) },
+            projects: projects,
+            onNewSessionInProject: { project in selectOrCreateGroupChat(group, in: project) },
+            onHideFromSidebar: { group.showInSidebar = false; try? modelContext.save() },
+            onScheduleMission: {
+                groupScheduleDraft = ScheduledMissionDraft(
+                    name: "\(group.name) schedule",
+                    targetKind: .group,
+                    projectDirectory: "",
+                    promptTemplate: group.defaultMission ?? ""
+                )
+                groupScheduleDraft.targetGroupId = group.id
+                showingGroupScheduleEditor = true
+            },
+            onViewSessionHistory: {
+                if expandedGroupIds.contains(group.id) { expandedGroupIds.remove(group.id) }
+                else { expandedGroupIds.insert(group.id) }
+            },
+            onCloseConversation: { conv in closeConversation(conv) },
+            isArchivedExpanded: Binding(
+                get: { expandedArchivedGroupIds.contains(group.id) },
+                set: { expanded in
+                    if expanded { expandedArchivedGroupIds.insert(group.id) }
+                    else { expandedArchivedGroupIds.remove(group.id) }
+                }
+            )
+        )
+    }
 
     @ViewBuilder
     private var groupsSection: some View {
         Section {
-            ForEach(groups.filter { $0.isEnabled }) { group in
-                GroupSidebarRowView(
-                    group: group,
-                    conversations: conversationsForGroup(group),
-                    allAgents: agents,
-                    isExpanded: Binding(
-                        get: { expandedGroupIds.contains(group.id) },
-                        set: { expanded in
-                            if expanded { expandedGroupIds.insert(group.id) }
-                            else { expandedGroupIds.remove(group.id) }
-                        }
-                    ),
-                    onNewChat: {
-                        if let convoId = appState.startGroupChat(
-                            group: group,
-                            projectDirectory: windowState.projectDirectory,
-                            projectId: windowState.selectedProjectId,
-                            modelContext: modelContext
-                        ) {
-                            windowState.selectedConversationId = convoId
-                        }
-                    },
-                    onNewAutonomousChat: (autonomousMissionsEnabled && group.autonomousCapable) ? {
-                        autonomousGroup = group
-                    } : nil,
-                    onSelectConversation: { conv in
-                        windowState.selectedConversationId = conv.id
-                    },
-                    onSelectGroup: {
-                        selectOrCreateGroupChat(group)
-                    },
-                    onEdit: { editingGroup = group },
-                    onDuplicate: { duplicateGroup(group) },
-                    selectedConversationId: windowState.selectedConversationId,
-                    hasActiveSession: groupHasActiveSession(group)
-                )
-                .contextMenu {
-                    Button("Start Chat") {
-                        if let convoId = appState.startGroupChat(
-                            group: group,
-                            projectDirectory: windowState.projectDirectory,
-                            projectId: windowState.selectedProjectId,
-                            modelContext: modelContext
-                        ) {
-                            windowState.selectedConversationId = convoId
-                        }
-                    }
-                    .xrayId("sidebar.groupContext.startChat.\(group.id.uuidString)")
-                    Button("Edit") { editingGroup = group }
-                        .xrayId("sidebar.groupContext.edit.\(group.id.uuidString)")
-                    Button("Duplicate") { duplicateGroup(group) }
-                        .xrayId("sidebar.groupContext.duplicate.\(group.id.uuidString)")
-                    Divider()
-                    Button("Open in Configuration") {
+            if isGroupsSectionExpanded {
+                ForEach(groups.filter { $0.isEnabled && $0.showInSidebar }) { group in
+                    groupSidebarRow(group)
+                }
+
+                let hiddenGroupCount = groups.filter { $0.isEnabled && !$0.showInSidebar }.count
+                if hiddenGroupCount > 0 {
+                    Button {
                         windowState.openConfiguration(section: .groups)
+                    } label: {
+                        Text("\(hiddenGroupCount) hidden · manage →")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
-                    .xrayId("sidebar.groupContext.openConfig.\(group.id.uuidString)")
-                    Divider()
-                    Button("Delete", role: .destructive) { deleteGroup(group) }
-                        .xrayId("sidebar.groupContext.delete.\(group.id.uuidString)")
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("sidebar.groupsHiddenHint")
                 }
             }
         } header: {
             HStack {
-                Text("Groups")
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isGroupsSectionExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isGroupsSectionExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Groups")
+                            .font(.headline.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.plain)
                 Spacer()
                 Button {
                     windowState.openConfiguration(section: .groups)
                 } label: {
                     Image(systemName: "plus")
-                        .font(.caption)
-                        .frame(width: 20, height: 20)
+                        .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.plain)
                 .xrayId("sidebar.groupsAddButton")
@@ -1489,14 +1288,26 @@ struct SidebarView: View {
 
     private var agentsSectionHeader: some View {
         HStack {
-            Text("Agents")
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isAgentsSectionExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: isAgentsSectionExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Agents")
+                        .font(.headline.weight(.semibold))
+                }
+            }
+            .buttonStyle(.plain)
             Spacer()
             Button {
                 windowState.openConfiguration(section: .agents)
             } label: {
                 Image(systemName: "plus")
-                    .font(.caption)
-                    .frame(width: 20, height: 20)
+                    .font(.caption.weight(.semibold))
             }
             .buttonStyle(.plain)
             .xrayId("sidebar.agentsSection.addButton")
@@ -1506,34 +1317,240 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
-    private var agentsSection: some View {
+    private var globalUtilitiesSection: some View {
         Section {
-            // 1. Resident (pinned) agents — always shown
-            ForEach(residentAgents) { agent in
-                agentSidebarRow(agent, isPinned: true)
+            if isSchedulesSectionExpanded {
+                ForEach(schedules) { schedule in
+                    globalScheduleRow(schedule)
+                }
             }
-
-            // 2. Non-resident agents — collapsed under "N more agents..."
-            if !nonResidentAgents.isEmpty {
-                if isNonResidentAgentsExpanded {
-                    ForEach(nonResidentAgents) { agent in
-                        agentSidebarRow(agent, isPinned: false)
+        } header: {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSchedulesSectionExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isSchedulesSectionExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Schedules")
+                            .font(.headline.weight(.semibold))
                     }
                 }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button { createNewGlobalSchedule() } label: {
+                        Label("New Schedule", systemImage: "plus")
+                    }
+                    Divider()
+                    Button { windowState.showScheduleLibrary = true } label: {
+                        Label("Open Schedule Library", systemImage: "clock.badge")
+                    }
+                }
+                Spacer()
                 Button {
-                    isNonResidentAgentsExpanded.toggle()
+                    createNewGlobalSchedule()
                 } label: {
-                    Label(
-                        isNonResidentAgentsExpanded
-                            ? "Show fewer"
-                            : "\(nonResidentAgents.count) more agent\(nonResidentAgents.count == 1 ? "" : "s")\u{2026}",
-                        systemImage: isNonResidentAgentsExpanded ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Image(systemName: "plus")
+                        .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-                .xrayId("sidebar.agents.showMore")
+                .accessibilityLabel("New schedule")
+                .help("New schedule")
+            }
+        }
+        .stableXrayId("sidebar.globalUtilitiesSection")
+    }
+
+    @ViewBuilder
+    private func globalScheduleRow(_ schedule: ScheduledMission) -> some View {
+        Button {
+            openGlobalScheduleEditor(schedule)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(schedule.name)
+                        .font(.callout)
+                        .lineLimit(1)
+                    Text(schedule.isEnabled
+                         ? (schedule.nextRunAt?.formatted(date: .omitted, time: .shortened) ?? "Not scheduled")
+                         : "Disabled")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 4)
+                if schedule.isEnabled {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .padding(.leading, 18)
+        }
+        .buttonStyle(.plain)
+        .stableXrayId("sidebar.globalScheduleRow.\(schedule.id.uuidString)")
+        .contextMenu {
+            Button { openGlobalScheduleEditor(schedule) } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button { appState.runScheduledMissionNow(schedule.id, windowState: windowState) } label: {
+                Label("Run Now", systemImage: "play.fill")
+            }
+            if let convId = schedule.targetConversationId,
+               conversations.contains(where: { $0.id == convId }) {
+                Button {
+                    windowState.selectedConversationId = convId
+                } label: {
+                    Label("Go to Last Session", systemImage: "bubble.left")
+                }
+            }
+            Button { scheduleForHistory = schedule } label: {
+                Label("View History", systemImage: "clock.arrow.circlepath")
+            }
+            Divider()
+            Button { toggleGlobalSchedule(schedule) } label: {
+                Label(schedule.isEnabled ? "Disable" : "Enable",
+                      systemImage: schedule.isEnabled ? "pause.circle" : "play.circle")
+            }
+            Button { duplicateGlobalSchedule(schedule) } label: {
+                Label("Duplicate", systemImage: "doc.on.doc")
+            }
+            Button { duplicateAndEditGlobalSchedule(schedule) } label: {
+                Label("Duplicate & Edit", systemImage: "doc.on.doc.fill")
+            }
+            Divider()
+            Button(role: .destructive) { scheduleToDelete = schedule } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func createNewGlobalSchedule() {
+        var draft = ScheduledMissionDraft(projectDirectory: "")
+        draft.projectId = windowState.selectedProjectId
+        globalScheduleEditRequest = GlobalScheduleEditRequest(schedule: nil, draft: draft)
+    }
+
+    private func openGlobalScheduleEditor(_ schedule: ScheduledMission) {
+        globalScheduleEditRequest = GlobalScheduleEditRequest(
+            schedule: schedule,
+            draft: ScheduledMissionDraft(schedule: schedule)
+        )
+    }
+
+    private func toggleGlobalSchedule(_ schedule: ScheduledMission) {
+        schedule.isEnabled.toggle()
+        appState.syncScheduledMission(schedule)
+    }
+
+    private func duplicateGlobalSchedule(_ schedule: ScheduledMission) {
+        let copy = ScheduledMission(
+            name: "\(schedule.name) Copy",
+            targetKind: schedule.targetKind,
+            projectDirectory: schedule.projectDirectory,
+            promptTemplate: schedule.promptTemplate
+        )
+        copy.projectId = schedule.projectId
+        copy.isEnabled = false
+        copy.targetAgentId = schedule.targetAgentId
+        copy.targetGroupId = schedule.targetGroupId
+        copy.targetProjectId = schedule.targetProjectId
+        copy.runMode = schedule.runMode
+        copy.cadenceKind = schedule.cadenceKind
+        copy.intervalHours = schedule.intervalHours
+        copy.localHour = schedule.localHour
+        copy.localMinute = schedule.localMinute
+        copy.daysOfWeek = schedule.daysOfWeek
+        copy.runWhenAppClosed = schedule.runWhenAppClosed
+        copy.usesAutonomousMode = schedule.usesAutonomousMode
+        modelContext.insert(copy)
+        try? modelContext.save()
+        appState.syncScheduledMission(copy)
+    }
+
+    private func duplicateAndEditGlobalSchedule(_ schedule: ScheduledMission) {
+        let copy = ScheduledMission(
+            name: "\(schedule.name) Copy",
+            targetKind: schedule.targetKind,
+            projectDirectory: schedule.projectDirectory,
+            promptTemplate: schedule.promptTemplate
+        )
+        copy.projectId = schedule.projectId
+        copy.isEnabled = false
+        copy.targetAgentId = schedule.targetAgentId
+        copy.targetGroupId = schedule.targetGroupId
+        copy.targetProjectId = schedule.targetProjectId
+        copy.runMode = schedule.runMode
+        copy.cadenceKind = schedule.cadenceKind
+        copy.intervalHours = schedule.intervalHours
+        copy.localHour = schedule.localHour
+        copy.localMinute = schedule.localMinute
+        copy.daysOfWeek = schedule.daysOfWeek
+        copy.runWhenAppClosed = schedule.runWhenAppClosed
+        copy.usesAutonomousMode = schedule.usesAutonomousMode
+        modelContext.insert(copy)
+        try? modelContext.save()
+        appState.syncScheduledMission(copy)
+        openGlobalScheduleEditor(copy)
+    }
+
+    private func deleteGlobalSchedule(_ schedule: ScheduledMission) {
+        appState.removeScheduledMission(schedule)
+        modelContext.delete(schedule)
+        try? modelContext.save()
+    }
+
+    @ViewBuilder
+    private var agentsSection: some View {
+        Section {
+            if isAgentsSectionExpanded {
+                // 1. Resident (pinned) agents — always shown
+                ForEach(residentAgents) { agent in
+                    agentSidebarRow(agent, isPinned: true)
+                }
+
+                // 2. Non-resident agents — collapsed under "N more agents..."
+                if !nonResidentAgents.isEmpty {
+                    if isNonResidentAgentsExpanded {
+                        ForEach(nonResidentAgents) { agent in
+                            agentSidebarRow(agent, isPinned: false)
+                        }
+                    }
+                    Button {
+                        isNonResidentAgentsExpanded.toggle()
+                    } label: {
+                        Label(
+                            isNonResidentAgentsExpanded
+                                ? "Show fewer"
+                                : "\(nonResidentAgents.count) more agent\(nonResidentAgents.count == 1 ? "" : "s")\u{2026}",
+                            systemImage: isNonResidentAgentsExpanded ? "chevron.up" : "chevron.down"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .xrayId("sidebar.agents.showMore")
+                }
+
+                // 3. Hidden agents hint
+                let hiddenAgentCount = agents.filter { $0.isEnabled && !$0.isResident && !$0.showInSidebar }.count
+                if hiddenAgentCount > 0 {
+                    Button {
+                        windowState.openConfiguration(section: .agents)
+                    } label: {
+                        Text("\(hiddenAgentCount) hidden · manage →")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("sidebar.agentsHiddenHint")
+                }
             }
         } header: {
             agentsSectionHeader
@@ -1546,6 +1563,7 @@ struct SidebarView: View {
         AgentSidebarRowView(
             agent: agent,
             conversations: conversationsForAgent(agent),
+            archivedConversations: archivedConversationsForAgent(agent),
             isExpanded: Binding(
                 get: { expandedAgentIds.contains(agent.id) },
                 set: { expanded in
@@ -1560,34 +1578,50 @@ struct SidebarView: View {
             onSelectAgent: {
                 selectOrCreateAgentChat(agent)
             },
+            onRename: { conv in
+                renameText = conv.topic ?? ""
+                renamingConversation = conv
+            },
             selectedConversationId: windowState.selectedConversationId,
-            hasActiveSession: agentHasActiveSession(agent)
-        )
-        .overlay(alignment: .topTrailing) {
-            if isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 8))
-                    .foregroundStyle(.tertiary)
-                    .padding(.trailing, 4)
-            }
-        }
-        .contextMenu {
-            Button("New Session") {
-                startSession(with: agent)
-            }
-            .xrayId("sidebar.agentRow.newSession.\(agent.id.uuidString)")
-            Divider()
-            Button(isPinned ? "Unpin from Sidebar" : "Pin to Sidebar") {
+            hasActiveSession: agentHasActiveSession(agent),
+            onDeleteConversation: { conv in promptDelete(conv) },
+            isPinned: isPinned,
+            projects: projects,
+            onNewSessionInProject: { project in startSession(with: agent, in: project) },
+            onTogglePin: {
                 agent.isResident.toggle()
                 try? modelContext.save()
-            }
-            .xrayId("sidebar.agentRow.togglePin.\(agent.id.uuidString)")
-            Divider()
-            Button("Open in Configuration") {
-                windowState.openConfiguration(section: .agents)
-            }
-            .xrayId("sidebar.agentRow.openConfig.\(agent.id.uuidString)")
-        }
+            },
+            onHideFromSidebar: {
+                agent.showInSidebar = false
+                try? modelContext.save()
+            },
+            onScheduleMission: {
+                agentScheduleDraft = ScheduledMissionDraft(
+                    name: "\(agent.name) schedule",
+                    targetKind: .agent,
+                    projectDirectory: "",
+                    promptTemplate: ""
+                )
+                agentScheduleDraft.targetAgentId = agent.id
+                showingAgentScheduleEditor = true
+            },
+            onViewSessionHistory: {
+                if expandedAgentIds.contains(agent.id) {
+                    expandedAgentIds.remove(agent.id)
+                } else {
+                    expandedAgentIds.insert(agent.id)
+                }
+            },
+            onCloseConversation: { conv in closeConversation(conv) },
+            isArchivedExpanded: Binding(
+                get: { expandedArchivedAgentIds.contains(agent.id) },
+                set: { expanded in
+                    if expanded { expandedArchivedAgentIds.insert(agent.id) }
+                    else { expandedArchivedAgentIds.remove(agent.id) }
+                }
+            )
+        )
     }
 
     // MARK: - Conversation Row
@@ -1668,6 +1702,13 @@ struct SidebarView: View {
                 conversationStatus: convo.status
             )
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
+            if let result = appState.idleResults[convo.id.uuidString] {
+                Image(systemName: result.status.icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(result.status.color)
+                    .xrayId("sidebar.conversationRow.\(convo.id.uuidString).idleStatusIcon")
+                    .accessibilityLabel(result.status.label)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
@@ -1719,10 +1760,6 @@ struct SidebarView: View {
             }
             .xrayId("sidebar.conversationContext.close.\(convo.id.uuidString)")
         }
-        Button { duplicateConversation(convo) } label: {
-            Label("Duplicate", systemImage: "doc.on.doc")
-        }
-        .xrayId("sidebar.conversationContext.duplicate.\(convo.id.uuidString)")
         if convo.isArchived {
             Button { unarchiveConversation(convo) } label: {
                 Label("Unarchive", systemImage: "tray.and.arrow.up")
@@ -1836,23 +1873,6 @@ struct SidebarView: View {
         .frame(width: size, height: size)
     }
 
-    private func taskStatusDescriptor(_ status: TaskStatus) -> (symbol: String, color: Color) {
-        switch status {
-        case .backlog:
-            return ("circle.dotted", .gray)
-        case .ready:
-            return ("circle", .blue)
-        case .inProgress:
-            return ("circle.fill", .orange)
-        case .done:
-            return ("checkmark.circle.fill", .green)
-        case .failed:
-            return ("xmark.circle.fill", .red)
-        case .blocked:
-            return ("exclamationmark.circle.fill", .yellow)
-        }
-    }
-
     private func scheduleRuleLabel(_ schedule: ScheduledMission) -> String {
         if schedule.cadenceKind == .hourlyInterval {
             return "Hourly"
@@ -1891,23 +1911,50 @@ struct SidebarView: View {
 
     // MARK: - Agent Chat History
 
+    private func inGlobalScope(_ convo: Conversation, project: Project?) -> Bool {
+        if convo.threadKind == .scheduled { return project == nil }
+        guard let p = project else { return convo.projectId == nil }
+        return convo.projectId == p.id
+    }
+
     private func conversationsForGroup(_ group: AgentGroup, in project: Project? = nil) -> [Conversation] {
-        conversations.filter {
-            $0.sourceGroupId == group.id && (project == nil || $0.projectId == project?.id)
-        }
+        conversations.filter { $0.sourceGroupId == group.id && !$0.isArchived && inGlobalScope($0, project: project) }
+    }
+
+    private func archivedConversationsForGroup(_ group: AgentGroup, in project: Project? = nil) -> [Conversation] {
+        conversations.filter { $0.sourceGroupId == group.id && $0.isArchived && inGlobalScope($0, project: project) }
     }
 
     private func conversationsForAgent(_ agent: Agent, in project: Project? = nil) -> [Conversation] {
         var seen = Set<UUID>()
-        return allSessions
-            .filter { $0.agent?.id == agent.id }
+        return agent.sessions
             .compactMap { $0.conversations.first }
-            .filter { project == nil || $0.projectId == project?.id }
+            .filter { $0.sourceGroupId == nil && !$0.isArchived && inGlobalScope($0, project: project) }
             .filter { seen.insert($0.id).inserted }
     }
 
-    private func tasksForProject(_ project: Project) -> [TaskItem] {
-        taskItems.filter { $0.projectId == project.id }
+    private func archivedConversationsForAgent(_ agent: Agent, in project: Project? = nil) -> [Conversation] {
+        var seen = Set<UUID>()
+        return agent.sessions
+            .compactMap { $0.conversations.first }
+            .filter { $0.sourceGroupId == nil && $0.isArchived && inGlobalScope($0, project: project) }
+            .filter { seen.insert($0.id).inserted }
+    }
+
+    private func expandForReveal(_ conversationId: UUID) {
+        guard let convo = conversations.first(where: { $0.id == conversationId }) else { return }
+        let isArchived = convo.isArchived
+
+        if let groupId = convo.sourceGroupId {
+            expandedGroupIds.insert(groupId)
+            if isArchived { expandedArchivedGroupIds.insert(groupId) }
+            return
+        }
+
+        if let agentId = conversationToAgentIndex[conversationId] {
+            expandedAgentIds.insert(agentId)
+            if isArchived { expandedArchivedAgentIds.insert(agentId) }
+        }
     }
 
     private func schedulesForProject(_ project: Project) -> [ScheduledMission] {
@@ -1915,16 +1962,7 @@ struct SidebarView: View {
     }
 
     private func conversationsForProject(_ project: Project) -> [Conversation] {
-        let agentSessionConversationIds = Set(
-            allSessions
-                .filter { $0.agent != nil }
-                .flatMap { $0.conversations.map { $0.id } }
-        )
-        return conversations.filter {
-            $0.projectId == project.id
-            && $0.sourceGroupId == nil
-            && !agentSessionConversationIds.contains($0.id)
-        }
+        conversations.filter { $0.projectId == project.id && $0.sourceGroupId == nil }
     }
 
     private func projectForConversation(_ convo: Conversation) -> Project? {
@@ -1933,21 +1971,6 @@ struct SidebarView: View {
     }
 
     // MARK: - Group Actions
-
-    private func duplicateGroup(_ group: AgentGroup) {
-        let copy = AgentGroup(
-            name: "\(group.name) Copy",
-            groupDescription: group.groupDescription,
-            icon: group.icon,
-            color: group.color,
-            groupInstruction: group.groupInstruction,
-            defaultMission: group.defaultMission,
-            agentIds: group.agentIds,
-            sortOrder: groups.count
-        )
-        modelContext.insert(copy)
-        try? modelContext.save()
-    }
 
     private func deleteGroup(_ group: AgentGroup) {
         modelContext.delete(group)
@@ -2032,6 +2055,26 @@ struct SidebarView: View {
         windowState.selectedConversationId = newConvo.id
     }
 
+    private func duplicateGroup(_ group: AgentGroup) {
+        let copy = AgentGroup(
+            name: group.name + " (copy)",
+            groupDescription: group.groupDescription,
+            icon: group.icon,
+            color: group.color,
+            groupInstruction: group.groupInstruction,
+            defaultMission: group.defaultMission,
+            agentIds: group.agentIds,
+            sortOrder: group.sortOrder + 1
+        )
+        copy.autonomousCapable = group.autonomousCapable
+        copy.autoReplyEnabled = group.autoReplyEnabled
+        copy.coordinatorAgentId = group.coordinatorAgentId
+        copy.agentRolesJSON = group.agentRolesJSON
+        copy.workflowJSON = group.workflowJSON
+        modelContext.insert(copy)
+        try? modelContext.save()
+    }
+
     private func selectConversation(_ convo: Conversation) {
         if let projectId = convo.projectId {
             windowState.selectProject(id: projectId, preserveSelection: true)
@@ -2056,37 +2099,49 @@ struct SidebarView: View {
         if let existing = conversationsForGroup(group, in: project).first(where: { !$0.isArchived }) {
             windowState.selectedConversationId = existing.id
         } else {
-            let targetProject = project ?? sortedProjects.first(where: { $0.id == windowState.selectedProjectId })
+            // Only use project context when one was explicitly passed (group nested under a project).
+            // Never inherit windowState — independent groups use their own home dir as project root.
             if let convoId = appState.startGroupChat(
                 group: group,
-                projectDirectory: targetProject?.rootPath ?? windowState.projectDirectory,
-                projectId: targetProject?.id ?? windowState.selectedProjectId,
+                projectDirectory: project?.rootPath ?? "",
+                projectId: project?.id,
                 modelContext: modelContext
             ) {
+                expandedGroupIds.insert(group.id)
                 windowState.selectedConversationId = convoId
             }
         }
     }
 
     private func startSession(with agent: Agent, in project: Project? = nil) {
-        let targetProject = project ?? sortedProjects.first(where: { $0.id == windowState.selectedProjectId })
+        // Only scope to a project when one was explicitly passed in; never inherit
+        // windowState.selectedProjectId for agent-initiated sessions so the conversation
+        // appears in the Agents sidebar section, not a project section.
+        let targetProject = project
         let session = Session(agent: agent, mode: .interactive)
         if session.workingDirectory.isEmpty {
-            // Resident agents (defaultWorkingDirectory set) run in their own home folder;
-            // everyone else runs in the project root.
-            let fallback = targetProject?.rootPath ?? windowState.projectDirectory
-            if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
-                session.workingDirectory = residentDir
-                let expanded = (residentDir as NSString).expandingTildeInPath
-                ResidentAgentSupport.prepareVaultForSession(in: expanded, agentName: agent.name)
-            } else if !fallback.isEmpty {
-                session.workingDirectory = fallback
+            if let project = targetProject {
+                // Project context wins — agent works in the project root, not its home dir
+                session.workingDirectory = (project.rootPath as NSString).expandingTildeInPath
+            } else if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
+                // No project — agent's home dir is its project root
+                session.workingDirectory = (residentDir as NSString).expandingTildeInPath
+            } else if !windowState.projectDirectory.isEmpty {
+                session.workingDirectory = (windowState.projectDirectory as NSString).expandingTildeInPath
             }
         }
+        // Vault prep is independent of which directory won — a resident agent always
+        // gets its memory vault initialised wherever it works.
+        if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
+            ResidentAgentSupport.prepareVaultForSession(
+                in: (residentDir as NSString).expandingTildeInPath,
+                agentName: agent.name
+            )
+        }
         let conversation = Conversation(
-            topic: agent.name,
+            topic: nil,
             sessions: [session],
-            projectId: targetProject?.id ?? windowState.selectedProjectId,
+            projectId: targetProject?.id,
             threadKind: .direct
         )
         let userParticipant = Participant(type: .user, displayName: "You")
@@ -2102,6 +2157,7 @@ struct SidebarView: View {
         modelContext.insert(session)
         modelContext.insert(conversation)
         try? modelContext.save()
+        expandedAgentIds.insert(agent.id)
         windowState.selectedConversationId = conversation.id
     }
 
@@ -2151,7 +2207,6 @@ struct SidebarView: View {
 
     private func removeProject(_ project: Project) {
         let projectConversations = conversationsForProject(project)
-        let projectTasks = tasksForProject(project)
         let projectSchedules = schedulesForProject(project)
         let fallbackProject = sortedProjects.first(where: { $0.id != project.id })
 
@@ -2179,9 +2234,6 @@ struct SidebarView: View {
             for schedule in projectSchedules {
                 modelContext.delete(schedule)
             }
-            for task in projectTasks {
-                modelContext.delete(task)
-            }
             for conversation in projectConversations {
                 modelContext.delete(conversation)
             }
@@ -2206,6 +2258,19 @@ struct SidebarView: View {
             InstanceConfig.userDefaults.set(project.rootPath, forKey: AppSettings.instanceWorkingDirectoryKey)
             expandedProjectIds.insert(project.id)
             windowState.selectProject(project)
+        }
+    }
+
+    private func handleConversationSelectionChange(_ selectedId: UUID) {
+        if let conv = conversations.first(where: { $0.id == selectedId }), let projectId = conv.projectId {
+            windowState.selectProject(id: projectId, preserveSelection: true)
+            expandedProjectIds.insert(projectId)
+        } else if let conv = conversations.first(where: { $0.id == selectedId }), conv.projectId == nil {
+            if let agent = agents.first(where: { conversationsForAgent($0).contains { $0.id == selectedId } }) {
+                expandedAgentIds.insert(agent.id)
+            } else if let group = groups.first(where: { conversationsForGroup($0).contains { $0.id == selectedId } }) {
+                expandedGroupIds.insert(group.id)
+            }
         }
     }
 }
