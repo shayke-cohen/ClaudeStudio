@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 final class SharedWorkspace {
-    var id: UUID
-    var name: String
-    var path: String
-    var participantSessionIds: [UUID]
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var path: String = ""
+    var participantSessionIds: [UUID] = []
+    var createdAt: Date = Date()
 
     init(name: String, path: String) {
         self.id = UUID()

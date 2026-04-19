@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 final class MessageAttachment {
-    var id: UUID
-    var mediaType: String
-    var fileName: String
-    var fileSize: Int
+    var id: UUID = UUID()
+    var mediaType: String = ""
+    var fileName: String = ""
+    var fileSize: Int = 0
     var localFilePath: String?
     var message: ConversationMessage?
 

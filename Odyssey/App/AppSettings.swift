@@ -30,6 +30,9 @@ enum AppSettings {
     static let xClientIdKey = "odyssey.connectorXClientId"
     static let linkedinClientIdKey = "odyssey.connectorLinkedInClientId"
 
+    // MARK: - Onboarding
+    static let fteShownKey = "odyssey.fte.v1.shown"
+
     // MARK: - Instance
     static let instanceWorkingDirectoryKey = "odyssey.instanceWorkingDirectory"
 
@@ -120,6 +123,7 @@ enum AppSettings {
             dataDirectoryKey, logLevelKey, builtInConfigOverridePolicyKey,
             sharedRoomUserIdKey, sharedRoomDisplayNameKey,
             turnEnabledKey, turnURLKey, turnUsernameKey, turnCredentialKey,
+            fteShownKey,
         ] + FeatureFlags.all
     }
 

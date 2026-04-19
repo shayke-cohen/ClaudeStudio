@@ -160,7 +160,7 @@ final class Conversation {
 
     /// First session by start time; used for inspector, delegate source, and single-agent UX.
     var primarySession: Session? {
-        sessions.min(by: { $0.startedAt < $1.startedAt })
+        (sessions ?? []).min(by: { $0.startedAt < $1.startedAt })
     }
 
     var threadKind: ThreadKind {
@@ -187,10 +187,10 @@ final class Conversation {
             if let raw = executionModeRaw, let mode = ConversationExecutionMode(rawValue: raw) {
                 return mode
             }
-            if sessions.contains(where: { $0.mode == .worker }) {
+            if (sessions ?? []).contains(where: { $0.mode == .worker }) {
                 return .worker
             }
-            if isAutonomous || threadKind == .autonomous || sessions.contains(where: { $0.mode == .autonomous }) {
+            if isAutonomous || threadKind == .autonomous || (sessions ?? []).contains(where: { $0.mode == .autonomous }) {
                 return .autonomous
             }
             return .interactive

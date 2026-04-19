@@ -261,7 +261,7 @@ struct GroupDetailView: View {
     @ViewBuilder
     private var activityCard: some View {
         let convos = groupConversations
-        let totalMessages = convos.reduce(0) { $0 + $1.messages.count }
+        let totalMessages = convos.reduce(0) { $0 + ($1.messages ?? []).count }
 
         card(title: "Activity") {
             VStack(spacing: 12) {
@@ -486,7 +486,7 @@ struct GroupDetailView: View {
     }
 
     private func isActive(_ conv: Conversation) -> Bool {
-        conv.sessions.contains { $0.status == .active }
+        (conv.sessions ?? []).contains { $0.status == .active }
     }
 
     private func duplicateGroup(_ group: AgentGroup) {
@@ -510,7 +510,7 @@ struct GroupDetailView: View {
     }
 
     private func deleteGroup(_ group: AgentGroup) {
-        for template in group.promptTemplates { modelContext.delete(template) }
+        for template in (group.promptTemplates ?? []) { modelContext.delete(template) }
         modelContext.delete(group)
         try? modelContext.save()
         windowState.selectedGroupId = nil

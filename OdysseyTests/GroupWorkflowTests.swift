@@ -107,8 +107,8 @@ final class GroupWorkflowTests: XCTestCase {
         XCTAssertEqual(visitedAgents, ["Product Manager"])
         XCTAssertEqual(conversation.workflowCurrentStep, 1)
         XCTAssertEqual(conversation.workflowCompletedSteps ?? [], [0])
-        XCTAssertEqual(conversation.messages.last?.type, .system)
-        XCTAssertTrue(conversation.messages.last?.text.contains("Review the PRD and wireframes") == true)
+        XCTAssertEqual(conversation.messages?.last?.type, .system)
+        XCTAssertTrue(conversation.messages?.last?.text.contains("Review the PRD and wireframes") == true)
     }
 
     func testInteractiveDesignerStepPausesBeforeCoderWhenArtifactGateMetadataIsPresent() async throws {
@@ -168,7 +168,7 @@ final class GroupWorkflowTests: XCTestCase {
 
         XCTAssertEqual(visitedAgents, ["Designer"])
         XCTAssertEqual(conversation.workflowCurrentStep, 1)
-        XCTAssertTrue(conversation.messages.last?.text.contains("design spec, flows, and wireframes") == true)
+        XCTAssertTrue(conversation.messages?.last?.text.contains("design spec, flows, and wireframes") == true)
     }
 
     func testInteractiveTesterLegacyInferencePausesBeforeDevOps() async throws {
@@ -217,7 +217,7 @@ final class GroupWorkflowTests: XCTestCase {
 
         XCTAssertEqual(visitedAgents, ["Tester"])
         XCTAssertEqual(conversation.workflowCurrentStep, 1)
-        XCTAssertTrue(conversation.messages.last?.text.contains("test strategy or signoff summary") == true)
+        XCTAssertTrue(conversation.messages?.last?.text.contains("test strategy or signoff summary") == true)
     }
 
     func testAutonomousProductManagerStepStillAutoAdvancesIntoCoder() async throws {
@@ -267,7 +267,7 @@ final class GroupWorkflowTests: XCTestCase {
         XCTAssertEqual(visitedAgents, ["Product Manager", "Coder"])
         XCTAssertNil(conversation.workflowCurrentStep)
         XCTAssertEqual(Set(conversation.workflowCompletedSteps ?? []), Set([0, 1]))
-        XCTAssertEqual(conversation.messages.last?.text, "Workflow complete (2 steps).")
+        XCTAssertEqual(conversation.messages?.last?.text, "Workflow complete (2 steps).")
     }
 
     // MARK: - GroupPromptBuilder.buildWorkflowStepPrompt
@@ -392,18 +392,18 @@ final class GroupWorkflowTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
 
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
 
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let msg = ConversationMessage(senderParticipantId: user.id, text: "Hello", type: .chat, conversation: convo)
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(convo)
         ctx.insert(user)
         ctx.insert(p1)
@@ -414,7 +414,7 @@ final class GroupWorkflowTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             role: .coordinator
         )
 
@@ -443,7 +443,7 @@ final class GroupWorkflowTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(user)
 
@@ -451,7 +451,7 @@ final class GroupWorkflowTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             role: .participant
         )
 

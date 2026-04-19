@@ -26,7 +26,7 @@ struct AddAgentsToChatSheet: View {
     private var existingAgentIds: Set<UUID> {
         guard let convo = conversation else { return [] }
         return Set(
-            convo.sessions.compactMap(\.agent?.id)
+            (convo.sessions ?? []).compactMap(\.agent?.id)
         )
     }
 
@@ -159,14 +159,14 @@ struct AddAgentsToChatSheet: View {
                 workingDirectory: wd
             )
             session.conversations = [convo]
-            convo.sessions.append(session)
+            convo.sessions = (convo.sessions ?? []) + [session]
 
             let agentParticipant = Participant(
                 type: .agentSession(sessionId: session.id),
                 displayName: agent.name
             )
             agentParticipant.conversation = convo
-            convo.participants.append(agentParticipant)
+            convo.participants = (convo.participants ?? []) + [agentParticipant]
 
             if let bundleJSON = agent.identityBundleJSON,
                let bundleData = bundleJSON.data(using: .utf8),
@@ -180,14 +180,14 @@ struct AddAgentsToChatSheet: View {
             modelContext.insert(session)
         }
 
-        if convo.sessions.count > 1 {
+        if (convo.sessions ?? []).count > 1 {
             convo.threadKind = .group
         }
 
         // Enforce working directories. Agent home dirs take priority over project dir.
         // Worktree paths are explicit overrides — never touched.
         let odysseyWorktrees = NSString(string: "~/.odyssey/worktrees").expandingTildeInPath
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let isWorktree = session.workingDirectory.hasPrefix(odysseyWorktrees + "/")
             guard !isWorktree else { continue }
             if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {

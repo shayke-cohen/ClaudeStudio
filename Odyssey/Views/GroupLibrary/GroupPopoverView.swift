@@ -155,7 +155,7 @@ struct GroupPopoverView: View {
             ForEach(conversations.prefix(3)) { conv in
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(conv.sessions.contains(where: { $0.status == .active }) ? Color.green : Color.gray.opacity(0.4))
+                        .fill((conv.sessions ?? []).contains(where: { $0.status == .active }) ? Color.green : Color.gray.opacity(0.4))
                         .frame(width: 6, height: 6)
                     Text(conv.topic ?? "Untitled")
                         .font(.caption)

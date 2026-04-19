@@ -146,18 +146,18 @@ struct AgentBrowseSheet: View {
         let conversation = Conversation(topic: nil, projectId: projectId, threadKind: .direct)
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let session = Session(agent: agent, mission: nil, workingDirectory: projectDirectory)
         session.conversations = [conversation]
-        conversation.sessions.append(session)
+        conversation.sessions = (conversation.sessions ?? []) + [session]
 
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: agent.name
         )
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
         modelContext.insert(userParticipant)
         modelContext.insert(agentParticipant)

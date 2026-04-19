@@ -254,7 +254,7 @@ extension AgentPickerPopover {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let agentHome = agent?.defaultWorkingDirectory.flatMap { $0.isEmpty ? nil : $0 }
         let effectiveWD = agentHome.map { NSString(string: $0).expandingTildeInPath as String }
@@ -265,14 +265,14 @@ extension AgentPickerPopover {
             workingDirectory: effectiveWD
         )
         session.conversations = [conversation]
-        conversation.sessions.append(session)
+        conversation.sessions = (conversation.sessions ?? []) + [session]
 
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: agent?.name ?? AgentDefaults.displayName(forProvider: session.provider)
         )
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
         modelContext.insert(userParticipant)
         modelContext.insert(agentParticipant)

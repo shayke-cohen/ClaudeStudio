@@ -26,9 +26,9 @@ final class AutonomousGroupEngine {
     /// Sends the initial mission to the coordinator and monitors for completion.
     func run(mission: String, sendToCoordinator: @MainActor @escaping (String) async throws -> String?) async {
         guard let coordinatorId = group.coordinatorAgentId ?? group.agentIds.first else { return }
-        guard let coordinatorSession = conversation.sessions.first(where: { $0.agent?.id == coordinatorId }) else { return }
+        guard let coordinatorSession = (conversation.sessions ?? []).first(where: { $0.agent?.id == coordinatorId }) else { return }
 
-        let teamDescriptions = conversation.sessions
+        let teamDescriptions = (conversation.sessions ?? [])
             .compactMap { session -> (name: String, description: String)? in
                 guard let agent = session.agent, agent.id != coordinatorId else { return nil }
                 return (name: agent.name, description: agent.agentDescription)
@@ -58,12 +58,12 @@ final class AutonomousGroupEngine {
 
     func intervene(message: String) {
         let msg = ConversationMessage(
-            senderParticipantId: conversation.participants.first(where: { $0.type == .user })?.id,
+            senderParticipantId: (conversation.participants ?? []).first(where: { $0.type == .user })?.id,
             text: message,
             type: .chat,
             conversation: conversation
         )
-        conversation.messages.append(msg)
+        conversation.messages = (conversation.messages ?? []) + [msg]
         try? modelContext.save()
     }
 
@@ -83,7 +83,7 @@ final class AutonomousGroupEngine {
             type: .system,
             conversation: conversation
         )
-        conversation.messages.append(msg)
+        conversation.messages = (conversation.messages ?? []) + [msg]
         try? modelContext.save()
     }
 }

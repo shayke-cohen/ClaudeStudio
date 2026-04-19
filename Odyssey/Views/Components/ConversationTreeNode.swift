@@ -62,7 +62,7 @@ struct ConversationTreeNode: View {
     }
 
     private var iconName: String {
-        let hasUser = conversation.participants.contains { $0.type == .user }
+        let hasUser = (conversation.participants ?? []).contains { $0.type == .user }
         if hasUser {
             return "bubble.left.and.bubble.right.fill"
         } else {
@@ -71,7 +71,7 @@ struct ConversationTreeNode: View {
     }
 
     private var iconColor: Color {
-        let hasUser = conversation.participants.contains { $0.type == .user }
+        let hasUser = (conversation.participants ?? []).contains { $0.type == .user }
         return hasUser ? .blue : .purple
     }
 }

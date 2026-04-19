@@ -49,7 +49,7 @@ final class CloudKitModelCompatibilityTests: XCTestCase {
         )
         context.insert(agent)
         let session = Session(agent: agent)
-        agent.sessions.append(session)
+        agent.sessions = (agent.sessions ?? []) + [session]
         context.insert(session)
         try context.save()
 
@@ -80,7 +80,7 @@ final class CloudKitModelCompatibilityTests: XCTestCase {
         context.insert(agent)
         let template = PromptTemplate(name: "Test Template", prompt: "Hello", agent: agent)
         context.insert(template)
-        agent.promptTemplates.append(template)
+        agent.promptTemplates = (agent.promptTemplates ?? []) + [template]
         try context.save()
 
         let templateId = template.id
@@ -101,7 +101,7 @@ final class CloudKitModelCompatibilityTests: XCTestCase {
         let conv = Conversation(topic: "CascadeTest")
         context.insert(conv)
         let msg = ConversationMessage(text: "hello", type: .chat, conversation: conv)
-        conv.messages.append(msg)
+        conv.messages = (conv.messages ?? []) + [msg]
         context.insert(msg)
         try context.save()
 
@@ -123,7 +123,7 @@ final class CloudKitModelCompatibilityTests: XCTestCase {
         let conv = Conversation(topic: "ParticipantTest")
         context.insert(conv)
         let participant = Participant(type: .user, displayName: "Alice")
-        conv.participants.append(participant)
+        conv.participants = (conv.participants ?? []) + [participant]
         context.insert(participant)
         try context.save()
 
@@ -196,7 +196,7 @@ final class CloudKitModelCompatibilityTests: XCTestCase {
         let conv = Conversation(topic: "TypeTest")
         context.insert(conv)
         let participant = Participant(type: .user, displayName: "Bob")
-        conv.participants.append(participant)
+        conv.participants = (conv.participants ?? []) + [participant]
         context.insert(participant)
         try context.save()
 

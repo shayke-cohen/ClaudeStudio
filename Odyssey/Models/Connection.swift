@@ -97,24 +97,24 @@ struct ConnectionCredentialPayload: Codable, Sendable {
 
 @Model
 final class Connection {
-    var id: UUID
-    var providerRaw: String
-    var installScopeRaw: String
-    var displayName: String
+    var id: UUID = UUID()
+    var providerRaw: String = ConnectionProvider.slack.rawValue
+    var installScopeRaw: String = ConnectionInstallScope.system.rawValue
+    var displayName: String = ""
     var accountId: String?
     var accountHandle: String?
     var accountMetadataJSON: String?
-    var grantedScopes: [String]
-    var authModeRaw: String
-    var writePolicyRaw: String
-    var statusRaw: String
+    var grantedScopes: [String] = []
+    var authModeRaw: String = ConnectionAuthMode.brokered.rawValue
+    var writePolicyRaw: String = ConnectionWritePolicy.requireApproval.rawValue
+    var statusRaw: String = ConnectionStatus.disconnected.rawValue
     var statusMessage: String?
     var brokerReference: String?
     var auditSummary: String?
     var lastAuthenticatedAt: Date?
     var lastCheckedAt: Date?
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     init(
         provider: ConnectionProvider,

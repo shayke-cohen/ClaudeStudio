@@ -87,12 +87,12 @@ enum GroupPromptBuilder {
         role: GroupRole? = nil,
         teamMembers: [TeamMemberInfo] = []
     ) -> String {
-        let sessionCount = conversation.sessions.count
+        let sessionCount = (conversation.sessions ?? []).count
         guard shouldUseGroupInjection(sessionCount: sessionCount) else {
             return latestUserMessageText
         }
 
-        let sortedChat = conversation.messages
+        let sortedChat = (conversation.messages ?? [])
             .filter { $0.type == .chat }
             .sorted { lhs, rhs in
                 if lhs.timestamp != rhs.timestamp { return lhs.timestamp < rhs.timestamp }

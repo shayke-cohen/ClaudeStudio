@@ -27,7 +27,7 @@ struct ScheduleEditorView: View {
 
     private var filteredConversations: [Conversation] {
         conversations.filter {
-            !$0.sessions.isEmpty
+            !($0.sessions ?? []).isEmpty
                 && ($0.projectId == draft.projectId || $0.id == draft.targetConversationId)
         }
     }

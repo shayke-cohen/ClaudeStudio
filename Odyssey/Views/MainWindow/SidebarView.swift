@@ -85,11 +85,11 @@ enum SidebarConversationMetadata {
     }
 
     static func lastMessagePreview(_ convo: Conversation) -> (text: String, attachmentIcon: String?)? {
-        let latestMessage = convo.messages
+        let latestMessage = (convo.messages ?? [])
             .max(by: { $0.timestamp < $1.timestamp })
         guard let latestMessage else { return nil }
 
-        let attachments = latestMessage.attachments
+        let attachments = latestMessage.attachments ?? []
         let text = latestMessage.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasImages = !attachments.isEmpty && attachments.contains { $0.isImage }
         let hasDocs = !attachments.isEmpty && attachments.contains { $0.isDocument }
@@ -242,7 +242,7 @@ struct SidebarView: View {
                         if windowState.selectedConversationId == convo.id {
                             windowState.selectedConversationId = nil
                         }
-                        appState.clearSessionActivity(for: convo.sessions.map(\.id.uuidString))
+                        appState.clearSessionActivity(for: (convo.sessions ?? []).map(\.id.uuidString))
                         modelContext.delete(convo)
                         try? modelContext.save()
                     }
@@ -491,8 +491,8 @@ struct SidebarView: View {
     private func rebuildConversationIndex() {
         var index: [UUID: UUID] = [:]
         for agent in agents {
-            for session in agent.sessions {
-                for convo in session.conversations {
+            for session in (agent.sessions ?? []) {
+                for convo in (session.conversations ?? []) {
                     index[convo.id] = agent.id
                 }
             }
@@ -1781,8 +1781,8 @@ struct SidebarView: View {
     // MARK: - Conversation Icon
 
     private func conversationIconDescriptor(_ convo: Conversation) -> (symbol: String, color: Color) {
-        let hasUser = convo.participants.contains { $0.type == .user }
-        let agentCount = convo.participants.filter {
+        let hasUser = (convo.participants ?? []).contains { $0.type == .user }
+        let agentCount = (convo.participants ?? []).filter {
             if case .agentSession = $0.type { return true }
             return false
         }.count
@@ -1822,7 +1822,7 @@ struct SidebarView: View {
         if searchText.isEmpty { return convos }
         return convos.filter { convo in
             (convo.topic ?? "").localizedCaseInsensitiveContains(searchText) ||
-            convo.participants.contains { $0.displayName.localizedCaseInsensitiveContains(searchText) }
+            (convo.participants ?? []).contains { $0.displayName.localizedCaseInsensitiveContains(searchText) }
         }
     }
 
@@ -1887,7 +1887,7 @@ struct SidebarView: View {
 
     private func agentHasActiveSession(_ agent: Agent, in project: Project? = nil) -> Bool {
         for conversation in conversationsForAgent(agent, in: project) {
-            for session in conversation.sessions where session.agent?.id == agent.id {
+            for session in (conversation.sessions ?? []) where session.agent?.id == agent.id {
                 let key = session.id.uuidString
                 if appState.sessionActivity[key]?.isActive == true {
                     return true
@@ -1899,7 +1899,7 @@ struct SidebarView: View {
 
     private func groupHasActiveSession(_ group: AgentGroup, in project: Project? = nil) -> Bool {
         for conversation in conversationsForGroup(group, in: project) {
-            for session in conversation.sessions {
+            for session in (conversation.sessions ?? []) {
                 let key = session.id.uuidString
                 if appState.sessionActivity[key]?.isActive == true {
                     return true
@@ -1927,16 +1927,16 @@ struct SidebarView: View {
 
     private func conversationsForAgent(_ agent: Agent, in project: Project? = nil) -> [Conversation] {
         var seen = Set<UUID>()
-        return agent.sessions
-            .compactMap { $0.conversations.first }
+        return (agent.sessions ?? [])
+            .compactMap { ($0.conversations ?? []).first }
             .filter { $0.sourceGroupId == nil && !$0.isArchived && inGlobalScope($0, project: project) }
             .filter { seen.insert($0.id).inserted }
     }
 
     private func archivedConversationsForAgent(_ agent: Agent, in project: Project? = nil) -> [Conversation] {
         var seen = Set<UUID>()
-        return agent.sessions
-            .compactMap { $0.conversations.first }
+        return (agent.sessions ?? [])
+            .compactMap { ($0.conversations ?? []).first }
             .filter { $0.sourceGroupId == nil && $0.isArchived && inGlobalScope($0, project: project) }
             .filter { seen.insert($0.id).inserted }
     }
@@ -2008,8 +2008,8 @@ struct SidebarView: View {
     private func closeConversation(_ convo: Conversation) {
         convo.status = .closed
         convo.closedAt = Date()
-        let sessionKeys = convo.sessions.map(\.id.uuidString)
-        for session in convo.sessions {
+        let sessionKeys = (convo.sessions ?? []).map(\.id.uuidString)
+        for session in (convo.sessions ?? []) {
             appState.sendToSidecar(.sessionPause(sessionId: session.id.uuidString))
             session.status = .paused
         }
@@ -2031,14 +2031,14 @@ struct SidebarView: View {
         newConvo.routingMode = convo.routingMode
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
-        newConvo.participants.append(userParticipant)
+        newConvo.participants = (newConvo.participants ?? []) + [userParticipant]
 
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             guard let agent = session.agent else { continue }
             let newSession = Session(agent: agent, mode: session.mode)
             newSession.mission = session.mission
             newSession.workingDirectory = session.workingDirectory
-            newConvo.sessions.append(newSession)
+            newConvo.sessions = (newConvo.sessions ?? []) + [newSession]
             newSession.conversations = [newConvo]
 
             let agentParticipant = Participant(
@@ -2046,7 +2046,7 @@ struct SidebarView: View {
                 displayName: agent.name
             )
             agentParticipant.conversation = newConvo
-            newConvo.participants.append(agentParticipant)
+            newConvo.participants = (newConvo.participants ?? []) + [agentParticipant]
             modelContext.insert(newSession)
         }
 
@@ -2169,7 +2169,7 @@ struct SidebarView: View {
         )
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         modelContext.insert(conversation)
         try? modelContext.save()
@@ -2228,7 +2228,7 @@ struct SidebarView: View {
             }
 
             appState.clearSessionActivity(
-                for: projectConversations.flatMap { $0.sessions.map(\.id.uuidString) }
+                for: projectConversations.flatMap { ($0.sessions ?? []).map(\.id.uuidString) }
             )
 
             for schedule in projectSchedules {

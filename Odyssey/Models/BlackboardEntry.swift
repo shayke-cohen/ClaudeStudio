@@ -3,13 +3,13 @@ import SwiftData
 
 @Model
 final class BlackboardEntry {
-    var id: UUID
-    var key: String
-    var value: String
-    var writtenBy: String
+    var id: UUID = UUID()
+    var key: String = ""
+    var value: String = ""
+    var writtenBy: String = ""
     var workspaceId: UUID?
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     init(key: String, value: String, writtenBy: String, workspaceId: UUID? = nil) {
         self.id = UUID()

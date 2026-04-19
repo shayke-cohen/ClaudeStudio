@@ -55,13 +55,13 @@ struct InspectorView: View {
     /// Sessions for this conversation — uses the relationship first, falls back to
     /// a manual query when the SwiftData many-to-many inverse returns empty.
     private var orderedSessions: [Session] {
-        let relSessions = conversation.sessions
+        let relSessions = conversation.sessions ?? []
         if !relSessions.isEmpty {
             return relSessions.sorted { $0.startedAt < $1.startedAt }
         }
         // Fallback: find sessions whose conversations include this one
         return allSessions.filter { session in
-            session.conversations.contains { $0.id == conversation.id }
+            (session.conversations ?? []).contains { $0.id == conversation.id }
         }
     }
 
@@ -70,14 +70,14 @@ struct InspectorView: View {
     }
 
     private var relevantBlackboardKeys: Set<String> {
-        Set(conversation.messages.compactMap { message in
+        Set((conversation.messages ?? []).compactMap { message in
             guard message.type == .blackboardUpdate else { return nil }
             return message.toolName
         })
     }
 
     private var relevantBlackboardWriters: Set<String> {
-        let persistedWriters: [String] = conversation.messages.compactMap { message -> String? in
+        let persistedWriters: [String] = (conversation.messages ?? []).compactMap { message -> String? in
             guard message.type == .blackboardUpdate else { return nil }
             return message.toolInput?.lowercased()
         }
@@ -635,7 +635,7 @@ struct InspectorView: View {
                 .xrayId("inspector.historyHeading")
 
             InfoRow(label: "Started", value: conversation.startedAt.formatted(.relative(presentation: .named)))
-            InfoRow(label: "Messages", value: "\(conversation.messages.count)")
+            InfoRow(label: "Messages", value: "\((conversation.messages ?? []).count)")
 
             if conversation.parentConversationId != nil {
                 InfoRow(label: "Forked from", value: parentConversationTitle ?? "Loading…")

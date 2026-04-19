@@ -26,45 +26,45 @@ enum AgentInstancePolicy: String, Codable, CaseIterable, Sendable {
 
 @Model
 final class Agent {
-    var id: UUID
-    var name: String
-    var agentDescription: String
-    var systemPrompt: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var agentDescription: String = ""
+    var systemPrompt: String = ""
     var provider: String = ProviderSelection.system.rawValue
-    var skillIds: [UUID]
-    var extraMCPServerIds: [UUID]
+    var skillIds: [UUID] = []
+    var extraMCPServerIds: [UUID] = []
     var permissionSetId: UUID?
     var catalogId: String?
-    var model: String
+    var model: String = ""
     var maxTurns: Int?
     var maxBudget: Double?
     var maxThinkingTokens: Int?
     private var instancePolicyRaw: String?
     var instancePolicyPoolMax: Int?
-    var icon: String
-    var color: String
+    var icon: String = "cpu"
+    var color: String = "blue"
 
     // AgentOrigin flattened for SwiftData
-    var originKind: String
+    var originKind: String = "local"
     var originPeerName: String?
     /// The original UUID of the agent on the remote peer (used for duplicate import detection)
     var originRemoteId: UUID?
 
     var defaultWorkingDirectory: String?
     var isResident: Bool = false
-    var isShared: Bool
+    var isShared: Bool = false
     var isEnabled: Bool = true
     var showInSidebar: Bool = true
     var configSlug: String?
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
     var identityBundleJSON: String? = nil
 
     @Relationship(deleteRule: .nullify, inverse: \Session.agent)
-    var sessions: [Session] = []
+    var sessions: [Session]? = nil
 
     @Relationship(deleteRule: .nullify, inverse: \PromptTemplate.agent)
-    var promptTemplates: [PromptTemplate] = []
+    var promptTemplates: [PromptTemplate]? = nil
 
     static func defaultHomePath(for name: String) -> String {
         let slug = name

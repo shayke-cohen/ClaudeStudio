@@ -46,6 +46,7 @@ struct MainWindowView: View {
     @AppStorage(FeatureFlags.debugLogsKey, store: AppSettings.store) private var debugLogsFlag = false
     @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
     @AppStorage(FeatureFlags.agentCommsKey, store: AppSettings.store) private var agentCommsFlag = false
+    @AppStorage(AppSettings.fteShownKey, store: AppSettings.store) private var fteShown = false
     @Query private var conversations: [Conversation]
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showStatusPopover = false
@@ -208,8 +209,14 @@ struct MainWindowView: View {
                 .environment(appState)
                 .frame(minWidth: 960, minHeight: 640)
         }
+        .sheet(isPresented: $ws.showFTE) {
+            FTEView()
+        }
         .onAppear {
             appState.connectSidecar()
+            if !fteShown {
+                windowState.showFTE = true
+            }
         }
         .alert("Launch Error", isPresented: launchErrorBinding) {
             Button("Dismiss") { windowState.launchError = nil }
@@ -390,7 +397,7 @@ struct MainWindowView: View {
         )
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
         modelContext.insert(conversation)
         try? modelContext.save()
         windowState.selectedConversationId = conversation.id

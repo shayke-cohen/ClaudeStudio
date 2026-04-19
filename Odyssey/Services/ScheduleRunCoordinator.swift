@@ -104,7 +104,7 @@ final class ScheduleRunCoordinator {
             return
         }
 
-        let targetSessions = conversation.sessions.sorted { $0.startedAt < $1.startedAt }
+        let targetSessions = (conversation.sessions ?? []).sorted { $0.startedAt < $1.startedAt }
         guard !targetSessions.isEmpty else {
             markRunFailed(run, schedule: schedule, error: "No sessions available for the schedule target")
             return
@@ -122,7 +122,7 @@ final class ScheduleRunCoordinator {
         try? modelContext.save()
 
         let provisioner = AgentProvisioner(modelContext: modelContext)
-        let participants = conversation.participants
+        let participants = conversation.participants ?? []
         let sourceGroup = schedule.targetGroupId.flatMap { groupId in
             let descriptor = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == groupId })
             return try? modelContext.fetch(descriptor).first
@@ -159,7 +159,7 @@ final class ScheduleRunCoordinator {
                 return sourceGroup.roleFor(agentId: agentId)
             }()
 
-            let teamMembers: [GroupPromptBuilder.TeamMemberInfo] = conversation.sessions
+            let teamMembers: [GroupPromptBuilder.TeamMemberInfo] = (conversation.sessions ?? [])
                 .filter { $0.id != session.id }
                 .compactMap { other in
                     guard let agent = other.agent else { return nil }
@@ -180,7 +180,7 @@ final class ScheduleRunCoordinator {
                 role: agentRole,
                 teamMembers: teamMembers
             )
-            let promptText = conversation.sessions.count > 1
+            let promptText = (conversation.sessions ?? []).count > 1
                 ? ExecutionModePromptBuilder.wrapCoordinatorPrompt(
                     basePrompt,
                     mode: conversation.executionMode,
@@ -310,7 +310,7 @@ final class ScheduleRunCoordinator {
         }
         if schedule.usesAutonomousMode {
             conversation.executionMode = .autonomous
-            for session in conversation.sessions {
+            for session in (conversation.sessions ?? []) {
                 session.mode = .autonomous
             }
         }
@@ -327,22 +327,22 @@ final class ScheduleRunCoordinator {
                 type: .system,
                 conversation: conversation
             )
-            conversation.messages.append(boundary)
+            conversation.messages = (conversation.messages ?? []) + [boundary]
             modelContext.insert(boundary)
         }
 
         let userParticipant: Participant
-        if let existing = conversation.participants.first(where: { $0.type == .user }) {
+        if let existing = (conversation.participants ?? []).first(where: { $0.type == .user }) {
             userParticipant = existing
         } else {
             let participant = Participant(type: .user, displayName: "You")
             participant.conversation = conversation
-            conversation.participants.append(participant)
+            conversation.participants = (conversation.participants ?? []) + [participant]
             modelContext.insert(participant)
             userParticipant = participant
         }
 
-        if conversation.messages.first(where: { $0.type == .chat }) == nil, (conversation.topic ?? "").isEmpty {
+        if (conversation.messages ?? []).first(where: { $0.type == .chat }) == nil, (conversation.topic ?? "").isEmpty {
             conversation.topic = schedule.name
         }
 
@@ -352,7 +352,7 @@ final class ScheduleRunCoordinator {
             type: .chat,
             conversation: conversation
         )
-        conversation.messages.append(promptMessage)
+        conversation.messages = (conversation.messages ?? []) + [promptMessage]
         modelContext.insert(promptMessage)
         try? modelContext.save()
         return conversation
@@ -380,7 +380,7 @@ final class ScheduleRunCoordinator {
         agentParticipant.conversation = conversation
         conversation.participants = [userParticipant, agentParticipant]
         session.conversations = [conversation]
-        conversation.sessions.append(session)
+        conversation.sessions = (conversation.sessions ?? []) + [session]
 
         modelContext.insert(session)
         modelContext.insert(conversation)
@@ -403,7 +403,7 @@ final class ScheduleRunCoordinator {
         }
 
         let responseText = streamedText.isEmpty ? (errorMessage ?? "") : streamedText
-        let seenThroughMessage = conversation.messages
+        let seenThroughMessage = (conversation.messages ?? [])
             .filter { $0.type == .chat }
             .sorted { lhs, rhs in
                 if lhs.timestamp != rhs.timestamp { return lhs.timestamp < rhs.timestamp }
@@ -421,7 +421,7 @@ final class ScheduleRunCoordinator {
             appState.lastSessionEvent.removeValue(forKey: sidecarKey)
             return nil
         }
-        let participant = conversation.participants.first {
+        let participant = (conversation.participants ?? []).first {
             if case .agentSession(let sessionId) = $0.type {
                 return sessionId == session.id
             }
@@ -437,7 +437,7 @@ final class ScheduleRunCoordinator {
         if let thinking = appState.thinkingText[sidecarKey], !thinking.isEmpty {
             response.thinkingText = thinking
         }
-        conversation.messages.append(response)
+        conversation.messages = (conversation.messages ?? []) + [response]
         modelContext.insert(response)
         GroupPromptBuilder.advanceWatermark(session: session, assistantMessage: response)
 
@@ -448,7 +448,7 @@ final class ScheduleRunCoordinator {
                 let name = "agent-image-\(UUID().uuidString.prefix(8)).\(ext)"
                 let attachment = AttachmentStore.save(data: data, mediaType: image.mediaType, fileName: name)
                 attachment.message = response
-                response.attachments.append(attachment)
+                response.attachments = (response.attachments ?? []) + [attachment]
                 modelContext.insert(attachment)
             }
             appState.streamingImages.removeValue(forKey: sidecarKey)
@@ -460,7 +460,7 @@ final class ScheduleRunCoordinator {
                 let attachment = MessageAttachment(mediaType: mediaType, fileName: card.name, fileSize: 0)
                 attachment.localFilePath = card.path
                 attachment.message = response
-                response.attachments.append(attachment)
+                response.attachments = (response.attachments ?? []) + [attachment]
                 modelContext.insert(attachment)
             }
             appState.streamingFileCards.removeValue(forKey: sidecarKey)

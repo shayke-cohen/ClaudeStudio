@@ -1665,7 +1665,7 @@ struct NewSessionSheet: View {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let session = Session(
             agent: nil,
@@ -1679,14 +1679,14 @@ struct NewSessionSheet: View {
             provider: session.provider
         )
         session.conversations = [conversation]
-        conversation.sessions.append(session)
+        conversation.sessions = (conversation.sessions ?? []) + [session]
 
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: AgentDefaults.displayName(forProvider: session.provider)
         )
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
         modelContext.insert(session)
         modelContext.insert(conversation)
@@ -1728,7 +1728,7 @@ struct NewSessionSheet: View {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         for agent in selectedList {
             // Agent home always wins when set; fall back to project dir for non-resident agents
@@ -1750,14 +1750,14 @@ struct NewSessionSheet: View {
             )
 
             session.conversations = [conversation]
-            conversation.sessions.append(session)
+            conversation.sessions = (conversation.sessions ?? []) + [session]
 
             let agentParticipant = Participant(
                 type: .agentSession(sessionId: session.id),
                 displayName: agent.name
             )
             agentParticipant.conversation = conversation
-            conversation.participants.append(agentParticipant)
+            conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
             modelContext.insert(session)
         }
@@ -1809,7 +1809,7 @@ struct NewSessionSheet: View {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let session = Session(
             agent: nil,
@@ -1823,14 +1823,14 @@ struct NewSessionSheet: View {
             provider: session.provider
         )
         session.conversations = [conversation]
-        conversation.sessions.append(session)
+        conversation.sessions = (conversation.sessions ?? []) + [session]
 
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: AgentDefaults.displayName(forProvider: session.provider)
         )
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
         modelContext.insert(session)
         modelContext.insert(conversation)

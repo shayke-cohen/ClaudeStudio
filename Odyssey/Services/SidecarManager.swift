@@ -575,10 +575,10 @@ extension SidecarManager {
 
             // Map conversations to wire type
             let convWires: [ConversationSummaryWire] = conversations.compactMap { conv in
-                let lastMsg = conv.messages
+                let lastMsg = (conv.messages ?? [])
                     .filter { !$0.isStreaming }
                     .max(by: { $0.timestamp < $1.timestamp })
-                let participantWires: [ParticipantWire] = conv.participants.map { p in
+                let participantWires: [ParticipantWire] = (conv.participants ?? []).map { p in
                     let isAgent: Bool
                     switch p.type {
                     case .agentSession: isAgent = true

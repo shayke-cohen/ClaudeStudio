@@ -265,7 +265,6 @@ export class SessionManager {
       this.flushTokenBatch(sessionId, this.emit);
       this.tokenBatchers.delete(sessionId);
       this.activeAborts.delete(sessionId);
-      this.turnHistory.delete(sessionId);
     }
   }
 

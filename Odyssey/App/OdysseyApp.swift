@@ -235,11 +235,11 @@ struct OdysseyApp: App {
         let conversation = Conversation(topic: "Test Chat", projectId: project.id)
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let testSession = Session(agent: nil, mode: .interactive, workingDirectory: projectPath)
         testSession.conversations = [conversation]
-        conversation.sessions.append(testSession)
+        conversation.sessions = (conversation.sessions ?? []) + [testSession]
         context.insert(testSession)
 
         let agentParticipant = Participant(
@@ -247,7 +247,7 @@ struct OdysseyApp: App {
             displayName: AgentDefaults.displayName(forProvider: testSession.provider)
         )
         agentParticipant.conversation = conversation
-        conversation.participants.append(agentParticipant)
+        conversation.participants = (conversation.participants ?? []) + [agentParticipant]
 
         let userMessage = ConversationMessage(
             senderParticipantId: userParticipant.id,
@@ -255,7 +255,7 @@ struct OdysseyApp: App {
             type: .chat,
             conversation: conversation
         )
-        conversation.messages.append(userMessage)
+        conversation.messages = (conversation.messages ?? []) + [userMessage]
 
         context.insert(conversation)
         try? context.save()

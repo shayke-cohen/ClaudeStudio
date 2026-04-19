@@ -327,7 +327,7 @@ struct ChatView: View {
     private var aggregatedLiveCost: Double {
         guard let convo = conversation else { return 0 }
         var sum = 0.0
-        for s in convo.sessions {
+        for s in (convo.sessions ?? []) {
             sum += appState.activeSessions[s.id]?.cost ?? s.totalCost
         }
         return sum
@@ -348,7 +348,7 @@ struct ChatView: View {
 
     private var activeStreamingSessionOrder: [String] {
         guard let convo = conversation else { return activeStreamingSessionKeys.sorted() }
-        let orderedConversationKeys = convo.sessions
+        let orderedConversationKeys = (convo.sessions ?? [])
             .sorted { $0.startedAt < $1.startedAt }
             .map { $0.id.uuidString }
         let orderedActive = orderedConversationKeys.filter { activeStreamingSessionKeys.contains($0) }
@@ -403,7 +403,7 @@ struct ChatView: View {
     }
 
     private var sendingToSubtitle: String? {
-        guard let convo = conversation, convo.sessions.count > 1,
+        guard let convo = conversation, (convo.sessions ?? []).count > 1,
               let plan = routingPreviewPlan else { return nil }
         let mode = convo.routingMode.displayName
         let recipients = plan.recipientAgentNames.joined(separator: ", ")
@@ -433,7 +433,7 @@ struct ChatView: View {
     }
 
     private var routingPreviewPlan: GroupRoutingPlanner.UserWavePlan? {
-        guard let convo = conversation, convo.sessions.count > 1 else { return nil }
+        guard let convo = conversation, (convo.sessions ?? []).count > 1 else { return nil }
         let mentionNames = ChatSendRouting.mentionedAgentNames(in: inputText, agents: allAgents)
         let mentionedAll = ChatSendRouting.containsMentionAll(in: inputText)
         let (resolvedMentionAgents, _) = ChatSendRouting.resolveMentionedAgents(
@@ -459,16 +459,16 @@ struct ChatView: View {
         }
         guard let convo = conversation,
               let sessionId = UUID(uuidString: sidecarKey),
-              let session = convo.sessions.first(where: { $0.id == sessionId }) else {
+              let session = (convo.sessions ?? []).first(where: { $0.id == sessionId }) else {
             return AgentDefaults.displayName(forProvider: nil)
         }
         return session.agent?.name ?? AgentDefaults.displayName(forProvider: session.provider)
     }
 
     private func streamingAppearance(for sidecarKey: String) -> AgentAppearance? {
-        guard let convo = conversation, convo.sessions.count > 1,
+        guard let convo = conversation, (convo.sessions ?? []).count > 1,
               let sessionId = UUID(uuidString: sidecarKey),
-              let session = convo.sessions.first(where: { $0.id == sessionId }),
+              let session = (convo.sessions ?? []).first(where: { $0.id == sessionId }),
               let agent = session.agent else {
             return nil
         }
@@ -501,12 +501,12 @@ struct ChatView: View {
         let text = appState.streamingText[key] ?? ""
         let thinking = appState.thinkingText[key] ?? ""
         let iconName = conversation?
-            .sessions
+            .sessions?
             .first(where: { $0.id.uuidString == key })?
             .agent?
             .icon
         let colorName = conversation?
-            .sessions
+            .sessions?
             .first(where: { $0.id.uuidString == key })?
             .agent?
             .color
@@ -583,7 +583,7 @@ struct ChatView: View {
         sortedMessages.reversed().first { message in
             guard message.type == .chat,
                   let senderId = message.senderParticipantId,
-                  let sender = conversation?.participants.first(where: { $0.id == senderId }) else {
+                  let sender = (conversation?.participants ?? []).first(where: { $0.id == senderId }) else {
                 return false
             }
             return sender.type != .user
@@ -601,7 +601,7 @@ struct ChatView: View {
         return ChatTranscriptExport.snapshot(
             conversation: convo,
             messages: sortedMessages,
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             streamingAppendix: appendix,
             theme: ChatTranscriptExportTheme(
                 appearance: colorScheme == .dark ? .dark : .light,
@@ -778,10 +778,10 @@ struct ChatView: View {
                 try? await sharedRoomService.refreshConversation(conversation)
             }
         }
-        .onChange(of: conversation?.messages.count) { _, _ in
+        .onChange(of: conversation?.messages?.count) { _, _ in
             cachedSortedMessages = (conversation?.messages ?? []).sorted { $0.timestamp < $1.timestamp }
         }
-        .onChange(of: conversation?.sessions.count) { _, _ in
+        .onChange(of: conversation?.sessions?.count) { _, _ in
             rebuildParticipantAppearanceMap()
         }
         .onAppear {
@@ -960,9 +960,9 @@ struct ChatView: View {
 
     @ViewBuilder
     private var headerAvatarView: some View {
-        if let convo = conversation, convo.sessions.count > 1 {
+        if let convo = conversation, (convo.sessions ?? []).count > 1 {
             HStack(spacing: -6) {
-                ForEach(convo.sessions.prefix(3), id: \.id) { s in
+                ForEach((convo.sessions ?? []).prefix(3), id: \.id) { s in
                     if let ag = s.agent {
                         Image(systemName: ag.icon)
                             .foregroundStyle(Color.fromAgentColor(ag.color))
@@ -1025,9 +1025,9 @@ struct ChatView: View {
             }
 
             // Member status dots (group) or agent status (1:1)
-            if let convo = conversation, convo.sessions.count > 1 {
+            if let convo = conversation, (convo.sessions ?? []).count > 1 {
                 HStack(spacing: 8) {
-                    ForEach(convo.sessions, id: \.id) { session in
+                    ForEach((convo.sessions ?? []), id: \.id) { session in
                         if let ag = session.agent {
                             HStack(spacing: 3) {
                                 let isActive = appState.sessionActivity[session.id.uuidString]?.isActive == true
@@ -1059,9 +1059,9 @@ struct ChatView: View {
 
     @ViewBuilder
     private var agentIconButton: some View {
-        if let convo = conversation, convo.sessions.count > 1 {
+        if let convo = conversation, (convo.sessions ?? []).count > 1 {
             HStack(spacing: -6) {
-                ForEach(convo.sessions.prefix(4), id: \.id) { s in
+                ForEach((convo.sessions ?? []).prefix(4), id: \.id) { s in
                     if let ag = s.agent {
                         Image(systemName: ag.icon)
                             .foregroundStyle(Color.fromAgentColor(ag.color))
@@ -1070,8 +1070,8 @@ struct ChatView: View {
                             .background(.ultraThinMaterial, in: Circle())
                     }
                 }
-                if convo.sessions.count > 4 {
-                    Text("+\(convo.sessions.count - 4)")
+                if (convo.sessions ?? []).count > 4 {
+                    Text("+\((convo.sessions ?? []).count - 4)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -1201,7 +1201,7 @@ struct ChatView: View {
                 executionModeSegmented
 
                 if let convo = conversation {
-                    if convo.sessions.count > 1 {
+                    if (convo.sessions ?? []).count > 1 {
                         delegationBadgeButton(convo)
                     }
                     simplifiedSessionMenu(convo)
@@ -1248,9 +1248,9 @@ struct ChatView: View {
             }
 
             if let convo = conversation {
-                let sessionKeys = convo.sessions.map(\.id.uuidString)
+                let sessionKeys = (convo.sessions ?? []).map(\.id.uuidString)
                 let hasLiveActivity = sessionKeys.contains { appState.sessionActivity[$0]?.isActive == true }
-                let hasInterruptedSessions = convo.sessions.contains { $0.status == .interrupted }
+                let hasInterruptedSessions = (convo.sessions ?? []).contains { $0.status == .interrupted }
 
                 if hasLiveActivity {
                     Button {
@@ -1317,7 +1317,7 @@ struct ChatView: View {
                     get: { convo.delegationTargetAgentName },
                     set: { _ in }
                 ),
-                participants: convo.participants,
+                participants: convo.participants ?? [],
                 hasCoordinator: hasCoordinator,
                 onSelect: { mode, target in
                     appState.setDelegationMode(for: convo, mode: mode, targetAgentName: target)
@@ -1448,7 +1448,7 @@ struct ChatView: View {
 
             Divider()
 
-            if !convo.sessions.isEmpty {
+            if !(convo.sessions ?? []).isEmpty {
                 Button { forkConversation() } label: {
                     Label("Fork Conversation", systemImage: "arrow.branch")
                 }
@@ -1756,11 +1756,11 @@ struct ChatView: View {
                             }
                         }
 
-                        if let convo = conversation, convo.sessions.count > 1 {
+                        if let convo = conversation, (convo.sessions ?? []).count > 1 {
                             AgentActivityBar(
-                                sessions: convo.sessions,
+                                sessions: convo.sessions ?? [],
                                 sessionActivity: appState.sessionActivity,
-                                participants: convo.participants
+                                participants: convo.participants ?? []
                             )
                             .id("agentActivityBar")
                             .listRowSeparator(.hidden)
@@ -2191,7 +2191,7 @@ struct ChatView: View {
                 .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
                 .disabled(isProcessing)
 
-                if conversation?.sessions.count ?? 0 > 1 {
+                if (conversation?.sessions ?? []).count > 1 {
                     groupSettingsMenuContent
                         .menuStyle(.borderlessButton)
                         .disabled(isProcessing)
@@ -2811,7 +2811,7 @@ struct ChatView: View {
 
     private var sessionsForSummary: [AppState.SessionInfo] {
         guard let convo = conversation else { return [] }
-        return convo.sessions.compactMap { session in
+        return (convo.sessions ?? []).compactMap { session in
             appState.activeSessions[session.id]
         }
     }
@@ -2819,7 +2819,7 @@ struct ChatView: View {
     private var toolCallsForSummary: [String: [AppState.ToolCallInfo]] {
         guard let convo = conversation else { return [:] }
         var result: [String: [AppState.ToolCallInfo]] = [:]
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let key = session.id.uuidString
             if let calls = appState.toolCalls[key] {
                 result[key] = calls
@@ -2837,44 +2837,44 @@ struct ChatView: View {
 
     private var pendingQuestionsForCurrentConversation: [AppState.AgentQuestion] {
         guard let convo = conversation else { return [] }
-        return convo.sessions.compactMap { session in
+        return (convo.sessions ?? []).compactMap { session in
             appState.pendingQuestions[session.id.uuidString]
         }
     }
 
     private func agentNameForQuestion(_ question: AppState.AgentQuestion) -> String {
         guard let convo = conversation else { return "Agent" }
-        if let session = convo.sessions.first(where: { $0.id.uuidString == question.sessionId }) {
+        if let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == question.sessionId }) {
             return session.agent?.name ?? "Agent"
         }
         return "Agent"
     }
 
     private func agentColorForQuestion(_ question: AppState.AgentQuestion) -> Color? {
-        guard let convo = conversation, convo.sessions.count > 1,
-              let session = convo.sessions.first(where: { $0.id.uuidString == question.sessionId }),
+        guard let convo = conversation, (convo.sessions ?? []).count > 1,
+              let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == question.sessionId }),
               let agent = session.agent else { return nil }
         return Color.fromAgentColor(agent.color)
     }
 
     private var pendingConfirmationsForCurrentConversation: [AppState.AgentConfirmation] {
         guard let convo = conversation else { return [] }
-        return convo.sessions.compactMap { session in
+        return (convo.sessions ?? []).compactMap { session in
             appState.pendingConfirmations[session.id.uuidString]
         }
     }
 
     private func agentNameForConfirmation(_ confirmation: AppState.AgentConfirmation) -> String {
         guard let convo = conversation else { return "Agent" }
-        if let session = convo.sessions.first(where: { $0.id.uuidString == confirmation.sessionId }) {
+        if let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == confirmation.sessionId }) {
             return session.agent?.name ?? "Agent"
         }
         return "Agent"
     }
 
     private func agentColorForConfirmation(_ confirmation: AppState.AgentConfirmation) -> Color? {
-        guard let convo = conversation, convo.sessions.count > 1,
-              let session = convo.sessions.first(where: { $0.id.uuidString == confirmation.sessionId }),
+        guard let convo = conversation, (convo.sessions ?? []).count > 1,
+              let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == confirmation.sessionId }),
               let agent = session.agent else { return nil }
         return Color.fromAgentColor(agent.color)
     }
@@ -2900,14 +2900,14 @@ struct ChatView: View {
     }
 
     private func rebuildParticipantAppearanceMap() {
-        guard let convo = conversation, convo.sessions.count > 1 else {
+        guard let convo = conversation, (convo.sessions ?? []).count > 1 else {
             cachedParticipantAppearanceMap = nil
             return
         }
         var map: [UUID: AgentAppearance] = [:]
-        for participant in convo.participants {
+        for participant in (convo.participants ?? []) {
             if let sessionId = participant.typeSessionId,
-               let session = convo.sessions.first(where: { $0.id == sessionId }),
+               let session = (convo.sessions ?? []).first(where: { $0.id == sessionId }),
                let agent = session.agent {
                 map[participant.id] = AgentAppearance(
                     color: Color.fromAgentColor(agent.color),
@@ -2979,7 +2979,7 @@ struct ChatView: View {
 
     private var participantSummary: String {
         guard let convo = conversation else { return "" }
-        let names = convo.participants.map(\.displayName)
+        let names = (convo.participants ?? []).map(\.displayName)
         return names.joined(separator: " + ")
     }
 
@@ -3046,7 +3046,7 @@ struct ChatView: View {
     }
 
     private func agentMentionHint(for agent: Agent) -> String {
-        conversation?.sessions.contains(where: { $0.agent?.id == agent.id }) == true ? "In chat" : "Adds on send"
+        (conversation?.sessions ?? []).contains(where: { $0.agent?.id == agent.id }) == true ? "In chat" : "Adds on send"
     }
 
     private func insertMentionCompletion(agentName: String) {
@@ -3056,7 +3056,7 @@ struct ChatView: View {
 
     /// Freeform / quick chat: ensure one `Session` + Claude participant exist before first model call.
     private func ensureFreeformSidecarSession(in convo: Conversation) -> Session? {
-        if let existing = convo.primarySession, convo.sessions.count == 1, existing.agent == nil {
+        if let existing = convo.primarySession, (convo.sessions ?? []).count == 1, existing.agent == nil {
             syncFreeformParticipantDisplayName(for: existing, in: convo)
             return existing
         }
@@ -3068,13 +3068,13 @@ struct ChatView: View {
             workingDirectory: windowState.projectDirectory.isEmpty ? NSHomeDirectory() : windowState.projectDirectory
         )
         session.conversations = [convo]
-        convo.sessions.append(session)
+        convo.sessions = (convo.sessions ?? []) + [session]
         let agentParticipant = Participant(
             type: .agentSession(sessionId: session.id),
             displayName: AgentDefaults.displayName(forProvider: session.provider)
         )
         agentParticipant.conversation = convo
-        convo.participants.append(agentParticipant)
+        convo.participants = (convo.participants ?? []) + [agentParticipant]
         modelContext.insert(session)
         modelContext.insert(agentParticipant)
         try? modelContext.save()
@@ -3091,7 +3091,7 @@ struct ChatView: View {
     }
 
     private func participantForSession(_ session: Session, in convo: Conversation) -> Participant? {
-        convo.participants.first {
+        (convo.participants ?? []).first {
             if case .agentSession(let sid) = $0.type { return sid == session.id }
             return false
         }
@@ -3187,7 +3187,7 @@ struct ChatView: View {
     private var latestUserChatMessage: ConversationMessage? {
         sortedMessages.reversed().first { message in
             guard message.type == .chat, let senderId = message.senderParticipantId else { return false }
-            return conversation?.participants.first(where: { $0.id == senderId })?.type == .user
+            return (conversation?.participants ?? []).first(where: { $0.id == senderId })?.type == .user
         }
     }
 
@@ -3375,7 +3375,7 @@ struct ChatView: View {
 
     private func appendInfoMessage(_ text: String, in convo: Conversation) {
         let msg = ConversationMessage(text: text, type: .system, conversation: convo)
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         try? modelContext.save()
     }
 
@@ -3596,7 +3596,7 @@ struct ChatView: View {
         }
 
         for ag in resolvedMentionAgents {
-            if convo.sessions.contains(where: { $0.agent?.id == ag.id }) { continue }
+            if (convo.sessions ?? []).contains(where: { $0.agent?.id == ag.id }) { continue }
             let primaryWd = (convo.primarySession?.workingDirectory ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let wd = !primaryWd.isEmpty ? primaryWd : ""
@@ -3607,17 +3607,17 @@ struct ChatView: View {
                 workingDirectory: wd
             )
             session.conversations = [convo]
-            convo.sessions.append(session)
+            convo.sessions = (convo.sessions ?? []) + [session]
             let p = Participant(type: .agentSession(sessionId: session.id), displayName: ag.name)
             p.conversation = convo
-            convo.participants.append(p)
+            convo.participants = (convo.participants ?? []) + [p]
             modelContext.insert(session)
             modelContext.insert(p)
         }
         // Enforce working directories. Agent home dirs take priority over project dir.
         // Worktree paths (under ~/.odyssey/worktrees/) are explicit overrides — never touched.
         let odysseyWorktrees = NSString(string: "~/.odyssey/worktrees").expandingTildeInPath
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let isWorktree = session.workingDirectory.hasPrefix(odysseyWorktrees + "/")
             guard !isWorktree else { continue }
             if let dir = session.agent?.defaultWorkingDirectory, !dir.isEmpty {
@@ -3649,8 +3649,8 @@ struct ChatView: View {
             syncFreeformParticipantDisplayName(for: session, in: convo)
         }
 
-        let userParticipant = convo.participants.first { $0.type == .user }
-        let isFirstChat = convo.messages.filter({ $0.type == .chat }).isEmpty
+        let userParticipant = (convo.participants ?? []).first { $0.type == .user }
+        let isFirstChat = (convo.messages ?? []).filter({ $0.type == .chat }).isEmpty
 
         let message = ConversationMessage(
             senderParticipantId: userParticipant?.id,
@@ -3663,7 +3663,7 @@ struct ChatView: View {
         for item in attachments {
             let attachment = AttachmentStore.save(data: item.data, mediaType: item.mediaType, fileName: item.fileName)
             attachment.message = message
-            message.attachments.append(attachment)
+            message.attachments = (message.attachments ?? []) + [attachment]
             modelContext.insert(attachment)
             wireAttachments.append(WireAttachment(
                 data: item.data.base64EncodedString(),
@@ -3672,7 +3672,7 @@ struct ChatView: View {
             ))
         }
 
-        convo.messages.append(message)
+        convo.messages = (convo.messages ?? []) + [message]
         modelContext.insert(message)
         if isFirstChat {
             let nameHint: String
@@ -3801,7 +3801,7 @@ struct ChatView: View {
         }
         try? modelContext.save()
 
-        let participants = convo.participants
+        let participants = convo.participants ?? []
         let provisioner = AgentProvisioner(modelContext: modelContext)
         let fanOutContext = GroupPeerFanOutContext(rootMessageId: rootMessage.id)
         let rootWave = await fanOutContext.makeRootWave(
@@ -3921,7 +3921,7 @@ struct ChatView: View {
         in convo: Conversation,
         sourceGroup: AgentGroup?
     ) -> [GroupPromptBuilder.TeamMemberInfo] {
-        convo.sessions
+        (convo.sessions ?? [])
             .filter { $0.id != session.id }
             .compactMap { other in
                 guard let agent = other.agent else { return nil }
@@ -4029,7 +4029,7 @@ struct ChatView: View {
     ) async -> [PendingGroupCompletion] {
         let sourceGroup = sourceGroup(for: convo)
         let groupInstruction = sourceGroup?.groupInstruction
-        let participants = convo.participants
+        let participants = convo.participants ?? []
         var pending: [PendingGroupCompletion] = []
 
         for session in targetSessions where wave.recipientSessionIds.contains(session.id) {
@@ -4048,7 +4048,7 @@ struct ChatView: View {
                 role: groupRole(for: session, sourceGroup: sourceGroup),
                 teamMembers: teamMembers(excluding: session, in: convo, sourceGroup: sourceGroup)
             )
-            let promptText = convo.sessions.count > 1
+            let promptText = (convo.sessions ?? []).count > 1
                 ? ExecutionModePromptBuilder.wrapCoordinatorPrompt(
                     basePrompt,
                     mode: convo.executionMode,
@@ -4092,13 +4092,13 @@ struct ChatView: View {
         participants: [Participant],
         context: GroupPeerFanOutContext
     ) async -> [PendingGroupCompletion] {
-        guard convo.sessions.count > 1 else { return [] }
+        guard (convo.sessions ?? []).count > 1 else { return [] }
 
         let sourceGroup = sourceGroup(for: convo)
         if let group = sourceGroup, !group.autoReplyEnabled { return [] }
 
         let senderLabel = GroupPromptBuilder.senderDisplayLabel(for: triggerMessage, participants: participants)
-        let sortedOthers = convo.sessions
+        let sortedOthers = (convo.sessions ?? [])
             .filter { $0.id != fromSession.id }
             .sorted { $0.startedAt < $1.startedAt }
         guard let peerPlan = GroupRoutingPlanner.planPeerWave(
@@ -4229,12 +4229,12 @@ struct ChatView: View {
                     break
                 }
 
-                guard let session = convo.sessions.first(where: { $0.id == completion.sessionId }) else {
+                guard let session = (convo.sessions ?? []).first(where: { $0.id == completion.sessionId }) else {
                     finishStreamingState(for: completion.sidecarKey)
                     continue
                 }
                 let seenThroughMessage = completion.seenThroughMessageId.flatMap { messageId in
-                    convo.messages.first(where: { $0.id == messageId })
+                    (convo.messages ?? []).first(where: { $0.id == messageId })
                 }
 
                 if let reply = finalizeAssistantStreamIntoMessage(
@@ -4338,7 +4338,7 @@ struct ChatView: View {
         var restoredKeys: Set<String> = []
         var restoredDisplayNames: [String: String] = [:]
 
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let sidecarKey = session.id.uuidString
             let hasStreamingText = !(appState.streamingText[sidecarKey]?.isEmpty ?? true)
             let hasThinkingText = !(appState.thinkingText[sidecarKey]?.isEmpty ?? true)
@@ -4378,12 +4378,12 @@ struct ChatView: View {
         if appState.completedPlans[sidecarKey] != nil { return true }
 
         guard let convo = conversation,
-              let session = convo.sessions.first(where: { $0.id.uuidString == sidecarKey }),
+              let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == sidecarKey }),
               let participant = participantForSession(session, in: convo) else {
             return false
         }
 
-        return convo.messages.contains { message in
+        return (convo.messages ?? []).contains { message in
             message.senderParticipantId == participant.id &&
             message.type == .richContent &&
             message.timestamp >= start
@@ -4409,7 +4409,7 @@ struct ChatView: View {
     private func collectResponseIfSingle(errorMessage: String? = nil) {
         guard let key = streamSessionKeyForUI,
               let convo = conversation,
-              let session = convo.sessions.first(where: { $0.id.uuidString == key }) else {
+              let session = (convo.sessions ?? []).first(where: { $0.id.uuidString == key }) else {
             isProcessing = false
             return
         }
@@ -4463,7 +4463,7 @@ struct ChatView: View {
         if let thinking, !thinking.isEmpty {
             response.thinkingText = thinking
         }
-        convo.messages.append(response)
+        convo.messages = (convo.messages ?? []) + [response]
         modelContext.insert(response)
         GroupPromptBuilder.advanceWatermark(session: session, assistantMessage: response)
 
@@ -4476,7 +4476,7 @@ struct ChatView: View {
                 let attachment = AttachmentStore.save(data: data, mediaType: img.mediaType, fileName: name)
                 attachment.message = response
                 modelContext.insert(attachment)
-                response.attachments.append(attachment)
+                response.attachments = (response.attachments ?? []) + [attachment]
             }
             appState.streamingImages.removeValue(forKey: sidecarKey)
         }
@@ -4489,7 +4489,7 @@ struct ChatView: View {
                 attachment.localFilePath = card.path
                 attachment.message = response
                 modelContext.insert(attachment)
-                response.attachments.append(attachment)
+                response.attachments = (response.attachments ?? []) + [attachment]
             }
             appState.streamingFileCards.removeValue(forKey: sidecarKey)
         }
@@ -4687,10 +4687,10 @@ struct ChatView: View {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
-        newConvo.participants.append(userParticipant)
+        newConvo.participants = (newConvo.participants ?? []) + [userParticipant]
 
         var oldToNewSession: [UUID: Session] = [:]
-        for oldSession in source.sessions.sorted(by: { $0.startedAt < $1.startedAt }) {
+        for oldSession in (source.sessions ?? []).sorted(by: { $0.startedAt < $1.startedAt }) {
             let newSession = Session(
                 agent: oldSession.agent,
                 mission: oldSession.mission,
@@ -4699,16 +4699,16 @@ struct ChatView: View {
             )
             let agent = oldSession.agent
             newSession.conversations = [newConvo]
-            newConvo.sessions.append(newSession)
+            newConvo.sessions = (newConvo.sessions ?? []) + [newSession]
             oldToNewSession[oldSession.id] = newSession
 
             let p = Participant(type: .agentSession(sessionId: newSession.id), displayName: agent?.name ?? "Agent")
             p.conversation = newConvo
-            newConvo.participants.append(p)
+            newConvo.participants = (newConvo.participants ?? []) + [p]
             modelContext.insert(newSession)
         }
 
-        let ordered = source.messages.sorted { $0.timestamp < $1.timestamp }
+        let ordered = (source.messages ?? []).sorted { $0.timestamp < $1.timestamp }
         let slice: [ConversationMessage]
         if let pivot = throughMessage, let idx = ordered.firstIndex(where: { $0.id == pivot.id }) {
             slice = Array(ordered[...idx])
@@ -4719,7 +4719,7 @@ struct ChatView: View {
         for oldMsg in slice where oldMsg.type == .chat {
             let newSender: UUID? = {
                 guard let sid = oldMsg.senderParticipantId,
-                      let oldP = source.participants.first(where: { $0.id == sid }) else { return userParticipant.id }
+                      let oldP = (source.participants ?? []).first(where: { $0.id == sid }) else { return userParticipant.id }
                 if oldP.type == .user { return userParticipant.id }
                 if case .agentSession(let osid) = oldP.type,
                    let ns = oldToNewSession[osid],
@@ -4731,7 +4731,7 @@ struct ChatView: View {
             let nm = ConversationMessage(senderParticipantId: newSender, text: oldMsg.text, type: .chat, conversation: newConvo)
             nm.timestamp = oldMsg.timestamp
             nm.thinkingText = oldMsg.thinkingText
-            newConvo.messages.append(nm)
+            newConvo.messages = (newConvo.messages ?? []) + [nm]
             modelContext.insert(nm)
         }
 
@@ -4742,7 +4742,7 @@ struct ChatView: View {
 
     private func pauseSession() {
         guard let convo = conversation else { return }
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let key = session.id.uuidString
             appState.sendToSidecar(.sessionPause(sessionId: key))
             appState.markSessionPausedLocally(key)
@@ -4833,7 +4833,7 @@ struct ChatView: View {
     private func closeConversation(_ convo: Conversation) {
         convo.status = .closed
         convo.closedAt = Date()
-        for session in convo.sessions {
+        for session in (convo.sessions ?? []) {
             let key = session.id.uuidString
             appState.sendToSidecar(.sessionPause(sessionId: key))
             appState.markSessionPausedLocally(key)
@@ -4844,11 +4844,11 @@ struct ChatView: View {
 
     private func clearMessages() {
         guard let convo = conversation else { return }
-        for message in convo.messages {
-            for attachment in message.attachments { modelContext.delete(attachment) }
+        for message in (convo.messages ?? []) {
+            for attachment in (message.attachments ?? []) { modelContext.delete(attachment) }
             modelContext.delete(message)
         }
-        convo.messages.removeAll()
+        convo.messages = []
         try? modelContext.save()
     }
 
@@ -4861,9 +4861,9 @@ struct ChatView: View {
         newConvo.routingMode = convo.routingMode
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = newConvo
-        newConvo.participants.append(userParticipant)
+        newConvo.participants = (newConvo.participants ?? []) + [userParticipant]
 
-        for session in convo.sessions.sorted(by: { $0.startedAt < $1.startedAt }) {
+        for session in (convo.sessions ?? []).sorted(by: { $0.startedAt < $1.startedAt }) {
             let newSession = Session(
                 agent: session.agent,
                 mission: session.mission,
@@ -4871,7 +4871,7 @@ struct ChatView: View {
                 workingDirectory: session.workingDirectory
             )
             newSession.conversations = [newConvo]
-            newConvo.sessions.append(newSession)
+            newConvo.sessions = (newConvo.sessions ?? []) + [newSession]
 
             let displayName = session.agent?.name ?? "Agent"
             let agentParticipant = Participant(
@@ -4879,7 +4879,7 @@ struct ChatView: View {
                 displayName: displayName
             )
             agentParticipant.conversation = newConvo
-            newConvo.participants.append(agentParticipant)
+            newConvo.participants = (newConvo.participants ?? []) + [agentParticipant]
             modelContext.insert(newSession)
         }
 

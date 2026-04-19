@@ -252,7 +252,7 @@ final class SharedRoomService: ObservableObject {
     func publishLocalMessage(_ message: ConversationMessage, in conversation: Conversation) async {
         guard conversation.isSharedRoom else { return }
         guard let senderId = message.senderParticipantId,
-              let sender = conversation.participants.first(where: { $0.id == senderId }) else { return }
+              let sender = (conversation.participants ?? []).first(where: { $0.id == senderId }) else { return }
         do {
             ensureParticipantIdentity(sender, in: conversation)
             if message.roomMessageId == nil {
@@ -302,7 +302,7 @@ final class SharedRoomService: ObservableObject {
 
     func publishLocalParticipants(for conversation: Conversation) async {
         guard conversation.isSharedRoom else { return }
-        for participant in conversation.participants where participant.isLocalParticipant {
+        for participant in (conversation.participants ?? []) where participant.isLocalParticipant {
             do {
                 try await publishParticipant(participant, in: conversation)
             } catch {
@@ -421,14 +421,14 @@ final class SharedRoomService: ObservableObject {
     }
 
     private func ensureLocalUserParticipant(in conversation: Conversation, identity: UserIdentity) -> Participant {
-        if let existing = conversation.participants.first(where: { $0.typeKind == "user" && $0.isLocalParticipant }) {
+        if let existing = (conversation.participants ?? []).first(where: { $0.typeKind == "user" && $0.isLocalParticipant }) {
             ensureParticipantIdentity(existing, in: conversation, identity: identity)
             return existing
         }
 
         let participant = Participant(type: .user, displayName: identity.displayName)
         participant.conversation = conversation
-        conversation.participants.append(participant)
+        conversation.participants = (conversation.participants ?? []) + [participant]
         modelContext?.insert(participant)
         ensureParticipantIdentity(participant, in: conversation, identity: identity)
         return participant
@@ -512,12 +512,12 @@ final class SharedRoomService: ObservableObject {
     private func applyMembershipRecord(_ record: CKRecord, to conversation: Conversation) {
         guard let participantId = record["participantId"] as? String else { return }
 
-        let existing = conversation.participants.first { $0.roomParticipantId == participantId }
+        let existing = (conversation.participants ?? []).first { $0.roomParticipantId == participantId }
         let participant = existing ?? Participant(type: .remoteUser(userId: "", participantId: participantId, homeNodeId: ""), displayName: "Guest")
         if existing == nil {
             participant.conversation = conversation
             modelContext?.insert(participant)
-            conversation.participants.append(participant)
+            conversation.participants = (conversation.participants ?? []) + [participant]
         }
 
         let displayName = (record["displayName"] as? String) ?? participant.displayName
@@ -572,14 +572,14 @@ final class SharedRoomService: ObservableObject {
 
     private func applyMessageRecord(_ record: CKRecord, to conversation: Conversation) {
         guard let roomMessageId = record["messageId"] as? String else { return }
-        if conversation.messages.contains(where: { $0.roomMessageId == roomMessageId }) {
+        if (conversation.messages ?? []).contains(where: { $0.roomMessageId == roomMessageId }) {
             return
         }
 
         let text = (record["text"] as? String) ?? ""
         let senderParticipantId = record["senderParticipantId"] as? String
         let sender = senderParticipantId.flatMap { id in
-            conversation.participants.first { $0.roomParticipantId == id }
+            (conversation.participants ?? []).first { $0.roomParticipantId == id }
         }
         let typeRaw = (record["messageType"] as? String) ?? MessageType.chat.rawValue
         let messageType = MessageType(rawValue: typeRaw) ?? .chat
@@ -603,7 +603,7 @@ final class SharedRoomService: ObservableObject {
             message.timestamp = createdAt
         }
 
-        conversation.messages.append(message)
+        conversation.messages = (conversation.messages ?? []) + [message]
         modelContext?.insert(message)
     }
 
@@ -675,7 +675,7 @@ final class SharedRoomService: ObservableObject {
             type: .chat,
             conversation: conversation
         )
-        conversation.messages.append(message)
+        conversation.messages = (conversation.messages ?? []) + [message]
         modelContext?.insert(message)
         try? modelContext?.save()
         await publishLocalMessage(message, in: conversation)
@@ -685,7 +685,7 @@ final class SharedRoomService: ObservableObject {
     func roomSnapshot(roomId: String) -> SharedRoomTestAPIService.RoomSnapshot? {
         guard let conversation = existingConversation(roomId: roomId) else { return nil }
 
-        let participants = conversation.participants
+        let participants = (conversation.participants ?? [])
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
             .map { participant in
                 SharedRoomTestAPIService.RoomSnapshot.ParticipantSnapshot(
@@ -699,7 +699,7 @@ final class SharedRoomService: ObservableObject {
                 )
             }
 
-        let messages = conversation.messages
+        let messages = (conversation.messages ?? [])
             .sorted {
                 if $0.roomHostSequence == $1.roomHostSequence {
                     return $0.timestamp < $1.timestamp
@@ -708,7 +708,7 @@ final class SharedRoomService: ObservableObject {
             }
             .map { message in
                 let sender = message.senderParticipantId.flatMap { senderId in
-                    conversation.participants.first(where: { $0.id == senderId })
+                    (conversation.participants ?? []).first(where: { $0.id == senderId })
                 }
                 return SharedRoomTestAPIService.RoomSnapshot.MessageSnapshot(
                     text: message.text,
@@ -963,7 +963,7 @@ final class SharedRoomService: ObservableObject {
         context: ModelContext
     ) async {
         // Deduplicate by roomMessageId
-        let existing = conversation.messages.first(where: { $0.roomMessageId == msg.messageId })
+        let existing = (conversation.messages ?? []).first(where: { $0.roomMessageId == msg.messageId })
         guard existing == nil else { return }
 
         let newMessage = ConversationMessage(
@@ -973,7 +973,7 @@ final class SharedRoomService: ObservableObject {
         )
         newMessage.roomMessageId = msg.messageId
         newMessage.roomDeliveryMode = .matrix
-        conversation.messages.append(newMessage)
+        conversation.messages = (conversation.messages ?? []) + [newMessage]
         try? context.save()
     }
 }

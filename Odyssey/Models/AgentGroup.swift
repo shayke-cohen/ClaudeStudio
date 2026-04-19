@@ -10,24 +10,24 @@ enum AgentGroupOrigin: Sendable, Hashable {
 
 @Model
 final class AgentGroup {
-    var id: UUID
-    var name: String
-    var groupDescription: String
-    var icon: String
-    var color: String
-    var groupInstruction: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var groupDescription: String = ""
+    var icon: String = "👥"
+    var color: String = "blue"
+    var groupInstruction: String = ""
     var defaultMission: String?
-    var agentIds: [UUID]
-    var sortOrder: Int
+    var agentIds: [UUID] = []
+    var sortOrder: Int = 0
     var isEnabled: Bool = true
     var showInSidebar: Bool = true
     var configSlug: String?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     // Feature: Auto-Reply toggle
-    var autoReplyEnabled: Bool
+    var autoReplyEnabled: Bool = true
     // Feature: Autonomous mode
-    var autonomousCapable: Bool
+    var autonomousCapable: Bool = false
     var coordinatorAgentId: UUID?
     // Feature: Roles — JSON-encoded {uuid-string: role-name}
     var agentRolesJSON: String?
@@ -37,13 +37,13 @@ final class AgentGroup {
     var defaultWorkingDirectory: String?
 
     // AgentGroupOrigin flattened for SwiftData
-    var originKind: String
+    var originKind: String = "local"
     var originPeerName: String?
     /// The original UUID of the group on the remote peer (used for duplicate import detection)
     var originRemoteId: UUID?
 
     @Relationship(deleteRule: .nullify, inverse: \PromptTemplate.group)
-    var promptTemplates: [PromptTemplate] = []
+    var promptTemplates: [PromptTemplate]? = nil
 
     static func defaultHomePath(for name: String) -> String {
         let slug = name

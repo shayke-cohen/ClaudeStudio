@@ -180,7 +180,7 @@ struct MessageBubble: View {
                     if !isUser, let thinking = message.thinkingText, !thinking.isEmpty {
                         thinkingSection(thinking)
                     }
-                    if !message.attachments.isEmpty {
+                    if !(message.attachments ?? []).isEmpty {
                         attachmentGrid
                     }
                     if !message.text.isEmpty {
@@ -261,7 +261,7 @@ struct MessageBubble: View {
 
     @ViewBuilder
     private var attachmentGrid: some View {
-        let attachments = message.attachments
+        let attachments = message.attachments ?? []
         let columns = attachments.count == 1 ? 1 : 2
         let gridItems = Array(repeating: GridItem(.flexible(), spacing: 4), count: columns)
 

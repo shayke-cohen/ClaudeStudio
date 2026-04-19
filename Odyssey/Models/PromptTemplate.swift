@@ -8,13 +8,13 @@ enum PromptTemplateOwnerKind: String, Sendable, Hashable {
 
 @Model
 final class PromptTemplate {
-    var id: UUID
-    var name: String
-    var prompt: String
-    var sortOrder: Int
-    var isBuiltin: Bool
-    var createdAt: Date
-    var updatedAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var prompt: String = ""
+    var sortOrder: Int = 0
+    var isBuiltin: Bool = false
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     /// Disk identity: "<ownerKind-plural>/<ownerSlug>/<templateSlug>"
     /// e.g. "agents/coder/review-pr" or "groups/security-audit/full-codebase-audit".

@@ -100,7 +100,7 @@ final class GroupWorkflowEngine {
     // MARK: - Helpers
 
     private func findSession(for agentId: UUID) -> Session? {
-        conversation.sessions.first { $0.agent?.id == agentId }
+        (conversation.sessions ?? []).first { $0.agent?.id == agentId }
     }
 
     private func markStepCompleted(_ index: Int) {
@@ -210,7 +210,7 @@ final class GroupWorkflowEngine {
             type: .system,
             conversation: conversation
         )
-        conversation.messages.append(msg)
+        conversation.messages = (conversation.messages ?? []) + [msg]
         try? modelContext.save()
     }
 }

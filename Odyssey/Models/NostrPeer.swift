@@ -7,15 +7,15 @@ import SwiftData
 @Model
 final class NostrPeer {
     /// Stable identifier for this peer record.
-    var id: UUID
+    var id: UUID = UUID()
     /// Display name from the invite payload (e.g. "Alex's MacBook Pro").
-    var displayName: String
+    var displayName: String = ""
     /// 32-byte x-only secp256k1 pubkey as hex (64 chars).
-    var pubkeyHex: String
+    var pubkeyHex: String = ""
     /// Preferred Nostr relay URLs for this peer.
-    var relays: [String]
+    var relays: [String] = []
     /// When the invite was accepted.
-    var pairedAt: Date
+    var pairedAt: Date = Date()
     /// Last time the sidecar reported receiving a message from this peer (for UI freshness).
     var lastSeenAt: Date?
 

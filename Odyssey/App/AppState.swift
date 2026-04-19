@@ -287,7 +287,7 @@ final class AppState {
             conversation.executionMode = launchMode
             let userParticipant = Participant(type: .user, displayName: "You")
             userParticipant.conversation = conversation
-            conversation.participants.append(userParticipant)
+            conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
             if intent.prompt != nil || launchMode != .interactive {
                 let freeformSession = Session(
@@ -297,13 +297,13 @@ final class AppState {
                     workingDirectory: projectDir
                 )
                 freeformSession.conversations = [conversation]
-                conversation.sessions.append(freeformSession)
+                conversation.sessions = (conversation.sessions ?? []) + [freeformSession]
                 let agentParticipant = Participant(
                     type: .agentSession(sessionId: freeformSession.id),
                     displayName: AgentDefaults.displayName(forProvider: freeformSession.provider)
                 )
                 agentParticipant.conversation = conversation
-                conversation.participants.append(agentParticipant)
+                conversation.participants = (conversation.participants ?? []) + [agentParticipant]
                 modelContext.insert(freeformSession)
             }
 
@@ -488,7 +488,7 @@ final class AppState {
 
         let userParticipant = Participant(type: .user, displayName: "You")
         userParticipant.conversation = conversation
-        conversation.participants.append(userParticipant)
+        conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         let instruction = group.groupInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         if !instruction.isEmpty {
@@ -498,7 +498,7 @@ final class AppState {
                 type: .system,
                 conversation: conversation
             )
-            conversation.messages.append(sysMsg)
+            conversation.messages = (conversation.messages ?? []) + [sysMsg]
         }
 
         let provisioner = AgentProvisioner(modelContext: modelContext)
@@ -520,14 +520,14 @@ final class AppState {
                 workingDirOverride: groupDir.isEmpty ? nil : groupDir
             )
             session.conversations = [conversation]
-            conversation.sessions.append(session)
+            conversation.sessions = (conversation.sessions ?? []) + [session]
 
             let agentParticipant = Participant(
                 type: .agentSession(sessionId: session.id),
                 displayName: agent.name
             )
             agentParticipant.conversation = conversation
-            conversation.participants.append(agentParticipant)
+            conversation.participants = (conversation.participants ?? []) + [agentParticipant]
             modelContext.insert(session)
         }
 
@@ -588,7 +588,7 @@ final class AppState {
         let targetSessionMode = sessionMode(for: executionMode)
         conversation.executionMode = executionMode
 
-        let updates = conversation.sessions.map { session -> (sessionId: String, settings: AgentProvisioner.RuntimeModeSettings) in
+        let updates = (conversation.sessions ?? []).map { session -> (sessionId: String, settings: AgentProvisioner.RuntimeModeSettings) in
             session.mode = targetSessionMode
             let settings = AgentProvisioner.runtimeModeSettings(agent: session.agent, mode: targetSessionMode)
             return (session.id.uuidString, settings)
@@ -607,7 +607,7 @@ final class AppState {
     }
 
     func setDelegationMode(for conversation: Conversation, mode: DelegationMode, targetAgentName: String? = nil) {
-        guard let primarySession = conversation.sessions.min(by: { $0.startedAt < $1.startedAt }) else { return }
+        guard let primarySession = (conversation.sessions ?? []).min(by: { $0.startedAt < $1.startedAt }) else { return }
         conversation.delegationMode = mode
         conversation.delegationTargetAgentName = targetAgentName
         sendToSidecar(.setDelegationMode(
@@ -762,10 +762,10 @@ final class AppState {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first,
-              let convo = session.conversations.first else { return }
+              let convo = (session.conversations ?? []).first else { return }
 
         let agentName = session.agent?.name ?? "Agent"
-        let agentParticipant = convo.participants.first { p in
+        let agentParticipant = (convo.participants ?? []).first { p in
             if case .agentSession(let sid) = p.type { return sid == uuid }
             return false
         }
@@ -778,7 +778,7 @@ final class AppState {
         )
         msg.toolName = agentName
         msg.toolInput = answer
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
         try? ctx.save()
     }
@@ -793,9 +793,9 @@ final class AppState {
 
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first,
-              let convo = session.conversations.first else { return }
+              let convo = (session.conversations ?? []).first else { return }
 
-        let agentParticipant = convo.participants.first { p in
+        let agentParticipant = (convo.participants ?? []).first { p in
             if case .agentSession(let sid) = p.type { return sid == uuid }
             return false
         }
@@ -809,7 +809,7 @@ final class AppState {
         if let thinking, !thinking.isEmpty {
             msg.thinkingText = thinking
         }
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
         try? ctx.save()
 
@@ -843,9 +843,9 @@ final class AppState {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first,
-              let convo = session.conversations.first else { return }
+              let convo = (session.conversations ?? []).first else { return }
 
-        let agentParticipant = convo.participants.first { p in
+        let agentParticipant = (convo.participants ?? []).first { p in
             if case .agentSession(let sid) = p.type { return sid == uuid }
             return false
         }
@@ -859,7 +859,7 @@ final class AppState {
         msg.toolName = format
         msg.toolInput = title
         msg.toolOutput = height.map { String($0) }
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
         try? ctx.save()
     }
@@ -978,7 +978,7 @@ final class AppState {
     // MARK: - Conversation Activity
 
     func conversationActivity(for conversation: Conversation) -> ConversationActivitySummary {
-        let sessionStates: [(agentName: String, state: SessionActivityState)] = conversation.sessions.map { session in
+        let sessionStates: [(agentName: String, state: SessionActivityState)] = (conversation.sessions ?? []).map { session in
             let key = session.id.uuidString
             let state = sessionActivity[key] ?? .idle
             return (agentName: session.agent?.name ?? "Agent", state: state)
@@ -1047,7 +1047,7 @@ final class AppState {
                 let descriptor = FetchDescriptor<AgentGroup>(predicate: #Predicate { $0.id == groupId })
                 if let sourceGroup = try? ctx.fetch(descriptor).first,
                    let coordinatorId = sourceGroup.coordinatorAgentId {
-                    coordinatorSessionId = freshConvo.sessions
+                    coordinatorSessionId = (freshConvo.sessions ?? [])
                         .first(where: { $0.agent?.id == coordinatorId })?
                         .id.uuidString
                 }
@@ -1065,7 +1065,7 @@ final class AppState {
                 conversationId: convId,
                 goal: freshConvo.goal,
                 coordinatorSessionId: coordinatorSessionId,
-                sessionIds: freshConvo.sessions.map { $0.id.uuidString }
+                sessionIds: (freshConvo.sessions ?? []).map { $0.id.uuidString }
             ))
         }
     }
@@ -1362,7 +1362,7 @@ final class AppState {
             if let ctx = modelContext,
                let uuid = UUID(uuidString: conversationId),
                let convo = try? ctx.fetch(FetchDescriptor<Conversation>()).first(where: { $0.id == uuid }) {
-                for msg in convo.messages { ctx.delete(msg) }
+                for msg in (convo.messages ?? []) { ctx.delete(msg) }
                 try? ctx.save()
             }
 
@@ -1483,7 +1483,7 @@ final class AppState {
         // Find the conversation that the requesting session belongs to
         let sessionDescriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == sessionUUID })
         guard let requestingSession = try? ctx.fetch(sessionDescriptor).first,
-              let conversation = requestingSession.conversations.first else {
+              let conversation = (requestingSession.conversations ?? []).first else {
             Log.appState.warning("handleInviteAgent: no conversation found for session \(sessionId, privacy: .public)")
             return
         }
@@ -1497,7 +1497,7 @@ final class AppState {
         }
 
         // Check if agent is already in the conversation
-        if conversation.sessions.contains(where: { $0.agent?.id == agent.id }) {
+        if (conversation.sessions ?? []).contains(where: { $0.agent?.id == agent.id }) {
             Log.appState.info("handleInviteAgent: '\(agentName, privacy: .public)' already in conversation")
             return
         }
@@ -1519,12 +1519,12 @@ final class AppState {
         )
 
         newSession.conversations = [conversation]
-        conversation.sessions.append(newSession)
+        conversation.sessions = (conversation.sessions ?? []) + [newSession]
         conversation.threadKind = .group
 
         let participant = Participant(type: .agentSession(sessionId: newSession.id), displayName: agent.name)
         participant.conversation = conversation
-        conversation.participants.append(participant)
+        conversation.participants = (conversation.participants ?? []) + [participant]
 
         ctx.insert(newSession)
         ctx.insert(participant)
@@ -1653,7 +1653,7 @@ final class AppState {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first,
-              let convo = session.conversations.first,
+              let convo = (session.conversations ?? []).first,
               !visibleConversationIds.contains(convo.id) else { return }
         convo.isUnread = true
         try? ctx.save()
@@ -1665,7 +1665,7 @@ final class AppState {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
         guard let session = try? ctx.fetch(descriptor).first,
-              let convo = session.conversations.first else { return }
+              let convo = (session.conversations ?? []).first else { return }
         guard !visibleConversationIds.contains(convo.id) || !appIsActive else { return }
         let agentName = session.agent?.name ?? "Agent"
         action(agentName, convo.topic)
@@ -1731,7 +1731,7 @@ final class AppState {
         guard !responseText.isEmpty else { return }
 
         let sessionUUID = UUID(uuidString: sessionId)
-        let agentParticipant = convo.participants.first {
+        let agentParticipant = (convo.participants ?? []).first {
             guard case .agentSession(let sid) = $0.type, let suid = sessionUUID else { return false }
             return sid == suid
         }
@@ -1741,7 +1741,7 @@ final class AppState {
             type: .chat,
             conversation: convo
         )
-        convo.messages.append(response)
+        convo.messages = (convo.messages ?? []) + [response]
         ctx.insert(response)
         try? ctx.save()
 
@@ -1755,7 +1755,7 @@ final class AppState {
     private func conversationForSession(sessionId: String) -> Conversation? {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return nil }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.id == uuid })
-        return (try? ctx.fetch(descriptor).first)?.conversations.first
+        return (try? ctx.fetch(descriptor).first)?.conversations?.first
     }
 
     private func persistPeerChatMessage(sessionId: String, channelId: String, from: String, message: String) {

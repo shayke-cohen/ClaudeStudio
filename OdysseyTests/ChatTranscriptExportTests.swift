@@ -36,11 +36,11 @@ final class ChatTranscriptExportTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
 
         let agentPart = Participant(type: .agentSession(sessionId: session.id), displayName: agent.name)
         agentPart.conversation = convo
-        convo.participants.append(agentPart)
+        convo.participants = (convo.participants ?? []) + [agentPart]
 
         ctx.insert(convo)
         ctx.insert(session)

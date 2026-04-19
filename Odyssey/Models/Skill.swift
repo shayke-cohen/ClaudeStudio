@@ -10,16 +10,16 @@ enum SkillSource: Sendable, Hashable {
 
 @Model
 final class Skill {
-    var id: UUID
-    var name: String
-    var skillDescription: String
-    var category: String
-    var content: String
-    var triggers: [String]
-    var version: String
-    var createdAt: Date
-    var updatedAt: Date
-    var mcpServerIds: [UUID]
+    var id: UUID = UUID()
+    var name: String = ""
+    var skillDescription: String = ""
+    var category: String = "General"
+    var content: String = ""
+    var triggers: [String] = []
+    var version: String = "1.0"
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var mcpServerIds: [UUID] = []
     var catalogId: String?
     var isEnabled: Bool = true
     var configSlug: String?
@@ -28,7 +28,7 @@ final class Skill {
     // sourceKind defaults to "custom" for UI-created skills.
     // ConfigSyncService sets sourceKind="filesystem", configSlug, and sourceValue
     // when creating/updating skills from disk files.
-    var sourceKind: String
+    var sourceKind: String = "custom"
     var sourceValue: String?
 
     @Transient

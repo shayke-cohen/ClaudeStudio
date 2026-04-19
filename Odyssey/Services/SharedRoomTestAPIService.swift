@@ -243,7 +243,7 @@ final class SharedRoomTestAPIService: ObservableObject {
                 // can dispatch to an agent. The sidecar requires session.create + session.message;
                 // conversation.messageAppend only stores the message without triggering a response.
                 let session: Session
-                if let existing = conversation.sessions.first {
+                if let existing = (conversation.sessions ?? []).first {
                     session = existing
                 } else {
                     let newSession = Session(
@@ -252,13 +252,13 @@ final class SharedRoomTestAPIService: ObservableObject {
                         workingDirectory: NSHomeDirectory()
                     )
                     newSession.conversations = [conversation]
-                    conversation.sessions.append(newSession)
+                    conversation.sessions = (conversation.sessions ?? []) + [newSession]
                     let agentParticipant = Participant(
                         type: .agentSession(sessionId: newSession.id),
                         displayName: AgentDefaults.displayName(forProvider: newSession.provider)
                     )
                     agentParticipant.conversation = conversation
-                    conversation.participants.append(agentParticipant)
+                    conversation.participants = (conversation.participants ?? []) + [agentParticipant]
                     ctx.insert(newSession)
                     ctx.insert(agentParticipant)
                     try? ctx.save()

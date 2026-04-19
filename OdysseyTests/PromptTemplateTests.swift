@@ -54,8 +54,8 @@ final class PromptTemplateTests: XCTestCase {
         XCTAssertEqual(template.ownerKind, .agent)
         XCTAssertEqual(template.ownerSlugComponent, "coder")
         XCTAssertEqual(template.templateSlugComponent, "review-pr")
-        XCTAssertEqual(agent.promptTemplates.count, 1)
-        XCTAssertEqual(agent.promptTemplates.first?.name, "Review PR")
+        XCTAssertEqual((agent.promptTemplates ?? []).count, 1)
+        XCTAssertEqual((agent.promptTemplates ?? []).first?.name, "Review PR")
     }
 
     // Delete rules changed from .cascade to .nullify for CloudKit compatibility.
@@ -72,7 +72,7 @@ final class PromptTemplateTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 2)
 
         // Simulate the production AgentLibraryView.deleteAgent() pattern
-        for t in agent.promptTemplates { context.delete(t) }
+        for t in (agent.promptTemplates ?? []) { context.delete(t) }
         context.delete(agent)
         try context.save()
 
@@ -107,7 +107,7 @@ final class PromptTemplateTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PromptTemplate>()), 1)
 
         // Simulate GroupLibraryView.deleteGroup() pattern
-        for tmpl in group.promptTemplates { context.delete(tmpl) }
+        for tmpl in (group.promptTemplates ?? []) { context.delete(tmpl) }
         context.delete(group)
         try context.save()
 

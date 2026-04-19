@@ -3,15 +3,15 @@ import SwiftData
 
 @Model
 final class PermissionSet {
-    var id: UUID
-    var name: String
-    var allowRules: [String]
-    var denyRules: [String]
-    var additionalDirectories: [String]
-    var permissionMode: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var allowRules: [String] = []
+    var denyRules: [String] = []
+    var additionalDirectories: [String] = []
+    var permissionMode: String = "default"
     var isEnabled: Bool = true
     var configSlug: String?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     init(name: String, allowRules: [String] = [], denyRules: [String] = [], permissionMode: String = "default") {
         self.id = UUID()

@@ -152,7 +152,7 @@ struct WorkshopView: View {
         let sessions = (try? modelContext.fetch(descriptor)) ?? []
         if let existingSession = sessions.first(where: {
             $0.agent?.name == "Config Agent" && $0.status != .completed && $0.status != .failed
-        }), let existingConv = existingSession.conversations.first {
+        }), let existingConv = (existingSession.conversations ?? []).first {
             configConversationId = existingConv.id
             return
         }

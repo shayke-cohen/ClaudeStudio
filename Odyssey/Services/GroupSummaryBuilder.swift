@@ -23,8 +23,8 @@ enum GroupSummaryBuilder {
     }
 
     static func buildSummary(conversation: Conversation) -> GroupSummary {
-        let participants = conversation.participants
-        let messages = conversation.messages.sorted { $0.timestamp < $1.timestamp }
+        let participants = conversation.participants ?? []
+        let messages = (conversation.messages ?? []).sorted { $0.timestamp < $1.timestamp }
 
         let agentParticipants = participants.filter {
             if case .agentSession = $0.type { return true }
@@ -50,7 +50,7 @@ enum GroupSummaryBuilder {
             }
 
             // Resolve agent info from session
-            let session = conversation.sessions.first { s in
+            let session = (conversation.sessions ?? []).first { s in
                 if case .agentSession(let sid) = participant.type { return s.id == sid }
                 return false
             }

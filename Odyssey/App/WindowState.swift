@@ -280,6 +280,7 @@ final class WindowState {
     var showSharedRoomInviteSheet = false
     var showSharedRoomInbox = false
     var showWorkshop = false
+    var showFTE = false
     var activeRoute: WindowContentRoute = .workspace
     var pendingConfigSection: ConfigSection? = nil
     var pendingConfigSlug: String? = nil

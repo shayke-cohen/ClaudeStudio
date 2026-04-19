@@ -239,7 +239,7 @@ enum ChatTranscriptExport {
                 colorName: nil
             )
         case .agentSession(let sessionId):
-            let agent = conversation.sessions.first { $0.id == sessionId }?.agent
+            let agent = (conversation.sessions ?? []).first { $0.id == sessionId }?.agent
             return ChatTranscriptSenderPresentation(
                 displayName: participant.displayName,
                 role: .agent,
@@ -264,7 +264,7 @@ enum ChatTranscriptExport {
     }
 
     private static func attachments(from message: ConversationMessage) -> [ChatTranscriptAttachmentSnapshot] {
-        message.attachments.map {
+        (message.attachments ?? []).map {
             ChatTranscriptAttachmentSnapshot(
                 fileName: $0.fileName,
                 mediaType: $0.mediaType,

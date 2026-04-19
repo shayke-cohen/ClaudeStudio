@@ -353,12 +353,12 @@ private struct GeneralSettingsTab: View {
 
     private func deleteAllHistory() {
         for conversation in conversations {
-            for msg in conversation.messages {
-                for att in msg.attachments { modelContext.delete(att) }
+            for msg in (conversation.messages ?? []) {
+                for att in (msg.attachments ?? []) { modelContext.delete(att) }
                 modelContext.delete(msg)
             }
-            for participant in conversation.participants { modelContext.delete(participant) }
-            for session in conversation.sessions { modelContext.delete(session) }
+            for participant in (conversation.participants ?? []) { modelContext.delete(participant) }
+            for session in (conversation.sessions ?? []) { modelContext.delete(session) }
             modelContext.delete(conversation)
         }
         try? modelContext.save()

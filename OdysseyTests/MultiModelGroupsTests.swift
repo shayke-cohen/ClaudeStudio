@@ -402,7 +402,7 @@ final class MultiModelGroupsTests: XCTestCase {
         p1.conversation = convo
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: reviewer.name)
         p2.conversation = convo
-        convo.participants.append(contentsOf: [user, p1, p2])
+        convo.participants = (convo.participants ?? []) + [user, p1, p2]
 
         ctx.insert(convo); ctx.insert(s1); ctx.insert(s2)
         ctx.insert(user); ctx.insert(p1); ctx.insert(p2)
@@ -435,7 +435,7 @@ final class MultiModelGroupsTests: XCTestCase {
         var sessions: [Session] = []
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
 
         for agent in agents {
             let session = Session(agent: agent, workingDirectory: "/tmp")
@@ -447,7 +447,7 @@ final class MultiModelGroupsTests: XCTestCase {
                 displayName: agent.name
             )
             participant.conversation = convo
-            convo.participants.append(participant)
+            convo.participants = (convo.participants ?? []) + [participant]
             ctx.insert(session)
             ctx.insert(participant)
         }

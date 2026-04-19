@@ -116,6 +116,11 @@ export class BufferedWs {
   }
 }
 
+function wsHeaders(): Record<string, string> | undefined {
+  const token = process.env.ODYSSEY_WS_TOKEN ?? process.env.CLAUDESTUDIO_WS_TOKEN;
+  return token ? { authorization: `Bearer ${token}` } : undefined;
+}
+
 /**
  * Connect to a WS server with retry logic (useful when sidecar is still booting).
  */
@@ -124,7 +129,7 @@ export function wsConnect(port: number, timeoutMs = 10000): Promise<BufferedWs> 
     const timer = setTimeout(() => reject(new Error("WS connect timeout")), timeoutMs);
     const tryConnect = () => {
       try {
-        const ws = new WebSocket(`ws://localhost:${port}`);
+        const ws = new WebSocket(`ws://localhost:${port}`, { headers: wsHeaders() } as any);
         ws.onopen = () => {
           clearTimeout(timer);
           resolve(new BufferedWs(ws));
@@ -145,7 +150,7 @@ export function wsConnect(port: number, timeoutMs = 10000): Promise<BufferedWs> 
  */
 export function wsConnectDirect(port: number, timeoutMs = 5000): Promise<BufferedWs> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://localhost:${port}`);
+    const ws = new WebSocket(`ws://localhost:${port}`, { headers: wsHeaders() } as any);
     const timer = setTimeout(() => reject(new Error("connect timeout")), timeoutMs);
     ws.onopen = () => {
       clearTimeout(timer);

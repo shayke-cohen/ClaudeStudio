@@ -25,7 +25,7 @@ final class GroupPromptBuilderTests: XCTestCase {
         convo.sessions = [session]
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(session)
         ctx.insert(user)
@@ -56,16 +56,16 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let m1 = ConversationMessage(senderParticipantId: user.id, text: "Hi room", type: .chat, conversation: convo)
-        convo.messages.append(m1)
+        convo.messages = (convo.messages ?? []) + [m1]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -105,17 +105,17 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let oldMsg = ConversationMessage(senderParticipantId: user.id, text: "OLD", type: .chat, conversation: convo)
         let newMsg = ConversationMessage(senderParticipantId: user.id, text: "NEW", type: .chat, conversation: convo)
-        convo.messages.append(contentsOf: [oldMsg, newMsg])
+        convo.messages = (convo.messages ?? []) + [oldMsg, newMsg]
         s1.lastInjectedMessageId = oldMsg.id
 
         ctx.insert(convo)
@@ -154,17 +154,17 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let rootUser = ConversationMessage(senderParticipantId: user.id, text: "Root question", type: .chat, conversation: convo)
         let laterReply = ConversationMessage(senderParticipantId: p2.id, text: "Later reply", type: .chat, conversation: convo)
-        convo.messages.append(contentsOf: [rootUser, laterReply])
+        convo.messages = (convo.messages ?? []) + [rootUser, laterReply]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -179,7 +179,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Root question",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             transcriptBoundaryMessageId: rootUser.id,
             allowNoReply: true
         )
@@ -241,17 +241,17 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let userChat = ConversationMessage(senderParticipantId: user.id, text: "visible", type: .chat, conversation: convo)
         let systemMsg = ConversationMessage(senderParticipantId: nil, text: "HIDDEN_SYSTEM", type: .system, conversation: convo)
-        convo.messages.append(contentsOf: [userChat, systemMsg])
+        convo.messages = (convo.messages ?? []) + [userChat, systemMsg]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -289,16 +289,16 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: "Display A1")
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let fromAgent = ConversationMessage(senderParticipantId: p1.id, text: "from agent line", type: .chat, conversation: convo)
-        convo.messages.append(fromAgent)
+        convo.messages = (convo.messages ?? []) + [fromAgent]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -334,17 +334,17 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let huge = String(repeating: "x", count: GroupPromptBuilder.maxInjectedCharacters + 5_000)
         let m1 = ConversationMessage(senderParticipantId: user.id, text: huge, type: .chat, conversation: convo)
-        convo.messages.append(m1)
+        convo.messages = (convo.messages ?? []) + [m1]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -381,16 +381,16 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
 
         let m1 = ConversationMessage(senderParticipantId: user.id, text: "Hi", type: .chat, conversation: convo)
-        convo.messages.append(m1)
+        convo.messages = (convo.messages ?? []) + [m1]
 
         ctx.insert(convo)
         ctx.insert(s1)
@@ -404,7 +404,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hey",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             highlightedMentionAgentNames: ["A2"]
         )
         XCTAssertTrue(built.contains("specifically mentioned by name: A2"))
@@ -427,7 +427,7 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -437,7 +437,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             highlightedMentionAgentNames: ["A2"],
             routingMode: .broad,
             deliveryReason: .directMention,
@@ -464,7 +464,7 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -474,7 +474,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             highlightedMentionAgentNames: ["A1"],
             routingMode: .mentionAware,
             deliveryReason: .directMention
@@ -500,7 +500,7 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -510,7 +510,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             mentionedAll: true,
             routingMode: .mentionAware,
             deliveryReason: .broadcast
@@ -536,7 +536,7 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -546,7 +546,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hello",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             routingMode: .mentionAware,
             deliveryReason: .coordinatorLead
         )
@@ -578,16 +578,16 @@ final class GroupPromptBuilderTests: XCTestCase {
         let user = Participant(type: .user, displayName: "You")
         let convo = Conversation()
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(user)
 
         let msg = ConversationMessage(senderParticipantId: user.id, text: "x", type: .chat, conversation: convo)
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
 
         XCTAssertEqual(
-            GroupPromptBuilder.senderDisplayLabel(for: msg, participants: convo.participants),
+            GroupPromptBuilder.senderDisplayLabel(for: msg, participants: convo.participants ?? []),
             "[You]"
         )
     }
@@ -655,17 +655,17 @@ final class GroupPromptBuilderTests: XCTestCase {
         convo.sessions = [s1]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: "Display A1")
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(p1)
 
         let msg = ConversationMessage(senderParticipantId: p1.id, text: "hi", type: .chat, conversation: convo)
-        convo.messages.append(msg)
+        convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
 
         XCTAssertEqual(
-            GroupPromptBuilder.senderDisplayLabel(for: msg, participants: convo.participants),
+            GroupPromptBuilder.senderDisplayLabel(for: msg, participants: convo.participants ?? []),
             "Display A1"
         )
     }
@@ -719,13 +719,13 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -740,7 +740,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hi",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             teamMembers: teamMembers
         )
         XCTAssertTrue(built.contains("[Your Team]"))
@@ -786,13 +786,13 @@ final class GroupPromptBuilderTests: XCTestCase {
 
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -822,7 +822,7 @@ final class GroupPromptBuilderTests: XCTestCase {
         convo.sessions = [session]
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         ctx.insert(convo)
         ctx.insert(session)
         ctx.insert(user)
@@ -1018,13 +1018,13 @@ final class GroupPromptBuilderTests: XCTestCase {
         convo.sessions = [s1, s2]
         let user = Participant(type: .user, displayName: "You")
         user.conversation = convo
-        convo.participants.append(user)
+        convo.participants = (convo.participants ?? []) + [user]
         let p1 = Participant(type: .agentSession(sessionId: s1.id), displayName: a1.name)
         p1.conversation = convo
-        convo.participants.append(p1)
+        convo.participants = (convo.participants ?? []) + [p1]
         let p2 = Participant(type: .agentSession(sessionId: s2.id), displayName: a2.name)
         p2.conversation = convo
-        convo.participants.append(p2)
+        convo.participants = (convo.participants ?? []) + [p2]
         ctx.insert(convo)
         ctx.insert(s1)
         ctx.insert(s2)
@@ -1036,7 +1036,7 @@ final class GroupPromptBuilderTests: XCTestCase {
             conversation: convo,
             targetSession: s1,
             latestUserMessageText: "Hi",
-            participants: convo.participants,
+            participants: convo.participants ?? [],
             highlightedMentionAgentNames: ["A2", "A1"]
         )
         XCTAssertTrue(built.contains("A2, A1"))

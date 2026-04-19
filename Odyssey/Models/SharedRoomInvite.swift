@@ -49,18 +49,18 @@ enum SharedRoomMessageDeliveryMode: String, Codable, Sendable {
 
 @Model
 final class SharedRoomInvite {
-    var id: UUID
-    var inviteId: String
+    var id: UUID = UUID()
+    var inviteId: String = ""
     var inviteToken: String?
-    var roomId: String
-    var inviterUserId: String
-    var inviterDisplayName: String
+    var roomId: String = ""
+    var inviterUserId: String = ""
+    var inviterDisplayName: String = ""
     var recipientLabel: String?
-    var roomTopic: String
-    var deepLink: String
-    var expiresAt: Date
-    var singleUse: Bool
-    var isRevoked: Bool
+    var roomTopic: String = ""
+    var deepLink: String = ""
+    var expiresAt: Date = Date()
+    var singleUse: Bool = false
+    var isRevoked: Bool = false
     /// Base64url-encoded `InvitePayload` JSON for device/user pairing invites.
     /// Nil for legacy room invites.
     var signedPayloadJSON: String? = nil
@@ -71,9 +71,9 @@ final class SharedRoomInvite {
     var matrixRoomId: String? = nil
     var matrixHomeserver: String? = nil
     var peerMatrixUserId: String? = nil
-    var createdAt: Date
-    var updatedAt: Date
-    private var statusRaw: String
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    private var statusRaw: String = SharedRoomInviteStatus.pending.rawValue
 
     var status: SharedRoomInviteStatus {
         get { SharedRoomInviteStatus(rawValue: statusRaw) ?? .pending }
