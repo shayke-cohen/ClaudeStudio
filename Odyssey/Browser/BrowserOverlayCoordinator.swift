@@ -78,8 +78,12 @@ struct ActionLogEntry: Identifiable {
     let timestamp: Date
 
     var formattedTime: String {
+        ActionLogEntry.timeFormatter.string(from: timestamp)
+    }
+
+    private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
-        return f.string(from: timestamp)
-    }
+        return f
+    }()
 }
