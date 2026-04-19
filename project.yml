@@ -65,7 +65,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.shaycohen.odyssey
         PRODUCT_NAME: Odyssey
         INFOPLIST_FILE: Odyssey/Resources/Info.plist
-        CURRENT_PROJECT_VERSION: 27
+        CURRENT_PROJECT_VERSION: 28
         MARKETING_VERSION: "0.5.7"
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_CFBundleDisplayName: Odyssey
