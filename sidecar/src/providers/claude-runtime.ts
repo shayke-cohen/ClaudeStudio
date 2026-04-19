@@ -353,7 +353,17 @@ export class ClaudeRuntime implements ProviderRuntime {
 
     const isInteractive = config.interactive ?? false;
     mcpServers.peerbus = createPeerBusServer(this.deps.toolCtx, sessionId, isInteractive);
-    mcpServers.browser = createBrowserServer(this.deps.toolCtx);
+
+    // Browser MCP is opt-in: only inject the built-in browser server when the agent
+    // config explicitly lists an MCP entry named 'browser' with no command or url
+    // (i.e. a built-in marker, not an external process or SSE endpoint).
+    const browserMarker = config.mcpServers.find(
+      (m) => m.name === "browser" && !m.command && !m.url,
+    );
+    if (browserMarker) {
+      mcpServers.browser = createBrowserServer(this.deps.toolCtx);
+    }
+
     options.mcpServers = mcpServers;
 
     if (backendSessionId) {
