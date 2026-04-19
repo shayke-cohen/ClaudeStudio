@@ -1,57 +1,41 @@
 // OdysseyiOS/Services/PeerCredentialStore.swift
 import Foundation
 import Security
-import OdysseyCore
 
 /// Persisted credentials for a paired Mac host.
+/// Pairing exchanges only Nostr identities — no TLS certs, no bearer tokens.
 public struct PeerCredentials: Codable, Identifiable {
     public let id: UUID
     public let displayName: String
-    public let userPublicKeyData: Data
-    public let tlsCertDER: Data
-    public let wsToken: String
-    public let wsPort: Int
+    /// Mac's secp256k1 Nostr pubkey (hex). All communication is E2EE via Nostr relay.
+    public let macNostrPubkeyHex: String
+    /// Preferred Nostr relay URLs for this peer.
+    public let relayURLs: [String]
+    /// Optional LAN IP hint for HTTP data-loading (e.g. "192.168.1.42"). No port.
     public let lanHint: String?
-    public let wanHint: String?
-    public let turnRelay: String?
-    public let turnConfig: TURNConfig?
     public let pairedAt: Date
     public var lastConnectedAt: Date?
     /// Maps conversationId → claudeSessionId for resume support.
     public var claudeSessionIds: [String: String]
-    /// Mac's Nostr secp256k1 pubkey hex — used for E2EE relay when LAN/WAN unavailable.
-    public var macNostrPubkeyHex: String?
 
     public init(
         id: UUID,
         displayName: String,
-        userPublicKeyData: Data,
-        tlsCertDER: Data,
-        wsToken: String,
-        wsPort: Int,
+        macNostrPubkeyHex: String,
+        relayURLs: [String],
         lanHint: String?,
-        wanHint: String?,
-        turnRelay: String? = nil,
-        turnConfig: TURNConfig?,
         pairedAt: Date,
         lastConnectedAt: Date?,
-        claudeSessionIds: [String: String],
-        macNostrPubkeyHex: String? = nil
+        claudeSessionIds: [String: String]
     ) {
         self.id = id
         self.displayName = displayName
-        self.userPublicKeyData = userPublicKeyData
-        self.tlsCertDER = tlsCertDER
-        self.wsToken = wsToken
-        self.wsPort = wsPort
+        self.macNostrPubkeyHex = macNostrPubkeyHex
+        self.relayURLs = relayURLs
         self.lanHint = lanHint
-        self.wanHint = wanHint
-        self.turnRelay = turnRelay
-        self.turnConfig = turnConfig
         self.pairedAt = pairedAt
         self.lastConnectedAt = lastConnectedAt
         self.claudeSessionIds = claudeSessionIds
-        self.macNostrPubkeyHex = macNostrPubkeyHex
     }
 }
 
@@ -97,7 +81,13 @@ public final class PeerCredentialStore {
             if status == errSecItemNotFound { return [] }
             throw KeychainError.loadFailed(status)
         }
-        return try JSONDecoder().decode([PeerCredentials].self, from: data)
+        do {
+            return try JSONDecoder().decode([PeerCredentials].self, from: data)
+        } catch {
+            // Stale credentials from an older schema — wipe and return empty so the user re-pairs.
+            try? deleteAll()
+            return []
+        }
     }
 
     /// Remove the credential with the given id.

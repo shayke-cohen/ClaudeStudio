@@ -1,64 +1,29 @@
 // Odyssey/Views/Settings/iOSPairingSettingsView.swift
 import SwiftUI
-import SwiftData
 import OSLog
-import Darwin
 
 private let logger = Logger(subsystem: "com.odyssey.app", category: "iOSPairing")
 
-/// Settings pane for iOS device pairing: QR code display, copy link, and device management.
+/// Settings pane for iOS device pairing — shows a permanent QR code containing
+/// the Mac's Nostr pubkey. No expiry, no TLS certs, no tokens.
 struct iOSPairingSettingsView: View {
 
     @Environment(AppState.self) private var appState
-    @EnvironmentObject private var p2pNetworkManager: P2PNetworkManager
-    @Environment(\.modelContext) private var modelContext
-    @Query(
-        filter: #Predicate<SharedRoomInvite> { $0.pairingType == "device" },
-        sort: \SharedRoomInvite.createdAt, order: .reverse
-    ) private var deviceInvites: [SharedRoomInvite]
 
-    @State private var currentPayload: InvitePayload? = nil
     @State private var qrImage: CGImage? = nil
     @State private var isGenerating = false
     @State private var generateError: String? = nil
-    @State private var allowIOSConnections = false
     @State private var copyConfirmation = false
-    @State private var refreshTimer: Timer? = nil
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                allowToggleSection
-                Divider()
                 qrSection
-                Divider()
-                pairedDevicesSection
             }
             .padding(24)
         }
-        .onAppear { startRefreshCycle() }
-        .onDisappear { refreshTimer?.invalidate() }
+        .onAppear { generateQR() }
         .stableXrayId("settings.iosPairing.root")
-    }
-
-    // MARK: - Allow Toggle
-
-    private var allowToggleSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("iOS Connections")
-                .font(.headline)
-            Toggle("Allow iOS connections", isOn: $allowIOSConnections)
-                .onChange(of: allowIOSConnections) { _, newValue in
-                    handleAllowToggle(newValue)
-                }
-                .stableXrayId("settings.iosPairing.allowToggle")
-            if allowIOSConnections {
-                Text("The sidecar will accept connections from 0.0.0.0 (all interfaces). Ensure your macOS firewall permits incoming TCP connections on port 9849.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .stableXrayId("settings.iosPairing.firewallNote")
-            }
-        }
     }
 
     // MARK: - QR Code Section
@@ -67,7 +32,7 @@ struct iOSPairingSettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Pair a New Device")
                 .font(.headline)
-            Text("Scan this QR code from the Odyssey iOS app. The code expires in 5 minutes.")
+            Text("Scan this QR code from the Odyssey iOS app. This code is permanent — your Nostr identity doesn't change.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -83,14 +48,14 @@ struct iOSPairingSettingsView: View {
                     .stableXrayId("settings.iosPairing.qrCodeImage")
                     .accessibilityLabel("Pairing QR Code")
             } else if let err = generateError {
-                Text("Failed to generate invite: \(err)")
+                Text("Failed to generate QR: \(err)")
                     .foregroundStyle(.red)
                     .stableXrayId("settings.iosPairing.qrError")
             }
 
             HStack(spacing: 12) {
                 Button("Refresh QR") {
-                    Task { await generateNewInvite() }
+                    generateQR()
                 }
                 .buttonStyle(.bordered)
                 .stableXrayId("settings.iosPairing.refreshQRButton")
@@ -100,111 +65,52 @@ struct iOSPairingSettingsView: View {
                     copyInviteLink()
                 }
                 .buttonStyle(.bordered)
-                .disabled(currentPayload == nil)
+                .disabled(qrImage == nil)
                 .stableXrayId("settings.iosPairing.copyLinkButton")
             }
-        }
-    }
 
-    // MARK: - Paired Devices Section
-
-    private var pairedDevicesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Paired Devices")
-                .font(.headline)
-            if deviceInvites.isEmpty {
-                Text("No paired devices yet.")
-                    .foregroundStyle(.secondary)
-                    .stableXrayId("settings.iosPairing.emptyDeviceList")
-            } else {
-                ForEach(deviceInvites) { invite in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(invite.recipientLabel ?? "Unknown Device")
-                                .font(.body)
-                            Text(invite.status.rawValue.capitalized)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Revoke") {
-                            revokeInvite(invite)
-                        }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(.red)
-                        .stableXrayId("settings.iosPairing.revokeButton.\(invite.id.uuidString)")
-                        .accessibilityLabel("Revoke pairing for \(invite.recipientLabel ?? "device")")
-                    }
-                    .padding(.vertical, 4)
-                    .stableXrayId("settings.iosPairing.deviceRow.\(invite.id.uuidString)")
-                    Divider()
-                }
+            if let npub = appState.nostrPublicKeyHex {
+                Text("Your npub: \(npub.prefix(16))…")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .stableXrayId("settings.iosPairing.npubLabel")
             }
         }
     }
 
     // MARK: - Actions
 
-    private func startRefreshCycle() {
-        Task { await generateNewInvite() }
-        let timer = Timer(timeInterval: 270, repeats: true) { _ in
-            Task { @MainActor in
-                await generateNewInvite()
-            }
+    private func generateQR() {
+        guard let npub = appState.nostrPublicKeyHex, !npub.isEmpty else {
+            generateError = "Nostr identity not ready. Connect the sidecar first."
+            return
         }
-        RunLoop.main.add(timer, forMode: .common)
-        refreshTimer = timer
-    }
-
-    @MainActor
-    private func generateNewInvite() async {
         isGenerating = true
         generateError = nil
-        do {
-            let instanceName = appState.sidecarManager?.instanceName ?? "default"
-            let wsPort = appState.allocatedWsPort > 0 ? appState.allocatedWsPort : 9849
-            let payload = try await InviteCodeGenerator.generateDevice(
-                instanceName: instanceName,
-                wsPort: wsPort,
-                expiresIn: 300,
-                singleUse: true,
-                lanHint: nil,
-                wanHint: nil,
-                nostrPubkey: appState.nostrPublicKeyHex,
-                nostrRelays: AppSettings.nostrRelays()
-            )
-            currentPayload = payload
-            qrImage = InviteCodeGenerator.qrCode(for: payload, size: 300)
-
-            let encoded = try InviteCodeGenerator.encode(payload)
-            let invite = SharedRoomInvite(
-                inviteId: UUID().uuidString,
-                inviteToken: payload.wsToken,
-                roomId: "",
-                inviterUserId: payload.userPublicKey,
-                inviterDisplayName: payload.displayName,
-                recipientLabel: nil,
-                roomTopic: "Device Pairing",
-                deepLink: "odyssey://connect?invite=\(encoded)",
-                expiresAt: Date(timeIntervalSince1970: payload.exp),
-                singleUse: payload.singleUse
-            )
-            invite.signedPayloadJSON = encoded
-            invite.pairingType = "device"
-            modelContext.insert(invite)
-            try? modelContext.save()
-
-        } catch {
-            generateError = error.localizedDescription
-            logger.error("iOSPairing invite generation failed: \(error.localizedDescription)")
-        }
+        let instanceName = appState.sidecarManager?.instanceName ?? "default"
+        let relays = AppSettings.nostrRelays()
+        let payload = InviteCodeGenerator.generateDevice(
+            instanceName: instanceName,
+            lanHint: nil,
+            nostrPubkey: npub,
+            nostrRelays: relays
+        )
+        qrImage = InviteCodeGenerator.qrCode(for: payload, size: 300)
         isGenerating = false
+        if qrImage == nil { generateError = "Failed to render QR code." }
     }
 
     private func copyInviteLink() {
-        guard let payload = currentPayload,
-              let encoded = try? InviteCodeGenerator.encode(payload)
-        else { return }
+        guard let npub = appState.nostrPublicKeyHex, !npub.isEmpty else { return }
+        let instanceName = appState.sidecarManager?.instanceName ?? "default"
+        let relays = AppSettings.nostrRelays()
+        let payload = InviteCodeGenerator.generateDevice(
+            instanceName: instanceName,
+            lanHint: nil,
+            nostrPubkey: npub,
+            nostrRelays: relays
+        )
+        guard let encoded = try? InviteCodeGenerator.encode(payload) else { return }
         let link = "odyssey://connect?invite=\(encoded)"
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(link, forType: .string)
@@ -214,20 +120,4 @@ struct iOSPairingSettingsView: View {
             copyConfirmation = false
         }
     }
-
-    private func handleAllowToggle(_ allow: Bool) {
-        appState.sidecarManager?.setBindAddress(allow ? "0.0.0.0" : "127.0.0.1")
-    }
-
-    private func revokeInvite(_ invite: SharedRoomInvite) {
-        invite.status = .revoked
-        invite.isRevoked = true
-        invite.updatedAt = Date()
-        try? modelContext.save()
-        let instanceName = appState.sidecarManager?.instanceName ?? "default"
-        Task {
-            try? IdentityManager.shared.rotateWSToken(for: instanceName)
-        }
-    }
-
 }

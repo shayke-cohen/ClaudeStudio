@@ -44,6 +44,7 @@ enum SidecarCommand: Sendable {
     case browserPageLoaded(sessionId: String, url: String, title: String)
     case browserUserSubmit(sessionId: String, data: String)
     case browserStateChange(sessionId: String, state: String)
+    case pairingHello(iosNpub: String, displayName: String)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -236,6 +237,11 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(
                 BrowserStateChangeWire(type: "browser.stateChange", sessionId: sessionId, state: state)
             )
+        case .pairingHello(let iosNpub, let displayName):
+            struct PairingHelloWire: Encodable {
+                let type: String; let iosNpub: String; let displayName: String
+            }
+            return try encoder.encode(PairingHelloWire(type: "pairing.hello", iosNpub: iosNpub, displayName: displayName))
         }
     }
 }
@@ -681,6 +687,7 @@ enum SidecarEvent: Sendable {
     case browserRenderHtml(sessionId: String, html: String, title: String?)
     case browserTakeControl(sessionId: String)
     case browserResume(sessionId: String)
+    case pairingConfirmed
 }
 
 struct QuestionOption: Codable, Sendable, Identifiable {

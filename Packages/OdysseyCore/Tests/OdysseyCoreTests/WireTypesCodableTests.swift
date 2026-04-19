@@ -115,30 +115,20 @@ final class WireTypesCodableTests: XCTestCase {
     }
 
     func testInvitePayloadCodableRoundTrip() throws {
-        let turn = TURNConfig(url: "turn:relay.example.com:3478", username: "user", credential: "pass")
-        let hints = InviteHints(lan: "192.168.1.42:9849", wan: "203.0.113.7:49152", turn: turn, relay: nil)
         let original = InvitePayload(
-            v: 1,
-            type: "device",
-            userPublicKey: "abc123",
-            displayName: "Alice",
-            tlsCertDER: "MIIC...",
-            wsToken: "tok_xyz",
-            wsPort: 9849,
-            hints: hints,
-            exp: 9999999999,
-            singleUse: true,
-            sig: "sig_base64"
+            macNpub: "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabb",
+            displayName: "Alice's Mac",
+            relays: ["wss://relay.damus.io", "wss://relay.nostr.band"],
+            lanHint: "192.168.1.42"
         )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(InvitePayload.self, from: data)
-        XCTAssertEqual(decoded.userPublicKey, "abc123")
-        XCTAssertEqual(decoded.displayName, "Alice")
-        XCTAssertEqual(decoded.wsPort, 9849)
-        XCTAssertEqual(decoded.hints.lan, "192.168.1.42:9849")
-        XCTAssertEqual(decoded.hints.wan, "203.0.113.7:49152")
-        XCTAssertEqual(decoded.hints.turn?.url, "turn:relay.example.com:3478")
-        XCTAssertEqual(decoded.exp, 9999999999)
+        XCTAssertEqual(decoded.v, 2)
+        XCTAssertEqual(decoded.type, "device")
+        XCTAssertEqual(decoded.macNpub, original.macNpub)
+        XCTAssertEqual(decoded.displayName, "Alice's Mac")
+        XCTAssertEqual(decoded.relays, ["wss://relay.damus.io", "wss://relay.nostr.band"])
+        XCTAssertEqual(decoded.lanHint, "192.168.1.42")
     }
 
     func testUserIdentityCodableRoundTrip() throws {

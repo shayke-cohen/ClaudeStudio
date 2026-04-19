@@ -7,7 +7,6 @@ struct iOSSettingsView: View {
     @State private var pairedMacs: [PeerCredentials] = []
     @State private var showPairingSheet = false
     @State private var errorMessage: String?
-    @AppStorage("macHostOverride") private var macHostOverride: String = ""
     private let store = PeerCredentialStore()
 
     var body: some View {
@@ -16,13 +15,6 @@ struct iOSSettingsView: View {
                 // Connection section
                 Section("Connection") {
                     ConnectionStatusRow(status: appState.connectionStatus)
-
-                    if case .disconnected = appState.connectionStatus {
-                        Button("Reconnect") {
-                            Task { await appState.connectToFirstPairedMac() }
-                        }
-                        .accessibilityIdentifier("settings.reconnectButton")
-                    }
                 }
 
                 // Paired Macs section
@@ -49,31 +41,6 @@ struct iOSSettingsView: View {
                         Label("Add Mac…", systemImage: "plus")
                     }
                     .accessibilityIdentifier("settings.addMacButton")
-                }
-
-                // Developer section
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Mac Host Override")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField("e.g. 192.168.1.42:9849", text: $macHostOverride)
-                            .keyboardType(.asciiCapable)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .accessibilityIdentifier("settings.macHostOverride")
-                        Text("If set, connects here instead of the stored LAN/WAN hint.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    if !macHostOverride.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Button("Reconnect with override") {
-                            Task { await appState.connectToFirstPairedMac() }
-                        }
-                        .accessibilityIdentifier("settings.reconnectOverrideButton")
-                    }
-                } header: {
-                    Text("Developer")
                 }
 
                 // About section

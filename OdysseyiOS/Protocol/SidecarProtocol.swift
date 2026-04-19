@@ -65,6 +65,7 @@ enum SidecarCommand: Sendable {
     case sessionBulkResume(sessions: [SessionBulkResumeEntry])
     case sessionUpdateMode(sessionId: String, interactive: Bool, instancePolicy: String?, instancePolicyPoolMax: Int?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
+    case pairingHello(iosNpub: String, displayName: String)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -85,6 +86,8 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(SessionUpdateModeWire(type: "session.updateMode", sessionId: sessionId, interactive: interactive, instancePolicy: instancePolicy, instancePolicyPoolMax: instancePolicyPoolMax))
         case .sessionUpdateCwd(let sessionId, let workingDirectory):
             return try encoder.encode(SessionUpdateCwdWire(type: "session.updateCwd", sessionId: sessionId, workingDirectory: workingDirectory))
+        case .pairingHello(let iosNpub, let displayName):
+            return try encoder.encode(PairingHelloWire(type: "pairing.hello", iosNpub: iosNpub, displayName: displayName))
         }
     }
 }
@@ -105,6 +108,7 @@ enum SidecarEvent: Sendable {
     case streamFileCard(sessionId: String, filePath: String, fileType: String, fileName: String)
     case connected
     case disconnected
+    case pairingConfirmed
     case other
 }
 
@@ -168,6 +172,8 @@ struct IncomingWireMessage: Codable, Sendable {
         case "stream.fileCard":
             guard let sid = sessionId, let fp = filePath, let ft = fileType, let fn = fileName else { return nil }
             return .streamFileCard(sessionId: sid, filePath: fp, fileType: ft, fileName: fn)
+        case "pairing.confirmed":
+            return .pairingConfirmed
         default:
             return .other
         }
@@ -224,4 +230,10 @@ private struct SessionUpdateCwdWire: Encodable {
     let type: String
     let sessionId: String
     let workingDirectory: String
+}
+
+private struct PairingHelloWire: Encodable {
+    let type: String
+    let iosNpub: String
+    let displayName: String
 }

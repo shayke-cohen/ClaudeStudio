@@ -1,66 +1,38 @@
 // Sources/OdysseyCore/Networking/InviteTypes.swift
 import Foundation
-import CryptoKit
 
-/// Network location hints embedded in an invite payload.
-/// Field names match the Mac generator (InviteCodeGenerator.swift).
-public struct InviteHints: Codable, Sendable, Equatable {
-    public let lan: String?
-    public let wan: String?
-    /// TURN relay config — nested inside hints on the Mac side.
-    public let turn: TURNConfig?
-    /// Pre-allocated TURN relay endpoint "host:port" — simple WebSocket fallback.
-    public let relay: String?
-
-    public init(lan: String?, wan: String?, turn: TURNConfig? = nil, relay: String? = nil) {
-        self.lan = lan
-        self.wan = wan
-        self.turn = turn
-        self.relay = relay
-    }
-}
-
-/// TURN relay configuration for NAT traversal fallback.
-public struct TURNConfig: Codable, Sendable, Equatable {
-    public let url: String
-    public let username: String
-    public let credential: String
-
-    public init(url: String, username: String, credential: String) {
-        self.url = url
-        self.username = username
-        self.credential = credential
-    }
-}
-
-/// The signed payload embedded in an invite QR code or deep link.
-/// Field names match the Mac generator (InviteCodeGenerator.swift):
-///   v, type, userPublicKey, displayName, tlsCertDER, wsToken, wsPort,
-///   hints, exp (unix timestamp), singleUse, sig.
+/// Version-2 invite payload — contains only what is needed to establish a Nostr relay
+/// connection. No TLS certs, no bearer tokens, no expiry. Security is provided by
+/// NIP-44 encryption using the exchanged Nostr public keys.
 public struct InvitePayload: Codable, Sendable {
-    public let v: Int
-    public let type: String
-    /// Base64-encoded Ed25519 public key bytes (32 bytes).
-    public let userPublicKey: String
+    public let v: Int           // 2
+    public let type: String     // "device"
+    /// Mac's secp256k1 Nostr public key (hex, 64 chars).
+    public let macNpub: String
     public let displayName: String
-    /// Base64-encoded DER-encoded TLS certificate.
-    public let tlsCertDER: String
-    /// Base64-encoded bearer token bytes.
-    public let wsToken: String
-    public let wsPort: Int
-    public let hints: InviteHints
-    /// Unix timestamp (seconds since epoch) after which the invite is invalid.
-    public let exp: TimeInterval
-    public let singleUse: Bool
-    /// Nostr hex pubkey for internet relay (optional; v2+ only).
-    public let nostrPubkey: String?
-    /// Preferred Nostr relay URLs (optional; v2+ only).
-    public let nostrRelays: [String]?
-    /// Base64-encoded Ed25519 signature over canonical JSON (without this field).
-    public let sig: String
+    /// Preferred Nostr relay URLs.
+    public let relays: [String]
+    /// Optional LAN IP hint (no port). Used for HTTP data loading when on the same network.
+    public let lanHint: String?
+
+    public init(
+        v: Int = 2,
+        type: String = "device",
+        macNpub: String,
+        displayName: String,
+        relays: [String],
+        lanHint: String?
+    ) {
+        self.v = v
+        self.type = type
+        self.macNpub = macNpub
+        self.displayName = displayName
+        self.relays = relays
+        self.lanHint = lanHint
+    }
 }
 
-// MARK: - Decode / Verify helpers
+// MARK: - Decode helpers
 
 public extension InvitePayload {
     /// Decode a base64url-encoded JSON invite payload.
@@ -79,63 +51,17 @@ public extension InvitePayload {
             throw InviteDecodeError.decodingFailed(error.localizedDescription)
         }
     }
-
-    /// Verify that the payload has not expired and the Ed25519 signature is valid.
-    func verify() throws {
-        // Check expiry (exp is a unix timestamp)
-        guard exp >= Date().timeIntervalSince1970 else {
-            throw InviteDecodeError.expired
-        }
-
-        // Decode public key (standard base64, not base64url)
-        guard let pubKeyData = Data(base64Encoded: userPublicKey) else {
-            throw InviteDecodeError.invalidPublicKey
-        }
-        let pubKey: Curve25519.Signing.PublicKey
-        do {
-            pubKey = try Curve25519.Signing.PublicKey(rawRepresentation: pubKeyData)
-        } catch {
-            throw InviteDecodeError.invalidPublicKey
-        }
-
-        // Build canonical JSON without the sig field (matches Mac's canonicalJSONWithoutSig)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        guard var dict = try? JSONSerialization.jsonObject(
-            with: encoder.encode(self), options: []
-        ) as? [String: Any] else {
-            throw InviteDecodeError.invalidSignature
-        }
-        dict.removeValue(forKey: "sig")
-        let canonical = try JSONSerialization.data(withJSONObject: dict, options: .sortedKeys)
-
-        // Decode signature (standard base64)
-        guard let sigData = Data(base64Encoded: sig) else {
-            throw InviteDecodeError.invalidSignature
-        }
-        guard pubKey.isValidSignature(sigData, for: canonical) else {
-            throw InviteDecodeError.signatureVerificationFailed
-        }
-    }
 }
 
-/// Errors thrown by `InvitePayload.decode(_:)` and `InvitePayload.verify()`.
+/// Errors thrown by `InvitePayload.decode(_:)`.
 public enum InviteDecodeError: LocalizedError {
     case invalidBase64
     case decodingFailed(String)
-    case expired
-    case invalidPublicKey
-    case invalidSignature
-    case signatureVerificationFailed
 
     public var errorDescription: String? {
         switch self {
         case .invalidBase64:               return "Invalid invite link encoding"
         case .decodingFailed(let reason):  return "Failed to decode invite: \(reason)"
-        case .expired:                     return "Invite link has expired"
-        case .invalidPublicKey:            return "Invalid public key in invite"
-        case .invalidSignature:            return "Invalid signature in invite"
-        case .signatureVerificationFailed: return "Signature verification failed"
         }
     }
 }

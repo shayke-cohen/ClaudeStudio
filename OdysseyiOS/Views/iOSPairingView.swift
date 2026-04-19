@@ -141,33 +141,19 @@ struct iOSPairingView: View {
         let code = inviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let payload = try InvitePayload.decode(code)
-            try payload.verify()
-
-            // tlsCertDER and userPublicKey are standard base64 (not base64url).
-            guard let certDER = Data(base64Encoded: payload.tlsCertDER) else {
-                throw InviteDecodeError.invalidBase64
+            guard !payload.macNpub.isEmpty else {
+                throw InviteDecodeError.decodingFailed("Missing Mac Nostr public key")
             }
-            guard let pubKeyData = Data(base64Encoded: payload.userPublicKey) else {
-                throw InviteDecodeError.invalidBase64
-            }
-
             let credentials = PeerCredentials(
                 id: UUID(),
                 displayName: payload.displayName,
-                userPublicKeyData: pubKeyData,
-                tlsCertDER: certDER,
-                wsToken: payload.wsToken,
-                wsPort: payload.wsPort,
-                lanHint: payload.hints.lan,
-                wanHint: payload.hints.wan,
-                turnRelay: payload.hints.relay,
-                turnConfig: payload.hints.turn,
+                macNostrPubkeyHex: payload.macNpub,
+                relayURLs: payload.relays,
+                lanHint: payload.lanHint,
                 pairedAt: Date(),
                 lastConnectedAt: nil,
-                claudeSessionIds: [:],
-                macNostrPubkeyHex: payload.nostrPubkey
+                claudeSessionIds: [:]
             )
-
             let store = PeerCredentialStore()
             try store.save(credentials)
             onPaired()
