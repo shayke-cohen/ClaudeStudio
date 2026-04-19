@@ -160,7 +160,7 @@ struct BrowserPanelView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .accessibilityIdentifier("browserPanel.resumeAgentButton")
+                .accessibilityIdentifier("browserPanel.resumeButton")
             }
         }
     }
