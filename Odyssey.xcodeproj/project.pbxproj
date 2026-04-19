@@ -227,6 +227,7 @@
 		C44E8543523504A3EC967F1A /* AgentPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8085DB553C61A9910886A2 /* AgentPreviewCard.swift */; };
 		C501E7B4FF6DA5EF93B98EB5 /* SharedRoomInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7D02959EBB59C190BD138E /* SharedRoomInviteSheet.swift */; };
 		C5263057246CFD534E574D67 /* ScheduleRunCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50772C4077BF40542C2672AF /* ScheduleRunCoordinatorTests.swift */; };
+		C52EC306FB5CCE79DFE9AB0D /* iOSNostrKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0567AAF97B19E718DA1466 /* iOSNostrKeychain.swift */; };
 		C7A838A43C8C61129A0922C5 /* PromptTemplateCreationSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F37E03165B6B7F270ACD1B /* PromptTemplateCreationSheetTests.swift */; };
 		C7E04ED21BAE8762652B422A /* OllamaCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E426C0355766AE4DCE8913 /* OllamaCatalogService.swift */; };
 		C9D8348050B3971B72BFDABA /* AgentActivityBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A35177758E37FD646639BFB /* AgentActivityBar.swift */; };
@@ -446,6 +447,7 @@
 		680B00C4A69862BF85359F94 /* SidecarProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarProtocolTests.swift; sourceTree = "<group>"; };
 		68C8973CC5A09D1D15565E31 /* InlineBrowserCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineBrowserCard.swift; sourceTree = "<group>"; };
 		698D4E4EE9DEE3C1F49A31A1 /* ChatViewDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewDataTests.swift; sourceTree = "<group>"; };
+		6A0567AAF97B19E718DA1466 /* iOSNostrKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSNostrKeychain.swift; sourceTree = "<group>"; };
 		6A595D81FC8BC41D81D994C8 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		6A6A58F5009F43029D2A1318 /* OdysseyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OdysseyApp.swift; sourceTree = "<group>"; };
 		6C288F9BEDF59A8B12457C2C /* ChatExportPresenters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatExportPresenters.swift; sourceTree = "<group>"; };
@@ -1244,6 +1246,7 @@
 		F3C473E2D5C806A5C981F52B /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				6A0567AAF97B19E718DA1466 /* iOSNostrKeychain.swift */,
 				54A594D1041B3E82228DBCCB /* NostrSidecarBridge.swift */,
 				5E2C170AA2F56532C715364E /* PeerCredentialStore.swift */,
 				30809E54858B1E55149AF108 /* RemoteSidecarManager.swift */,
@@ -1782,6 +1785,7 @@
 				E50441A9D862EA7FD74826EB /* iOSAgentListView.swift in Sources */,
 				412D757C20DE63E01BE32AAA /* iOSAppState.swift in Sources */,
 				1AB5BCDC5B63E7BD84FFC0E1 /* iOSChatView.swift in Sources */,
+				C52EC306FB5CCE79DFE9AB0D /* iOSNostrKeychain.swift in Sources */,
 				10AC2ABCEDD5BB67F9A6BC0A /* iOSPairingView.swift in Sources */,
 				0C50246276E0803214E74658 /* iOSSettingsView.swift in Sources */,
 			);
