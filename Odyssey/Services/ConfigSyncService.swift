@@ -1294,6 +1294,14 @@ final class ConfigSyncService {
         let groupByDerivedSlug: [String: AgentGroup] = Dictionary(uniqueKeysWithValues: allGroups.map {
             (ConfigFileManager.slugify($0.name), $0)
         })
+        let allProjects: [Project] = (try? context.fetch(FetchDescriptor<Project>())) ?? []
+        let projectBySlug: [String: Project] = Dictionary(
+            allProjects.compactMap { project in
+                let slug = ConfigFileManager.projectSlug(for: project.canonicalRootPath)
+                return slug.isEmpty ? nil : (slug, project)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
 
         for entry in fileEntries {
             seenSlugs.insert(entry.configSlug)
@@ -1304,10 +1312,13 @@ final class ConfigSyncService {
             let ownerGroup: AgentGroup? = entry.ownerKind == .groups
                 ? (groupBySlug[entry.ownerSlug] ?? groupByDerivedSlug[entry.ownerSlug])
                 : nil
+            let ownerProject: Project? = entry.ownerKind == .projects
+                ? projectBySlug[entry.ownerSlug]
+                : nil
 
             // Skip files whose owner can't be resolved (e.g. agent renamed to a new slug).
             // They stay on disk; the owner can be re-linked once its slug matches.
-            guard ownerAgent != nil || ownerGroup != nil else {
+            guard ownerAgent != nil || ownerGroup != nil || ownerProject != nil else {
                 Log.configSync.warning("Prompt template owner not found: \(entry.configSlug, privacy: .public)")
                 continue
             }
@@ -1318,6 +1329,7 @@ final class ConfigSyncService {
                 entity.sortOrder = entry.dto.sortOrder
                 entity.agent = ownerAgent
                 entity.group = ownerGroup
+                entity.project = ownerProject
                 entity.updatedAt = Date()
             } else {
                 let entity = PromptTemplate(
@@ -1327,6 +1339,7 @@ final class ConfigSyncService {
                     isBuiltin: true,
                     agent: ownerAgent,
                     group: ownerGroup,
+                    project: ownerProject,
                     configSlug: entry.configSlug
                 )
                 context.insert(entity)
