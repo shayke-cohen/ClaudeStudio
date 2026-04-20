@@ -89,6 +89,14 @@ struct ConfigurationSettingsTab: View {
     @State private var showingNewSkill = false
     @State private var showingNewMCP = false
 
+    // Delete confirmation state
+    @State private var itemToDelete: ConfigSelectedItem?
+    @State private var showingDeleteConfirmation = false
+
+    // Context menu edit sheets
+    @State private var contextMenuAgentToEdit: Agent?
+    @State private var contextMenuGroupToEdit: AgentGroup?
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             // Left pane: section list
@@ -131,6 +139,25 @@ struct ConfigurationSettingsTab: View {
                 selectedItem = .mcp(newMCP)
                 showingNewMCP = false
             }
+        }
+        .confirmationDialog(
+            "Delete \(itemToDelete.map { nameForDeleteItem($0) } ?? "Item")?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let item = itemToDelete { deleteItem(item) }
+                itemToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { itemToDelete = nil }
+        } message: {
+            Text("This action cannot be undone.")
+        }
+        .sheet(item: $contextMenuAgentToEdit) { agent in
+            AgentCreationSheet(existingAgent: agent) { _ in contextMenuAgentToEdit = nil }
+        }
+        .sheet(item: $contextMenuGroupToEdit) { group in
+            GroupEditorView(group: group)
         }
         .onChange(of: selectedSection) { _, _ in
             selectedItem = nil
@@ -242,6 +269,15 @@ struct ConfigurationSettingsTab: View {
                         showPinDot: agent.isResident
                     )
                     .tag(ConfigSelectedItem.agent(agent))
+                    .contextMenu {
+                        Button("Edit") { contextMenuAgentToEdit = agent }
+                        Button("Duplicate") { duplicateItem(.agent(agent)) }
+                        Divider()
+                        Button("Delete", role: .destructive) {
+                            itemToDelete = .agent(agent)
+                            showingDeleteConfirmation = true
+                        }
+                    }
                 }
             )
         case .groups:
@@ -266,6 +302,15 @@ struct ConfigurationSettingsTab: View {
                         subtitle: subtitle
                     )
                     .tag(ConfigSelectedItem.group(group))
+                    .contextMenu {
+                        Button("Edit") { contextMenuGroupToEdit = group }
+                        Button("Duplicate") { duplicateItem(.group(group)) }
+                        Divider()
+                        Button("Delete", role: .destructive) {
+                            itemToDelete = .group(group)
+                            showingDeleteConfirmation = true
+                        }
+                    }
                 }
             )
         case .skills:
@@ -338,7 +383,17 @@ struct ConfigurationSettingsTab: View {
     @ViewBuilder
     private var detailPane: some View {
         if let item = selectedItem {
-            ConfigurationDetailView(item: item)
+            let isAgentOrGroup: Bool = {
+                switch item { case .agent, .group: return true; default: return false }
+            }()
+            ConfigurationDetailView(
+                item: item,
+                onDelete: isAgentOrGroup ? {
+                    itemToDelete = item
+                    showingDeleteConfirmation = true
+                } : nil,
+                onDuplicate: isAgentOrGroup ? { duplicateItem(item) } : nil
+            )
         } else {
             emptyDetail
         }
@@ -375,6 +430,77 @@ struct ConfigurationSettingsTab: View {
         case .skills: showingNewSkill = true
         case .mcps: showingNewMCP = true
         case .templates, .permissions: break
+        }
+    }
+
+    private func deleteItem(_ item: ConfigSelectedItem) {
+        switch item {
+        case .agent(let agent):
+            for session in (agent.sessions ?? []) { modelContext.delete(session) }
+            for template in (agent.promptTemplates ?? []) { modelContext.delete(template) }
+            modelContext.delete(agent)
+        case .group(let group):
+            for template in (group.promptTemplates ?? []) { modelContext.delete(template) }
+            modelContext.delete(group)
+        default:
+            return
+        }
+        try? modelContext.save()
+        if selectedItem == item { selectedItem = nil }
+    }
+
+    private func duplicateItem(_ item: ConfigSelectedItem) {
+        switch item {
+        case .agent(let agent):
+            let copy = Agent(
+                name: "\(agent.name) Copy",
+                agentDescription: agent.agentDescription,
+                systemPrompt: agent.systemPrompt,
+                provider: agent.provider,
+                model: agent.model,
+                icon: agent.icon,
+                color: agent.color
+            )
+            copy.skillIds = agent.skillIds
+            copy.extraMCPServerIds = agent.extraMCPServerIds
+            copy.permissionSetId = agent.permissionSetId
+            copy.maxTurns = agent.maxTurns
+            copy.maxBudget = agent.maxBudget
+            copy.defaultWorkingDirectory = agent.defaultWorkingDirectory
+            copy.isResident = agent.isResident
+            copy.showInSidebar = agent.showInSidebar
+            modelContext.insert(copy)
+            try? modelContext.save()
+            selectedItem = .agent(copy)
+        case .group(let group):
+            let copy = AgentGroup(
+                name: group.name + " Copy",
+                groupDescription: group.groupDescription,
+                icon: group.icon,
+                color: group.color,
+                groupInstruction: group.groupInstruction,
+                defaultMission: group.defaultMission,
+                agentIds: group.agentIds,
+                sortOrder: group.sortOrder
+            )
+            copy.autoReplyEnabled = group.autoReplyEnabled
+            copy.autonomousCapable = group.autonomousCapable
+            copy.coordinatorAgentId = group.coordinatorAgentId
+            copy.agentRolesJSON = group.agentRolesJSON
+            copy.workflowJSON = group.workflowJSON
+            modelContext.insert(copy)
+            try? modelContext.save()
+            selectedItem = .group(copy)
+        default:
+            break
+        }
+    }
+
+    private func nameForDeleteItem(_ item: ConfigSelectedItem) -> String {
+        switch item {
+        case .agent(let a): return a.name
+        case .group(let g): return g.name
+        default: return "Item"
         }
     }
 }
