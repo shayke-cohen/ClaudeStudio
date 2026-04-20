@@ -258,15 +258,21 @@ struct AgentCreationSheet: View {
                 }
                 .stableXrayId("agentCreation.providerPicker")
                 .onChange(of: provider) { _, newProvider in
-                    model = AgentDefaults.preferredModelSelection(model, providerSelection: newProvider)
-                }
-
-                Picker("Model", selection: $model) {
-                    ForEach(AgentDefaults.availableAgentModelChoices(for: provider, preserving: model)) { choice in
-                        Text(choice.label).tag(choice.id)
+                    if newProvider == ProviderSelection.system.rawValue {
+                        model = AgentDefaults.inheritMarker
+                    } else {
+                        model = AgentDefaults.preferredModelSelection(model, providerSelection: newProvider)
                     }
                 }
-                .stableXrayId("agentCreation.modelPicker")
+
+                if provider != ProviderSelection.system.rawValue {
+                    Picker("Model", selection: $model) {
+                        ForEach(AgentDefaults.availableAgentModelChoices(for: provider, preserving: model)) { choice in
+                            Text(choice.label).tag(choice.id)
+                        }
+                    }
+                    .stableXrayId("agentCreation.modelPicker")
+                }
 
                 Picker("Instance Policy", selection: $instancePolicy) {
                     ForEach(AgentInstancePolicy.allCases, id: \.self) { policy in

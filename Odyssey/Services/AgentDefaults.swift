@@ -181,7 +181,7 @@ enum AgentDefaults {
         case .mlx:
             choices.append(contentsOf: mlxConfiguredModelChoices())
         case .system:
-            choices.append(contentsOf: ClaudeModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
+            choices.append(contentsOf: claudeModelChoices())
             choices.append(contentsOf: CodexModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
             choices.append(contentsOf: FoundationModel.allCases.map { ModelChoice(id: $0.rawValue, label: $0.label) })
             choices.append(contentsOf: mlxConfiguredModelChoices())
