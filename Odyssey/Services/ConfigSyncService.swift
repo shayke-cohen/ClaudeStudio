@@ -1300,7 +1300,10 @@ final class ConfigSyncService {
                 let slug = ConfigFileManager.projectSlug(for: project.canonicalRootPath)
                 return slug.isEmpty ? nil : (slug, project)
             },
-            uniquingKeysWith: { first, _ in first }
+            uniquingKeysWith: { first, _ in
+                Log.configSync.warning("Project slug collision detected — keeping first project")
+                return first
+            }
         )
 
         for entry in fileEntries {
