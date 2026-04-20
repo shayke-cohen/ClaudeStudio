@@ -15,6 +15,7 @@ final class iOSAppState {
     var activeConversationId: String?
     var projects: [ProjectSummaryWire] = []
     var connectionStatus = RemoteSidecarManager.ConnectionStatus.disconnected
+    var lanLoadError: String? = nil
 
     // MARK: - Services
 
@@ -74,11 +75,28 @@ final class iOSAppState {
     // MARK: - REST loaders (LAN fast-path when lanHint is available)
 
     func loadConversations() async {
-        guard let baseURL = currentBaseURL() else { return }
-        guard let url = URL(string: "\(baseURL)/api/v1/conversations") else { return }
-        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-        struct Wrapper: Decodable { let conversations: [ConversationSummaryWire] }
-        conversations = (try? JSONDecoder().decode(Wrapper.self, from: data))?.conversations ?? []
+        // Try LAN fast-path first (5s timeout so isolated networks fall through quickly)
+        if let baseURL = currentBaseURL(),
+           let url = URL(string: "\(baseURL)/api/v1/conversations") {
+            do {
+                let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
+                let (data, _) = try await URLSession.shared.data(for: request)
+                struct Wrapper: Decodable { let conversations: [ConversationSummaryWire] }
+                if let decoded = try? JSONDecoder().decode(Wrapper.self, from: data) {
+                    conversations = decoded.conversations
+                    lanLoadError = nil
+                    return
+                }
+            } catch {
+                // LAN unreachable — fall through to Nostr relay path
+            }
+        }
+        // Nostr relay fallback: request conversations via encrypted relay
+        if let bridge = nostrBridge {
+            bridge.send(.conversationsList)
+        } else {
+            lanLoadError = "Not connected (no LAN and no Nostr bridge)"
+        }
     }
 
     func loadMessages(for conversationId: String) async -> [MessageWire] {
@@ -158,6 +176,9 @@ final class iOSAppState {
         case .sessionResult(let sessionId, _, _, _, _):
             streamingBuffers.removeValue(forKey: sessionId)
             Task { await loadConversations() }
+        case .conversationsListResult(let list):
+            conversations = list
+            lanLoadError = nil
         default:
             break
         }

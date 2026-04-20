@@ -23,7 +23,7 @@ enum iOSNostrKeychain {
 
     private static func keypairFrom(privBytes: Data) -> (privkeyHex: String, pubkeyHex: String)? {
         guard let privkey = try? P256K.Signing.PrivateKey(dataRepresentation: privBytes) else { return nil }
-        let pubBytes = Data(privkey.publicKey.dataRepresentation.dropFirst())
+        let pubBytes = Data(privkey.publicKey.xonly.bytes)
         return (privBytes.hexString, pubBytes.hexString)
     }
 

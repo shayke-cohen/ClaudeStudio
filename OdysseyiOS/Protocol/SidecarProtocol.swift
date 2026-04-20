@@ -66,6 +66,7 @@ enum SidecarCommand: Sendable {
     case sessionUpdateMode(sessionId: String, interactive: Bool, instancePolicy: String?, instancePolicyPoolMax: Int?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
     case pairingHello(iosNpub: String, displayName: String)
+    case conversationsList
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -88,6 +89,8 @@ enum SidecarCommand: Sendable {
             return try encoder.encode(SessionUpdateCwdWire(type: "session.updateCwd", sessionId: sessionId, workingDirectory: workingDirectory))
         case .pairingHello(let iosNpub, let displayName):
             return try encoder.encode(PairingHelloWire(type: "pairing.hello", iosNpub: iosNpub, displayName: displayName))
+        case .conversationsList:
+            return try encoder.encode(TypeOnlyWire(type: "conversations.list"))
         }
     }
 }
@@ -109,6 +112,7 @@ enum SidecarEvent: Sendable {
     case connected
     case disconnected
     case pairingConfirmed
+    case conversationsListResult(conversations: [ConversationSummaryWire])
     case other
 }
 
@@ -137,6 +141,7 @@ struct IncomingWireMessage: Codable, Sendable {
     let filePath: String?
     let fileType: String?
     let fileName: String?
+    let conversations: [ConversationSummaryWire]?
 
     func toEvent() -> SidecarEvent? {
         switch type {
@@ -174,6 +179,8 @@ struct IncomingWireMessage: Codable, Sendable {
             return .streamFileCard(sessionId: sid, filePath: fp, fileType: ft, fileName: fn)
         case "pairing.confirmed":
             return .pairingConfirmed
+        case "conversations.list.result":
+            return .conversationsListResult(conversations: conversations ?? [])
         default:
             return .other
         }
@@ -236,4 +243,8 @@ private struct PairingHelloWire: Encodable {
     let type: String
     let iosNpub: String
     let displayName: String
+}
+
+private struct TypeOnlyWire: Encodable {
+    let type: String
 }

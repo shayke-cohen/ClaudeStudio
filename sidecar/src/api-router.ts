@@ -88,8 +88,6 @@ export async function handleApiRequest(
 
   if (!path.startsWith("/api/v1/")) return null;
 
-  logger.info("api", `${req.method} ${path} from ${req.headers.get("x-forwarded-for") ?? "local"}`);
-
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {

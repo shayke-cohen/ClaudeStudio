@@ -53,7 +53,8 @@ export type SidecarCommand =
   | { type: "browser.userSubmit";  sessionId: string; data: string }
   | { type: "browser.resume";      sessionId: string }
   | { type: "browser.stateChange"; sessionId: string; state: "agentDriving" | "userDriving" | "yieldedToUser" }
-  | { type: "pairing.hello"; iosNpub: string; displayName: string };
+  | { type: "pairing.hello"; iosNpub: string; displayName: string }
+  | { type: "conversations.list" };
 
 export interface PeerAgentWire {
   name: string;
@@ -468,4 +469,5 @@ export type BrowserEvent =
   | { type: 'browser.pageLoaded';  sessionId: string; url: string; title: string }
   | { type: 'browser.userSubmit';  sessionId: string; data: string }
   | { type: 'browser.stateChange'; sessionId: string; state: 'agentDriving' | 'userDriving' | 'yieldedToUser' }
-  | { type: 'pairing.confirmed' };
+  | { type: 'pairing.confirmed' }
+  | { type: 'conversations.list.result'; conversations: ConversationSummaryWire[] };

@@ -20,11 +20,20 @@ struct ConversationListView: View {
         NavigationStack {
             Group {
                 if appState.conversations.isEmpty {
-                    ContentUnavailableView(
-                        "No Conversations",
-                        systemImage: "bubble.left.and.bubble.right",
-                        description: Text("Connect to your Mac to see conversations here.")
-                    )
+                    VStack(spacing: 8) {
+                        ContentUnavailableView(
+                            "No Conversations",
+                            systemImage: "bubble.left.and.bubble.right",
+                            description: Text("Connect to your Mac to see conversations here.")
+                        )
+                        if let err = appState.lanLoadError {
+                            Text(err)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .padding(.horizontal)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
                     .accessibilityIdentifier("conversationList.emptyState")
                 } else {
                     List(filteredConversations) { conversation in

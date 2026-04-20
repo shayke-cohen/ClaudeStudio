@@ -493,6 +493,13 @@ export class WsServer {
         this.trustedIosNpubs.add(command.iosNpub);
         this.broadcast({ type: "pairing.confirmed" });
         break;
+
+      case "conversations.list":
+        this.broadcast({
+          type: "conversations.list.result",
+          conversations: this.ctx.conversationStore.listConversations(),
+        });
+        break;
     }
   }
 
