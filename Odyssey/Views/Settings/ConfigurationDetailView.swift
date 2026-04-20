@@ -19,6 +19,10 @@ struct ConfigurationDetailView: View {
     @State private var showingSkillEditor = false
     @State private var showingMCPEditor = false
 
+    // Callbacks (agents and groups only — nil hides the button)
+    var onDelete: (() -> Void)? = nil
+    var onDuplicate: (() -> Void)? = nil
+
     // MARK: - Hero colors
 
     private var heroStartColor: Color {
@@ -100,6 +104,8 @@ struct ConfigurationDetailView: View {
                 HStack(spacing: 6) {
                     heroRevealButton
                     if canEdit { heroEditButton }
+                    if onDuplicate != nil { heroDuplicateButton }
+                    if onDelete != nil { heroDeleteButton }
                 }
             }
             if shouldShowResidentBadge {
@@ -198,6 +204,28 @@ struct ConfigurationDetailView: View {
         .buttonStyle(HeroButtonStyle())
         .help("Edit this item")
         .accessibilityIdentifier("settings.configuration.heroEditButton")
+    }
+
+    private var heroDuplicateButton: some View {
+        Button { onDuplicate?() } label: {
+            Label("Duplicate", systemImage: "plus.square.on.square")
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .buttonStyle(HeroButtonStyle())
+        .help("Duplicate this item")
+        .accessibilityIdentifier("settings.configuration.heroDuplicateButton")
+        .accessibilityLabel("Duplicate")
+    }
+
+    private var heroDeleteButton: some View {
+        Button { onDelete?() } label: {
+            Label("Delete", systemImage: "trash")
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .buttonStyle(HeroButtonStyle(isDestructive: true))
+        .help("Delete this item")
+        .accessibilityIdentifier("settings.configuration.heroDeleteButton")
+        .accessibilityLabel("Delete")
     }
 
     private var itemMetaLine: String {
@@ -642,6 +670,8 @@ struct ConfigurationDetailView: View {
 // MARK: - Hero button style
 
 private struct HeroButtonStyle: ButtonStyle {
+    var isDestructive: Bool = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(.horizontal, 10)
@@ -650,7 +680,7 @@ private struct HeroButtonStyle: ButtonStyle {
                 .white.opacity(configuration.isPressed ? 0.28 : 0.18),
                 in: RoundedRectangle(cornerRadius: 7)
             )
-            .foregroundStyle(.white)
+            .foregroundStyle(isDestructive ? Color(red: 1, green: 0.55, blue: 0.55) : .white)
             .overlay(
                 RoundedRectangle(cornerRadius: 7)
                     .strokeBorder(.white.opacity(0.12))
