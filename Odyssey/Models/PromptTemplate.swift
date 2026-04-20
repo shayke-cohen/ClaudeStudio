@@ -18,7 +18,7 @@ final class PromptTemplate {
     var updatedAt: Date = Date()
 
     /// Disk identity: "<ownerKind-plural>/<ownerSlug>/<templateSlug>"
-    /// e.g. "agents/coder/review-pr" or "groups/security-audit/full-codebase-audit".
+    /// e.g. "agents/coder/review-pr", "groups/security-audit/full-codebase-audit", or "projects/odyssey/check-issues".
     var configSlug: String?
 
     /// Exactly one of these is non-nil. Nullable relationships give us cascade delete.
