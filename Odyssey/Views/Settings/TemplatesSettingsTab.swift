@@ -512,7 +512,8 @@ struct TemplatesSettingsTab: View {
                     Label("Add from library", systemImage: "sparkles")
                 }
                 .buttonStyle(.bordered)
-                .xrayId("templates.addFromLibraryButton")
+                .xrayId("templates.addFromLibraryFooterButton")
+                .accessibilityLabel("Add from library")
             }
 
             Button {
