@@ -26,6 +26,17 @@ private struct ChatVisibleMessageFramesPreferenceKey: PreferenceKey {
     }
 }
 
+/// ViewModifier wrapper for observing pending template prompts — kept out of the huge
+/// `chatCoreContent` body to avoid tripping the Swift type-checker's complexity budget.
+private struct PendingTemplatePromptObserver: ViewModifier {
+    let value: PendingTemplatePrompt?
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        content.onChange(of: value) { _, _ in action() }
+    }
+}
+
 // MARK: - Quick Actions Row (Hybrid Layout)
 
 /// Shows quick action buttons in a single row. Left-side buttons show icon+text labels;
@@ -679,6 +690,10 @@ struct ChatView: View {
             if newValue { showAddAgentsSheet = true }
         }
         .onChange(of: windowState.autoSendText) { _, _ in consumeAutoSendText() }
+        .modifier(PendingTemplatePromptObserver(
+            value: windowState.pendingTemplatePrompt,
+            action: consumePendingTemplatePrompt
+        ))
         .onChange(of: inputText) { _, new in
             if new.hasPrefix("/"), !new.hasPrefix("//"), !new.contains(" ") {
                 let query = String(new.dropFirst())
@@ -701,6 +716,7 @@ struct ChatView: View {
         }
         .onAppear {
             consumeAutoSendText()
+            consumePendingTemplatePrompt()
             restoreStreamingStateFromAppState()
         }
         .onChange(of: appState.sessionActivity) { _, _ in
@@ -2219,6 +2235,8 @@ struct ChatView: View {
                 .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
                 .disabled(isProcessing)
 
+                projectTemplatesMenu
+
                 if (conversation?.sessions ?? []).count > 1 {
                     groupSettingsMenuContent
                         .menuStyle(.borderlessButton)
@@ -2444,6 +2462,41 @@ struct ChatView: View {
                 .sorted { $0.sortOrder < $1.sortOrder }
         }
         return []
+    }
+
+    private var projectTemplates: [PromptTemplate] {
+        guard let projectId = selectedConversation.projectId else { return [] }
+        return allTemplates
+            .filter { $0.project?.id == projectId }
+            .sorted { lhs, rhs in
+                if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+                return lhs.name < rhs.name
+            }
+    }
+
+    @ViewBuilder
+    private var projectTemplatesMenu: some View {
+        let templates = projectTemplates
+        if !templates.isEmpty {
+            Menu {
+                ForEach(templates) { template in
+                    Button(template.name) {
+                        inputText = template.prompt
+                    }
+                }
+            } label: {
+                Image(systemName: "sparkles")
+                    .font(captionFont.weight(.medium))
+                    .foregroundStyle(.purple)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityIdentifier("chat.projectTemplatesButton")
+            .accessibilityLabel("Project templates")
+            .help("Project templates")
+            .disabled(isProcessing)
+        }
     }
 
     @ViewBuilder
@@ -3170,6 +3223,14 @@ struct ChatView: View {
                 sendMessage()
             }
         }
+    }
+
+    private func consumePendingTemplatePrompt() {
+        guard let pending = windowState.pendingTemplatePrompt,
+              pending.conversationId == conversationId else { return }
+        windowState.pendingTemplatePrompt = nil
+        windowState.autoSendText = pending.text
+        consumeAutoSendText()
     }
 
     private func handleExecutionModeToggle() {
