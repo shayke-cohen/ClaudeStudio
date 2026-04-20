@@ -1269,6 +1269,7 @@ struct ChatView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(sharedRoomStatusColor(for: convo), in: Capsule())
+                    .help("Shared room status: \(sharedRoomStatusLabel(for: convo))")
                     .xrayId("chat.sharedRoomStatusBadge")
             }
 
@@ -1444,6 +1445,7 @@ struct ChatView: View {
                         .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.quaternary)
                 )
+                .help("Set a standing mission prompt for this thread")
                 .xrayId("chat.missionAddLink")
             }
         }
