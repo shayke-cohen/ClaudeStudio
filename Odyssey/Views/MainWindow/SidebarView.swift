@@ -2251,11 +2251,11 @@ struct SidebarView: View {
 
         expandedProjectIds.insert(project.id)
         windowState.selectProject(project, preserveSelection: true)
-        windowState.selectedConversationId = conversation.id
         windowState.pendingTemplatePrompt = PendingTemplatePrompt(
             conversationId: conversation.id,
             text: template.prompt
         )
+        windowState.selectedConversationId = conversation.id
     }
 
     private func toggleProjectExpansion(_ project: Project) {

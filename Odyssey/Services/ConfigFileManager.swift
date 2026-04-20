@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import OSLog
 
@@ -1110,9 +1111,10 @@ enum ConfigFileManager {
             .replacingOccurrences(of: " ", with: "-")
             .filter { $0.isLetter || $0.isNumber || $0 == "-" }
         let safeName = base.isEmpty ? "project" : base
-        // Append a hash suffix to guarantee uniqueness when two projects share the same folder name.
-        let hash = abs(canonicalRootPath.hashValue) % 1_000_000
-        return "\(safeName)-\(String(format: "%06d", hash))"
+        // Append a deterministic SHA256-based suffix to guarantee uniqueness when two projects share the same folder name.
+        let digest = SHA256.hash(data: Data(canonicalRootPath.utf8))
+        let hex = digest.prefix(3).map { String(format: "%02x", $0) }.joined()
+        return "\(safeName)-\(hex)"
     }
 
     // MARK: - Private Helpers
