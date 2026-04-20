@@ -45,10 +45,6 @@ struct TemplatesSettingsTab: View {
         }
     }
 
-    private var sortedProjects: [Project] {
-        projects.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
-    }
-
     private var filteredAgents: [Agent] {
         guard !searchText.isEmpty else { return enabledAgents }
         let needle = searchText.lowercased()
@@ -62,9 +58,9 @@ struct TemplatesSettingsTab: View {
     }
 
     private var filteredProjects: [Project] {
-        guard !searchText.isEmpty else { return sortedProjects }
+        guard !searchText.isEmpty else { return projects }
         let needle = searchText.lowercased()
-        return sortedProjects.filter { $0.name.lowercased().contains(needle) }
+        return projects.filter { $0.name.lowercased().contains(needle) }
     }
 
     private func templateCount(forAgent agent: Agent) -> Int {
@@ -91,7 +87,7 @@ struct TemplatesSettingsTab: View {
 
     private var selectedProject: Project? {
         guard case .project(let id) = selectedOwner else { return nil }
-        return sortedProjects.first { $0.id == id }
+        return projects.first { $0.id == id }
     }
 
     private var templatesForSelection: [PromptTemplate] {
@@ -133,7 +129,7 @@ struct TemplatesSettingsTab: View {
             if selectedOwner == nil {
                 selectedOwner = enabledAgents.first.map { .agent($0.id) }
                     ?? enabledGroups.first.map { .group($0.id) }
-                    ?? sortedProjects.first.map { .project($0.id) }
+                    ?? projects.first.map { .project($0.id) }
             }
         }
         .sheet(item: $editingTemplate) { template in
@@ -223,7 +219,7 @@ struct TemplatesSettingsTab: View {
                                 count: templateCount(forProject: project)
                             )
                             .tag(OwnerKey.project(project.id))
-                            .xrayId("templates.projectRow.\(project.id.uuidString)")
+                            .xrayId("settings.templates.ownerRow.project.\(project.id.uuidString)")
                         }
                     }
                 }
@@ -487,7 +483,7 @@ struct TemplatesSettingsTab: View {
                     Label("Add from library", systemImage: "sparkles")
                 }
                 .buttonStyle(.borderedProminent)
-                .xrayId("templates.addFromLibraryButton")
+                .xrayId("settings.templates.addFromLibraryButton")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -512,7 +508,7 @@ struct TemplatesSettingsTab: View {
                     Label("Add from library", systemImage: "sparkles")
                 }
                 .buttonStyle(.bordered)
-                .xrayId("templates.addFromLibraryFooterButton")
+                .xrayId("settings.templates.addFromLibraryFooterButton")
                 .accessibilityLabel("Add from library")
             }
 
@@ -602,7 +598,7 @@ struct TemplatesSettingsTab: View {
                 .appendingPathComponent("groups")
                 .appendingPathComponent(slug)
         case .project(let id):
-            let project = sortedProjects.first { $0.id == id }
+            let project = projects.first { $0.id == id }
             let slug = project.map { ConfigFileManager.projectSlug(for: $0.canonicalRootPath) } ?? ""
             url = ConfigFileManager.promptTemplatesDirectory
                 .appendingPathComponent("projects")
@@ -629,12 +625,16 @@ struct TemplatesSettingsTab: View {
         let existingCount = templateCount(forProject: project)
 
         for (index, entry) in entries.enumerated() {
-            let templateSlug = librarySlugify(entry.name)
+            let templateSlug = ConfigFileManager.uniquePromptTemplateSlug(
+                baseName: entry.name,
+                ownerKind: .projects,
+                ownerSlug: projectSlug
+            )
             let configSlug = "projects/\(projectSlug)/\(templateSlug)"
             let template = PromptTemplate(
                 name: entry.name,
                 prompt: entry.prompt,
-                sortOrder: existingCount + index,
+                sortOrder: existingCount + index + 1,
                 isBuiltin: true,
                 agent: nil,
                 group: nil,
@@ -645,10 +645,6 @@ struct TemplatesSettingsTab: View {
             appState.configSyncService?.writeBack(promptTemplate: template)
         }
         try? modelContext.save()
-    }
-
-    private func librarySlugify(_ name: String) -> String {
-        name.lowercased().replacingOccurrences(of: " ", with: "-")
     }
 }
 
