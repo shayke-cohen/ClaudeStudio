@@ -164,6 +164,21 @@ struct InspectorView: View {
                     }
                 )
                 .id(fileExplorerDirectoryPath)
+                .onAppear {
+                    if let group = sourceGroup,
+                       let dir = group.defaultWorkingDirectory, !dir.isEmpty {
+                        let expanded = (dir as NSString).expandingTildeInPath
+                        let agentNames = allAgents
+                            .filter { group.agentIds.contains($0.id) }
+                            .map(\.name)
+                        ResidentAgentSupport.seedGroupVaultIfNeeded(
+                            in: expanded,
+                            groupName: group.name,
+                            agentNames: agentNames
+                        )
+                        appState.fileTreeRefreshTrigger += 1
+                    }
+                }
             case .group:
                 if let group = sourceGroup {
                     groupContent(group)

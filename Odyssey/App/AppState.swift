@@ -523,14 +523,24 @@ final class AppState {
         let trimmedMissionOverride = missionOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
         let mission = (trimmedMissionOverride?.isEmpty == false ? trimmedMissionOverride : nil) ?? group.defaultMission
 
+        // Seed the group's shared vault once, before creating any sessions.
+        let sharedGroupDir: String
+        if let groupHome = group.defaultWorkingDirectory, !groupHome.isEmpty {
+            sharedGroupDir = (groupHome as NSString).expandingTildeInPath
+        } else {
+            sharedGroupDir = projectDirectory
+        }
+        if !sharedGroupDir.isEmpty {
+            ResidentAgentSupport.seedGroupVaultIfNeeded(
+                in: sharedGroupDir,
+                groupName: group.name,
+                agentNames: resolvedAgents.map(\.name)
+            )
+        }
+
         for agent in resolvedAgents {
             // Group's own home always wins when set; explicit project dir is the fallback
-            let groupDir: String
-            if let groupHome = group.defaultWorkingDirectory, !groupHome.isEmpty {
-                groupDir = (groupHome as NSString).expandingTildeInPath
-            } else {
-                groupDir = projectDirectory
-            }
+            let groupDir = sharedGroupDir
             let (_, session) = provisioner.provision(
                 agent: agent,
                 mission: mission,

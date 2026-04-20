@@ -255,4 +255,122 @@ enum ResidentAgentSupport {
         <!-- Critical items to carry through this session -->
         """
     }
+
+    // MARK: - Group vault seed
+
+    /// Seeds the shared vault for a group's working directory. Safe to call on every thread start —
+    /// existing files are never overwritten.
+    static func seedGroupVaultIfNeeded(in directoryPath: String, groupName: String, agentNames: [String] = []) {
+        seedFileIfNeeded(named: "CLAUDE.md",    in: directoryPath, content: groupClaudeTemplate(groupName: groupName, agentNames: agentNames))
+        seedFileIfNeeded(named: "MEMORY.md",    in: directoryPath, content: groupMemoryTemplate(groupName: groupName))
+        seedFileIfNeeded(named: "INDEX.md",     in: directoryPath, content: groupIndexTemplate(groupName: groupName))
+        seedFileIfNeeded(named: "GUIDELINES.md",in: directoryPath, content: guidelinesTemplate())
+        seedFileIfNeeded(named: "SESSION.md",   in: directoryPath, content: groupSessionTemplate())
+    }
+
+    private static func groupClaudeTemplate(groupName: String, agentNames: [String]) -> String {
+        let roster = agentNames.isEmpty
+            ? "<!-- List members and their roles -->"
+            : agentNames.map { "- \($0)" }.joined(separator: "\n")
+        return """
+        ---
+        group: \(groupName)
+        updated: \(isoDate)
+        ---
+
+        # \(groupName)
+
+        ## Purpose
+        <!-- What this team is here to accomplish. Fill and maintain this. -->
+
+        ## Members
+        \(roster)
+
+        ## Shared Knowledge Graph
+
+        This directory is the team's shared memory. All agents working here can read and write it.
+
+        | File | Purpose | Cap |
+        |------|---------|-----|
+        | `INDEX.md` | Map of content — read first each session | — |
+        | `MEMORY.md` | Shared lessons and active mission | 200 lines |
+        | `GUIDELINES.md` | Team-agreed rules with #tags | — |
+        | `SESSION.md` | Current active state (volatile) | Reset each thread |
+        | `sessions/YYYY-MM-DD.md` | Append-only daily logs | — |
+        | `knowledge/{topic}.md` | Semantic topic notes | — |
+
+        ## Collaboration Conventions
+
+        - Record decisions in `sessions/` with the deciding agent's name and a `#decision` tag
+        - Promote recurring patterns to `knowledge/{topic}.md` and link from `INDEX.md`
+        - Update `MEMORY.md` with a dated one-liner after each significant thread
+        - Conflicts or open questions → use `#question` tag in `sessions/`
+        """
+    }
+
+    private static func groupMemoryTemplate(groupName: String) -> String {
+        """
+        ---
+        updated: \(isoDate)
+        cap: "200 lines — keep under this cap; move detail to knowledge/"
+        ---
+
+        # \(groupName) — Shared Memory
+
+        ## Recent Lessons
+        <!-- Dated one-liners from completed threads. Format: YYYY-MM-DD: <agent>: <lesson> -->
+
+        ## Domain Map
+        <!-- Routing table to knowledge/ files.
+             Example: Auth → [[knowledge/auth.md]] -->
+
+        ## Active Mission
+        <!-- The current top-level goal this team is working toward -->
+        """
+    }
+
+    private static func groupIndexTemplate(groupName: String) -> String {
+        """
+        ---
+        updated: \(isoDate)
+        ---
+
+        # \(groupName) — Knowledge Index
+
+        ## Core Files
+        - [[CLAUDE.md]] — team identity, member roster, collaboration conventions
+        - [[MEMORY.md]] — shared lessons and active mission
+        - [[GUIDELINES.md]] — team-agreed rules
+        - [[SESSION.md]] — current active state (volatile)
+
+        ## Sessions (Episodic)
+        <!-- Links added as sessions/ files are created -->
+
+        ## Knowledge (Semantic)
+        <!-- Add links here when creating knowledge/ files -->
+        """
+    }
+
+    private static func groupSessionTemplate() -> String {
+        """
+        ---
+        updated: \(isoDate)
+        volatile: true
+        ---
+
+        # Current Group Session
+
+        ## Mission
+        <!-- What this thread is working on -->
+
+        ## Active Agents
+        <!-- Which agents are engaged and what each is handling -->
+
+        ## Shared Context
+        <!-- Decisions, blockers, and handoff state for this session -->
+
+        ## Do Not Forget
+        <!-- Critical items the whole team needs to carry through this session -->
+        """
+    }
 }
