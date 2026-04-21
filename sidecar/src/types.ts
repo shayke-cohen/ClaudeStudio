@@ -24,10 +24,10 @@ export type SidecarCommand =
   | { type: "nostr.removePeer"; name: string }
   | { type: "nostr.injectCommand"; command: SidecarCommand }
   | { type: "nostr.peerAnnounce"; pubkeyHex: string; relays: string[] }
-  | { type: "generate.agent"; requestId: string; prompt: string; availableSkills: SkillCatalogEntry[]; availableMCPs: MCPCatalogEntry[] }
-  | { type: "generate.group"; requestId: string; prompt: string; availableAgents: AgentCatalogEntry[] }
-  | { type: "generate.skill"; requestId: string; prompt: string; availableCategories: string[]; availableMCPs: MCPCatalogEntry[] }
-  | { type: "generate.template"; requestId: string; intent: string; agentName: string; agentSystemPrompt: string }
+  | { type: "generate.agent"; requestId: string; prompt: string; availableSkills: SkillCatalogEntry[]; availableMCPs: MCPCatalogEntry[]; model?: string }
+  | { type: "generate.group"; requestId: string; prompt: string; availableAgents: AgentCatalogEntry[]; model?: string }
+  | { type: "generate.skill"; requestId: string; prompt: string; availableCategories: string[]; availableMCPs: MCPCatalogEntry[]; model?: string }
+  | { type: "generate.template"; requestId: string; intent: string; agentName: string; agentSystemPrompt: string; model?: string }
   | { type: "session.questionAnswer"; sessionId: string; questionId: string; answer: string; selectedOptions?: string[] }
   | { type: "session.confirmationAnswer"; sessionId: string; confirmationId: string; approved: boolean; modifiedAction?: string }
   | { type: "session.updateCwd"; sessionId: string; workingDirectory: string }
@@ -265,9 +265,9 @@ export type SidecarEvent =
   | { type: "generate.agent.error"; requestId: string; error: string }
   | { type: "generate.group.result"; requestId: string; groupSpec: GeneratedGroupSpec }
   | { type: "generate.group.error"; requestId: string; error: string }
-  | { type: "generate.skill.result"; requestId: string; spec: GeneratedSkillSpec }
+  | { type: "generate.skill.result"; requestId: string; skillSpec: GeneratedSkillSpec }
   | { type: "generate.skill.error"; requestId: string; error: string }
-  | { type: "generate.template.result"; requestId: string; spec: GeneratedTemplateSpec }
+  | { type: "generate.template.result"; requestId: string; templateSpec: GeneratedTemplateSpec }
   | { type: "generate.template.error"; requestId: string; error: string }
   | { type: "agent.question"; sessionId: string; questionId: string; question: string; options?: QuestionOption[]; multiSelect: boolean; private: boolean; inputType?: QuestionInputType; inputConfig?: QuestionInputConfig; timeoutSeconds?: number; autoRouting?: boolean }
   | { type: "agent.confirmation"; sessionId: string; confirmationId: string; action: string; reason: string; riskLevel: "low" | "medium" | "high"; details?: string }

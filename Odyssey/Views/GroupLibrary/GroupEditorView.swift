@@ -380,6 +380,7 @@ struct GroupEditorView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGenerating)
                 .accessibilityIdentifier("groupEditor.generateButton")
+                .appXrayTapProxy(id: "groupEditor.generateButton") { Task { await generate() } }
             } else {
                 Button(isEditing ? "Save" : "Create Group") { save() }
                     .buttonStyle(.borderedProminent)

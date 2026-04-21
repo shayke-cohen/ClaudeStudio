@@ -17,10 +17,10 @@ enum SidecarCommand: Sendable {
     case nostrRemovePeer(name: String)
     indirect case nostrInjectCommand(command: SidecarCommand)
     case nostrPeerAnnounce(pubkeyHex: String, relays: [String])
-    case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry])
-    case generateGroup(requestId: String, prompt: String, availableAgents: [AgentCatalogEntry])
-    case generateSkill(requestId: String, prompt: String, availableCategories: [String], availableMCPs: [MCPCatalogEntry])
-    case generateTemplate(requestId: String, intent: String, agentName: String, agentSystemPrompt: String)
+    case generateAgent(requestId: String, prompt: String, availableSkills: [SkillCatalogEntry], availableMCPs: [MCPCatalogEntry], model: String? = nil)
+    case generateGroup(requestId: String, prompt: String, availableAgents: [AgentCatalogEntry], model: String? = nil)
+    case generateSkill(requestId: String, prompt: String, availableCategories: [String], availableMCPs: [MCPCatalogEntry], model: String? = nil)
+    case generateTemplate(requestId: String, intent: String, agentName: String, agentSystemPrompt: String, model: String? = nil)
     case questionAnswer(sessionId: String, questionId: String, answer: String, selectedOptions: [String]?)
     case confirmationAnswer(sessionId: String, confirmationId: String, approved: Bool, modifiedAction: String?)
     case sessionUpdateCwd(sessionId: String, workingDirectory: String)
@@ -125,21 +125,21 @@ enum SidecarCommand: Sendable {
             }
             let wrapper: [String: Any] = ["type": "nostr.injectCommand", "command": innerObj]
             return try JSONSerialization.data(withJSONObject: wrapper)
-        case .generateAgent(let requestId, let prompt, let skills, let mcps):
+        case .generateAgent(let requestId, let prompt, let skills, let mcps, let model):
             return try encoder.encode(
-                GenerateAgentWire(type: "generate.agent", requestId: requestId, prompt: prompt, availableSkills: skills, availableMCPs: mcps)
+                GenerateAgentWire(type: "generate.agent", requestId: requestId, prompt: prompt, availableSkills: skills, availableMCPs: mcps, model: model)
             )
-        case .generateGroup(let requestId, let prompt, let agents):
+        case .generateGroup(let requestId, let prompt, let agents, let model):
             return try encoder.encode(
-                GenerateGroupWire(type: "generate.group", requestId: requestId, prompt: prompt, availableAgents: agents)
+                GenerateGroupWire(type: "generate.group", requestId: requestId, prompt: prompt, availableAgents: agents, model: model)
             )
-        case .generateSkill(let requestId, let prompt, let availableCategories, let mcps):
+        case .generateSkill(let requestId, let prompt, let availableCategories, let mcps, let model):
             return try encoder.encode(
-                GenerateSkillWire(type: "generate.skill", requestId: requestId, prompt: prompt, availableCategories: availableCategories, availableMCPs: mcps)
+                GenerateSkillWire(type: "generate.skill", requestId: requestId, prompt: prompt, availableCategories: availableCategories, availableMCPs: mcps, model: model)
             )
-        case .generateTemplate(let requestId, let intent, let agentName, let agentSystemPrompt):
+        case .generateTemplate(let requestId, let intent, let agentName, let agentSystemPrompt, let model):
             return try encoder.encode(
-                GenerateTemplateWire(type: "generate.template", requestId: requestId, intent: intent, agentName: agentName, agentSystemPrompt: agentSystemPrompt)
+                GenerateTemplateWire(type: "generate.template", requestId: requestId, intent: intent, agentName: agentName, agentSystemPrompt: agentSystemPrompt, model: model)
             )
         case .questionAnswer(let sessionId, let questionId, let answer, let selectedOptions):
             return try encoder.encode(
@@ -454,6 +454,7 @@ private struct GenerateAgentWire: Encodable {
     let prompt: String
     let availableSkills: [SkillCatalogEntry]
     let availableMCPs: [MCPCatalogEntry]
+    let model: String?
 }
 
 private struct GenerateGroupWire: Encodable {
@@ -461,6 +462,7 @@ private struct GenerateGroupWire: Encodable {
     let requestId: String
     let prompt: String
     let availableAgents: [AgentCatalogEntry]
+    let model: String?
 }
 
 private struct GenerateSkillWire: Encodable {
@@ -469,6 +471,7 @@ private struct GenerateSkillWire: Encodable {
     let prompt: String
     let availableCategories: [String]
     let availableMCPs: [MCPCatalogEntry]
+    let model: String?
 }
 
 private struct GenerateTemplateWire: Encodable {
@@ -477,6 +480,7 @@ private struct GenerateTemplateWire: Encodable {
     let intent: String
     let agentName: String
     let agentSystemPrompt: String
+    let model: String?
 }
 
 struct AgentCatalogEntry: Codable, Sendable {

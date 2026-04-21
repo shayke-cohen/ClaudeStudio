@@ -6,19 +6,7 @@ import { resolveQuestion } from "./tools/ask-user-tool.js";
 import { logger } from "./logger.js";
 import { probeConnector } from "./connectors/provider-runtime.js";
 import { ConversationEvaluator } from "./conversation-evaluator.js";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { existsSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const _claudeCodeCliPath = (() => {
-  const sidecarDir = dirname(fileURLToPath(import.meta.url));
-  const bundled = resolve(sidecarDir, "claude-code-cli.js");
-  if (existsSync(bundled)) return bundled;
-  const devPath = resolve(sidecarDir, "../../node_modules/@anthropic-ai/claude-agent-sdk/cli.js");
-  if (existsSync(devPath)) return devPath;
-  return undefined;
-})();
+import { GenerationService } from "./generation-service.js";
 
 
 export interface WsServerOptions {
@@ -35,12 +23,14 @@ export class WsServer {
   private server: ReturnType<typeof Bun.serve> | null = null;
   private options: WsServerOptions = {};
   private readonly conversationEvaluator: ConversationEvaluator;
+  private readonly generationService: GenerationService;
 
   constructor(port: number, sessionManager: SessionManager, ctx: ToolContext, options: WsServerOptions = {}) {
     this.sessionManager = sessionManager;
     this.ctx = ctx;
     this.options = options;
     this.conversationEvaluator = new ConversationEvaluator(this.sessionManager);
+    this.generationService = new GenerationService();
 
     // Load TLS config; fall back to plain WS if the cert/key can't be parsed
     // (macOS Security.framework can produce explicit-params EC certs that Bun/BoringSSL rejects)
@@ -682,57 +672,6 @@ export class WsServer {
     }
   }
 
-  /** Extract the first valid JSON object from text that may contain markdown or prose. */
-  private extractJSON(text: string): string {
-    let cleaned = text.trim();
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
-    }
-    try { JSON.parse(cleaned); return cleaned; } catch { /* fall through */ }
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      const extracted = cleaned.substring(firstBrace, lastBrace + 1);
-      try { JSON.parse(extracted); return extracted; } catch { /* fall through */ }
-    }
-    return cleaned;
-  }
-
-  /** Single-turn generation via the Agent SDK (uses Claude Code auth, no API key needed). */
-  private async queryOnce(systemInstructions: string, userRequest: string, model: string): Promise<string> {
-    const prompt = `${userRequest}\n\nRespond with ONLY valid JSON as specified above. No markdown, no code fences, no explanations.`;
-    const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) {
-      if (typeof v === "string") env[k] = v;
-    }
-    delete env.CLAUDECODE;
-    const options: Record<string, any> = {
-      model,
-      maxTurns: 1,
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
-      strictMcpConfig: true,
-      mcpServers: {},
-      cwd: process.cwd(),
-      env,
-      systemPrompt: systemInstructions,
-      // Use the current runtime directly so the Agent SDK doesn't search PATH for "bun"
-      // (macOS GUI apps strip the shell PATH, so "bun" would not be found otherwise).
-      executable: process.execPath,
-    };
-    if (_claudeCodeCliPath) options.pathToClaudeCodeExecutable = _claudeCodeCliPath;
-    const stream = query({ prompt, options });
-    let resultText = "";
-    for await (const message of stream) {
-      const msg = message as any;
-      if (msg.type === "assistant") {
-        for (const block of msg.message?.content ?? []) {
-          if (block.type === "text" && block.text) resultText += block.text;
-        }
-      }
-    }
-    return resultText.trim();
-  }
 
   private async handleGenerateAgent(
     command: Extract<SidecarCommand, { type: "generate.agent" }>
@@ -797,8 +736,8 @@ ${mcpsCatalog}`;
 
     logger.info("ws", `generate.agent: generating agent from prompt: "${command.prompt.substring(0, 100)}..."`);
 
-    const rawText = await this.queryOnce(systemPrompt, command.prompt, "claude-sonnet-4-6");
-    const jsonText = this.extractJSON(rawText);
+    const rawText = await this.generationService.generate(systemPrompt, command.prompt, command.model);
+    const jsonText = this.generationService.extractJSON(rawText);
     const spec = JSON.parse(jsonText);
 
     // Validate required fields
@@ -868,8 +807,8 @@ ${agentsCatalog}`;
 
     logger.info("ws", `generate.group: generating group from prompt: "${command.prompt.substring(0, 100)}..."`);
 
-    const rawText = await this.queryOnce(systemPrompt, command.prompt, "claude-sonnet-4-6");
-    const jsonText = this.extractJSON(rawText);
+    const rawText = await this.generationService.generate(systemPrompt, command.prompt, command.model);
+    const jsonText = this.generationService.extractJSON(rawText);
     const spec = JSON.parse(jsonText);
 
     if (!spec.name || !spec.groupInstruction) {
@@ -933,8 +872,8 @@ ${mcpsCatalog}`;
 
     logger.info("ws", `generate.skill: generating skill from prompt: "${command.prompt.substring(0, 100)}..."`);
 
-    const rawText = await this.queryOnce(systemPrompt, command.prompt, "claude-sonnet-4-6");
-    const jsonText = this.extractJSON(rawText);
+    const rawText = await this.generationService.generate(systemPrompt, command.prompt, command.model);
+    const jsonText = this.generationService.extractJSON(rawText);
     const spec = JSON.parse(jsonText);
 
     if (!spec.name || !spec.content) {
@@ -946,7 +885,7 @@ ${mcpsCatalog}`;
     this.broadcast({
       type: "generate.skill.result",
       requestId: command.requestId,
-      spec: {
+      skillSpec: {
         name: spec.name,
         description: spec.description ?? "",
         category: spec.category ?? "General",
@@ -981,14 +920,8 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
 
     logger.info("ws", `generate.template: generating template for agent "${command.agentName}"`);
 
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Template generation timed out after 90s")), 90_000)
-    );
-    const rawTemplateText = await Promise.race([
-      this.queryOnce(systemPrompt, command.intent, "claude-haiku-4-5-20251001"),
-      timeout,
-    ]);
-    const jsonText = this.extractJSON(rawTemplateText);
+    const rawTemplateText = await this.generationService.generate(systemPrompt, command.intent, command.model);
+    const jsonText = this.generationService.extractJSON(rawTemplateText);
 
     const spec = JSON.parse(jsonText);
 
@@ -1001,7 +934,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
     this.broadcast({
       type: "generate.template.result",
       requestId: command.requestId,
-      spec: {
+      templateSpec: {
         name: spec.name,
         prompt: spec.prompt,
       },

@@ -477,7 +477,9 @@ private var detailPane: some View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(selectedOwner == nil)
+            .keyboardShortcut("n", modifiers: .command)
             .xrayId("settings.templates.addButton")
+            .appXrayTapProxy(id: "settings.templates.addButton") { showingNewSheet = true }
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 14)

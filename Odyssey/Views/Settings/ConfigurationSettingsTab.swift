@@ -232,8 +232,10 @@ struct ConfigurationSettingsTab: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("n", modifiers: .command)
                 .accessibilityIdentifier("settings.configuration.listNewButton")
                 .accessibilityLabel("New \(String(selectedSection.title.dropLast()))")
+                .appXrayTapProxy(id: "settings.configuration.listNewButton") { handleNewItem() }
             }
         }
         .frame(maxHeight: .infinity)

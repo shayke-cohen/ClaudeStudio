@@ -14,6 +14,9 @@ import type {
 } from "./types.js";
 import { resolveQuestion, createQuestion, questionsBySession } from "./tools/ask-user-tool.js";
 import { logger, getLogBuffer, type SidecarLogLevel } from "./logger.js";
+import { GenerationService } from "./generation-service.js";
+
+const generationService = new GenerationService();
 
 // ─── Helpers ───
 
@@ -277,6 +280,24 @@ export async function handleApiRequest(
     params = matchRoute("/api/v1/tasks/:id/claim", "POST", req.method, path);
     if (params) {
       return await handleClaimTask(params.id, req, ctx);
+    }
+
+    // ─── Generation (Agent SDK — same path as WS handlers) ───
+
+    if (matchRoute("/api/v1/generate/agent", "POST", req.method, path)) {
+      return await handleGenerateAgentViaService(req);
+    }
+
+    if (matchRoute("/api/v1/generate/group", "POST", req.method, path)) {
+      return await handleGenerateGroupViaService(req);
+    }
+
+    if (matchRoute("/api/v1/generate/skill", "POST", req.method, path)) {
+      return await handleGenerateSkillViaService(req);
+    }
+
+    if (matchRoute("/api/v1/generate/template", "POST", req.method, path)) {
+      return await handleGenerateTemplateViaService(req);
     }
 
     return apiError("not_found", `No route matches ${req.method} ${path}`, 404);
@@ -844,4 +865,88 @@ async function handleClaimTask(taskId: string, req: Request, ctx: ApiContext): P
   if (!task) return apiError("conflict", `Task ${taskId} cannot be claimed (not in 'ready' status)`, 409);
   ctx.toolCtx.broadcast({ type: "task.updated", task });
   return apiJson(task);
+}
+
+// ─── Generation via GenerationService (Agent SDK path) ───
+
+async function handleGenerateAgentViaService(req: Request): Promise<Response> {
+  const body = await parseBody<{ prompt: string }>(req);
+  if (!body.prompt) return apiError("invalid_request", "prompt is required", 400);
+
+  const validIcons = [
+    "cpu", "brain", "terminal", "doc.text", "magnifyingglass", "shield",
+    "wrench.and.screwdriver", "paintbrush", "chart.bar", "bubble.left.and.bubble.right",
+    "network", "globe", "folder", "gear", "lightbulb", "book", "hammer",
+    "ant", "ladybug", "leaf", "bolt", "wand.and.stars", "pencil.and.outline",
+    "person.crop.circle", "star", "flag", "bell", "map", "eye", "lock.shield",
+    "server.rack", "externaldrive", "icloud", "arrow.triangle.branch",
+    "text.badge.checkmark", "checkmark.seal", "clock", "calendar",
+    "exclamationmark.triangle", "play", "stop", "shuffle", "repeat",
+    "square.and.pencil", "rectangle.and.text.magnifyingglass",
+    "doc.on.clipboard", "tray.2", "archivebox", "shippingbox",
+  ];
+  const validColors = ["blue", "red", "green", "purple", "orange", "teal", "pink", "indigo", "gray"];
+
+  const systemPrompt = `You are an agent designer. Given a user's description of an AI agent they want to create, generate a complete agent definition as JSON.\n\nReturn ONLY valid JSON (no markdown, no code fences) with: name, description, systemPrompt, model ("sonnet"|"opus"|"haiku"), icon (SF Symbol from ${JSON.stringify(validIcons)}), color (from ${JSON.stringify(validColors)}), matchedSkillIds (empty array), matchedMCPIds (empty array).`;
+
+  const raw = await generationService.generate(systemPrompt, body.prompt);
+  const spec = JSON.parse(generationService.extractJSON(raw));
+  if (!validIcons.includes(spec.icon)) spec.icon = "cpu";
+  if (!validColors.includes(spec.color)) spec.color = "blue";
+  return apiJson(spec, 201);
+}
+
+async function handleGenerateGroupViaService(req: Request): Promise<Response> {
+  const body = await parseBody<{ prompt: string }>(req);
+  if (!body.prompt) return apiError("invalid_request", "prompt is required", 400);
+
+  const validColors = ["blue", "red", "green", "purple", "orange", "yellow", "pink", "teal", "indigo", "gray"];
+
+  const systemPrompt = `You are a group designer for an AI agent collaboration system. Given a user's description of a group, generate a complete group definition as JSON.\n\nReturn ONLY valid JSON (no markdown, no code fences) with: name, description, icon (single emoji), color (from ${JSON.stringify(validColors)}), groupInstruction (100-400 words), defaultMission (string or null), matchedAgentIds (empty array).`;
+
+  const raw = await generationService.generate(systemPrompt, body.prompt);
+  const spec = JSON.parse(generationService.extractJSON(raw));
+  if (!spec.name || !spec.groupInstruction) throw new Error("Generated spec missing required fields");
+  if (!validColors.includes(spec.color)) spec.color = "blue";
+  return apiJson(spec, 201);
+}
+
+async function handleGenerateSkillViaService(req: Request): Promise<Response> {
+  const body = await parseBody<{ prompt: string }>(req);
+  if (!body.prompt) return apiError("invalid_request", "prompt is required", 400);
+
+  const systemPrompt = `You are a skill designer for an AI agent system. Given a user's description of a skill, generate a complete skill definition as JSON.\n\nReturn ONLY valid JSON (no markdown, no code fences) with: name, description, category (e.g. General/Security/Code Review/Architecture/Testing/DevOps), triggers (array of 3-6 keyword strings), matchedMCPIds (empty array), content (markdown, 200-600 words).`;
+
+  const raw = await generationService.generate(systemPrompt, body.prompt);
+  const spec = JSON.parse(generationService.extractJSON(raw));
+  if (!spec.name || !spec.content) throw new Error("Generated skill spec missing required fields");
+  return apiJson(spec, 201);
+}
+
+async function handleGenerateTemplateViaService(req: Request): Promise<Response> {
+  const body = await parseBody<{ intent: string; agentName?: string; agentSystemPrompt?: string }>(req);
+  if (!body.intent) return apiError("invalid_request", "intent is required", 400);
+
+  const agentContext = body.agentSystemPrompt
+    ? `\n\n## Agent System Prompt\n${body.agentSystemPrompt.substring(0, 500)}`
+    : "";
+
+  const systemPrompt = `You are a prompt template designer. Given a user's intent description, generate a concise prompt template for an AI agent named "${body.agentName ?? ""}".
+
+## Output Format
+Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
+{
+  "name": "string (short action phrase, 3-6 words, e.g. 'Review PR for Security')",
+  "prompt": "string (the prompt text the user will send to the agent, 1-4 sentences)"
+}
+
+## Constraints
+- name: imperative phrase, title-cased, under 50 chars
+- prompt: clear, actionable, specific to the agent's capabilities. May include {{placeholder}} for values the user fills in at runtime.
+- Write the prompt as if the user is sending it — not as a system instruction.${agentContext}`;
+
+  const raw = await generationService.generate(systemPrompt, body.intent);
+  const spec = JSON.parse(generationService.extractJSON(raw));
+  if (!spec.name || !spec.prompt) throw new Error("Generated template spec missing required fields");
+  return apiJson(spec, 201);
 }

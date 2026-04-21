@@ -231,6 +231,7 @@ struct PromptTemplateCreationSheet: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(intentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGenerating)
                 .accessibilityIdentifier("templateCreation.generateButton")
+                .appXrayTapProxy(id: "templateCreation.generateButton") { Task { await generate() } }
             } else {
                 Button(existingTemplate != nil ? "Save Template" : "Create Template") {
                     save()
