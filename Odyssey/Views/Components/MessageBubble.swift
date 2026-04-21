@@ -19,6 +19,7 @@ struct MessageBubble: View {
     /// When non-nil, shows an attribution tag (answered-for-you / fallback) next to the sender name.
     var delegationTag: ResolvedQuestionInfo? = nil
     @Environment(\.appTextScale) private var appTextScale
+    @Environment(AppState.self) private var appState
     @State private var isHovered = false
     @State private var isCopied = false
     @State private var isThinkingExpanded = false
@@ -221,9 +222,20 @@ struct MessageBubble: View {
                         .transition(.opacity)
                     }
                 }
+                .overlay {
+                    if !isUser && appState.tts.isSpeaking && appState.tts.currentMessageId == message.id {
+                        RoundedRectangle(cornerRadius: isUser || senderAppearance != nil ? 12 : 0)
+                            .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
+                    }
+                }
+                .animation(.default, value: appState.tts.currentMessageId)
 
                 if message.isStreaming {
                     StreamingIndicator()
+                }
+
+                if !isUser {
+                    SpeakerButtonRow(message: message, appState: appState)
                 }
             }
 
@@ -479,5 +491,75 @@ struct MessageBubble: View {
         .padding(8)
         .background(.green.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct SpeakerButtonRow: View {
+    let message: ConversationMessage
+    let appState: AppState
+
+    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = true
+
+    private var isSpeakingThis: Bool {
+        appState.tts.isSpeaking && appState.tts.currentMessageId == message.id
+    }
+
+    var body: some View {
+        if showSpeakerButton {
+            HStack(spacing: 6) {
+                Button {
+                    if isSpeakingThis {
+                        appState.tts.stop()
+                    } else {
+                        appState.tts.speak(message.text, messageId: message.id)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isSpeakingThis ? "stop.circle" : "speaker.wave.2")
+                            .font(.system(size: 11))
+                        Text(isSpeakingThis ? "Stop" : "Speak")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(isSpeakingThis ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("messageBubble.speakerButton.\(message.id.uuidString)")
+                .accessibilityLabel(isSpeakingThis ? "Stop speaking" : "Speak message")
+
+                if isSpeakingThis {
+                    SpeakingDotsView()
+                }
+            }
+            .padding(.leading, 2)
+        }
+    }
+}
+
+private struct SpeakingDotsView: View {
+    @State private var phase: Double = 0
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 4, height: 4)
+                    .opacity(dotOpacity(for: i))
+            }
+            Text("Speaking…")
+                .font(.system(size: 10))
+                .foregroundColor(.accentColor)
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                phase = 1.0
+            }
+        }
+    }
+
+    private func dotOpacity(for index: Int) -> Double {
+        let offset = Double(index) / 3.0
+        let p = (phase + offset).truncatingRemainder(dividingBy: 1.0)
+        return 0.2 + 0.8 * p
     }
 }
