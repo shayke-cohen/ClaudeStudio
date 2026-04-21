@@ -22,32 +22,20 @@ final class VoiceInputService: NSObject {
 
     // MARK: - Permissions
     func requestPermissions() async -> Bool {
-        // nonisolated helpers so the continuations are not MainActor-isolated.
-        // In Swift 6, resuming a @MainActor continuation from a background TCC
-        // callback triggers _dispatch_assert_queue_fail.
+        // Only gate on speech recognition — on macOS the microphone TCC dialog
+        // appears automatically when AVAudioEngine.start() is called, so we don't
+        // need a separate AVCaptureDevice.requestAccess call here.
+        // nonisolated static helper keeps the continuation off @MainActor so the
+        // TCC background callback doesn't trigger _dispatch_assert_queue_fail.
         let speechStatus = await Self.requestSpeechAuthorization()
-        guard speechStatus == .authorized else {
-            permissionGranted = false
-            return false
-        }
-
-        let micGranted = await Self.requestMicrophoneAccess()
-        permissionGranted = micGranted
-        return micGranted
+        permissionGranted = (speechStatus == .authorized)
+        return permissionGranted
     }
 
     private nonisolated static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)
-            }
-        }
-    }
-
-    private nonisolated static func requestMicrophoneAccess() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                continuation.resume(returning: granted)
             }
         }
     }
