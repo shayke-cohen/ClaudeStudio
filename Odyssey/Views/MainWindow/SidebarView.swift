@@ -3,7 +3,6 @@ import SwiftData
 import AppKit
 
 enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
-    case workshop = "Workshop"
     case schedules = "Schedules"
     case agents = "Agents"
     case autoAssemble = "Auto-assemble"
@@ -13,7 +12,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .workshop: "wrench.and.screwdriver"
         case .schedules: "clock.badge"
         case .agents: "cpu"
         case .autoAssemble: "wand.and.stars"
@@ -23,7 +21,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
-        case .workshop: "Entity workshop (⌘⇧W)"
         case .schedules: "Scheduled missions (⌘⇧S)"
         case .agents: "Agent library"
         case .autoAssemble: "Auto-assemble team"
@@ -33,7 +30,6 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
 
     var xrayId: String {
         switch self {
-        case .workshop: "sidebar.workshopButton"
         case .schedules: "sidebar.schedulesButton"
         case .agents: "sidebar.agentsButton"
         case .autoAssemble: "sidebar.autoAssembleButton"
@@ -45,7 +41,7 @@ enum SidebarBottomBarItem: String, CaseIterable, Identifiable {
     /// Items with text labels participate in the adaptive icon-only collapse via `ViewThatFits`.
     var hasTextLabel: Bool {
         switch self {
-        case .workshop, .schedules, .agents: true
+        case .schedules, .agents: true
         case .autoAssemble, .newSession: false
         }
     }
@@ -136,7 +132,6 @@ struct SidebarView: View {
     @Environment(WindowState.self) private var windowState: WindowState
     @Environment(\.modelContext) private var modelContext
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
-    @AppStorage(FeatureFlags.workshopKey, store: AppSettings.store) private var workshopFlag = false
     @AppStorage(FeatureFlags.autoAssembleKey, store: AppSettings.store) private var autoAssembleFlag = false
     @AppStorage(FeatureFlags.autonomousMissionsKey, store: AppSettings.store) private var autonomousMissionsFlag = false
     @AppStorage("sidebar.showArchivedProjectSection") private var showsArchivedProjectSection = false
@@ -210,7 +205,6 @@ struct SidebarView: View {
     @State private var sessionIdToAgentId: [UUID: UUID] = [:]
     @State private var conversationIndexRebuildTask: Task<Void, Never>?
 
-    private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
     private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
     private var autonomousMissionsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autonomousMissionsKey) || (masterFlag && autonomousMissionsFlag) }
 
@@ -334,6 +328,14 @@ struct SidebarView: View {
                 Button("") { showGroupCreation = true }
                     .keyboardShortcut("g", modifiers: [.command, .option])
                     .hidden()
+                // ⌘⌥U — open Ulysses from anywhere
+                Button("") {
+                    if let ulysses = agents.first(where: { $0.name == "Ulysses" && $0.isEnabled }) {
+                        selectOrCreateAgentChat(ulysses)
+                    }
+                }
+                .keyboardShortcut("u", modifiers: [.command, .option])
+                .hidden()
             }
             .sheet(item: $editingGroup) { group in
                 GroupEditorView(group: group)
@@ -554,6 +556,7 @@ struct SidebarView: View {
 
 
     private var sortedProjects: [Project] { cachedSortedProjects }
+    private var ulyssesAgent: Agent? { agents.first { $0.name == "Ulysses" && $0.isEnabled } }
     private var residentAgents: [Agent] { cachedResidentAgents }
     private var nonResidentAgents: [Agent] { cachedNonResidentAgents }
     private var residentGroups: [AgentGroup] { cachedResidentGroups }
@@ -566,8 +569,9 @@ struct SidebarView: View {
     }
 
     private func rebuildAgentCaches() {
-        cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
-        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && agentsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
+        let ulyssesId = agents.first { $0.name == "Ulysses" }?.id
+        cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident && $0.id != ulyssesId }.sorted { $0.name < $1.name }
+        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.id != ulyssesId && agentsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
     }
 
     private func rebuildGroupCaches() {
@@ -649,27 +653,6 @@ struct SidebarView: View {
 
     private var sidebarBottomBarButtons: some View {
         HStack(spacing: 0) {
-            if workshopEnabled {
-                let workshop = SidebarBottomBarItem.workshop
-                Button {
-                    windowState.showWorkshop = true
-                } label: {
-                    Label(workshop.rawValue, systemImage: workshop.icon)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .font(.caption)
-                        .frame(minHeight: 24)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .help(workshop.helpText)
-                .xrayId(workshop.xrayId)
-                .keyboardShortcut("w", modifiers: [.command, .shift])
-                .accessibilityLabel(workshop.helpText)
-
-                Divider()
-                    .frame(height: 16)
-            }
-
             let schedules = SidebarBottomBarItem.schedules
             Button {
                 windowState.showScheduleLibrary = true
@@ -1652,10 +1635,13 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var pinnedSection: some View {
-        let hasPinned = !residentAgents.isEmpty || !residentGroups.isEmpty || !cachedPinnedProjects.isEmpty
+        let hasPinned = ulyssesAgent != nil || !residentAgents.isEmpty || !residentGroups.isEmpty || !cachedPinnedProjects.isEmpty
         if hasPinned {
             Section {
                 if isPinnedSectionExpanded {
+                    if let ulysses = ulyssesAgent {
+                        agentSidebarRow(ulysses, isPinned: true)
+                    }
                     ForEach(residentAgents) { agent in
                         agentSidebarRow(agent, isPinned: true)
                     }

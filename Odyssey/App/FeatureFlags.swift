@@ -25,9 +25,6 @@ enum FeatureFlags {
     /// P2P LAN peer discovery and agent sharing.
     static let peerNetworkKey = "odyssey.features.peerNetwork"
 
-    /// Workshop — experimental config-agent canvas UX.
-    static let workshopKey = "odyssey.features.workshop"
-
     /// Group Workflows editor (step authoring).
     static let workflowsKey = "odyssey.features.workflows"
 
@@ -54,12 +51,11 @@ enum FeatureFlags {
 
     // MARK: - Collections
 
-    /// All flag keys in a stable order (master + 10 per-feature).
+    /// All flag keys in a stable order (master + per-feature).
     /// Included in `AppSettings.allKeys` so "Reset All Settings" clears them.
     static let all: [String] = [
         showAdvancedKey,
         peerNetworkKey,
-        workshopKey,
         workflowsKey,
         autoAssembleKey,
         autonomousMissionsKey,
@@ -74,7 +70,6 @@ enum FeatureFlags {
     static let defaults: [String: Bool] = [
         showAdvancedKey: false,
         peerNetworkKey: false,
-        workshopKey: false,
         workflowsKey: false,
         autoAssembleKey: false,
         autonomousMissionsKey: false,

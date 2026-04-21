@@ -411,6 +411,7 @@ private struct ProjectWindowContent: View {
             p2pNetworkManager.start()
 
             ProjectRecords.repairMissingProjects(in: modelContainer.mainContext)
+            DefaultsSeeder.migrateConfigAgentToUlyssesIfNeeded(container: modelContainer)
 
             #if DEBUG
             AppXray.shared.registerObservableObject(appState, name: "appState", setters: [

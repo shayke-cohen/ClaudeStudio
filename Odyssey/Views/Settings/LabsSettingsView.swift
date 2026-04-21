@@ -19,7 +19,6 @@ struct LabsSettingsView: View {
             }
 
             if showAdvanced {
-                productivitySection
                 collaborationSection
                 developerSection
             } else {
@@ -35,17 +34,6 @@ struct LabsSettingsView: View {
     }
 
     // MARK: - Sections
-
-    @ViewBuilder
-    private var productivitySection: some View {
-        Section("Productivity") {
-            LabsToggleRow(
-                key: FeatureFlags.workshopKey,
-                title: "Workshop",
-                description: "Experimental config-agent designer."
-            )
-        }
-    }
 
     @ViewBuilder
     private var collaborationSection: some View {

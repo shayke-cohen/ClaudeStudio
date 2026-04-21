@@ -134,6 +134,12 @@ final class ConfigSyncService {
             InstanceConfig.userDefaults.set(true, forKey: fridayPinnedKey)
         }
 
+        // Ensure the config directory is a git repo for history and reverts
+        ConfigFileManager.ensureGitRepo()
+
+        // Export bundled whats-new.json to ~/.odyssey/whats-new.json for Ulysses
+        ConfigFileManager.exportWhatsNew()
+
         // Start watching
         startFileWatcher()
     }

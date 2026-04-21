@@ -681,6 +681,7 @@ enum ConfigFileManager {
         // ConfigSyncService will re-sync on next file-watch event.
         try data.write(to: dir.appendingPathComponent("config.json"), options: .atomic)
         try prompt.write(to: dir.appendingPathComponent("prompt.md"), atomically: true, encoding: .utf8)
+        gitCommit(message: "agent: update \(agentSlug)")
     }
 
     /// Write a group config, instruction, optional mission, and optional workflow to
@@ -707,6 +708,7 @@ enum ConfigFileManager {
         } else if fm.fileExists(atPath: workflowFile.path) {
             try fm.removeItem(at: workflowFile)
         }
+        gitCommit(message: "group: update \(groupSlug)")
     }
 
     /// Write a skill (frontmatter + body) to ~/.odyssey/config/skills/{slug}.md.
@@ -715,6 +717,7 @@ enum ConfigFileManager {
         let file = skillsDirectory.appendingPathComponent("\(skillSlug).md")
         let serialized = serializeSkillFile(dto, content: content)
         try serialized.write(to: file, atomically: true, encoding: .utf8)
+        gitCommit(message: "skill: update \(skillSlug)")
     }
 
     /// Write an MCP config to ~/.odyssey/config/mcps/{slug}.json.
@@ -725,6 +728,7 @@ enum ConfigFileManager {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(dto)
         try data.write(to: file, options: .atomic)
+        gitCommit(message: "mcp: update \(mcpSlug)")
     }
 
     // MARK: - Bundled Catalog Sync
@@ -1766,5 +1770,60 @@ enum ConfigFileManager {
             }
         }
         return nil
+    }
+
+    // MARK: - Git Backing
+
+    /// Initialise a git repo in the config directory on first run.
+    /// Idempotent — does nothing if `.git` already exists.
+    static func ensureGitRepo() {
+        let dir = configDirectory.path
+        guard !FileManager.default.fileExists(atPath: "\(dir)/.git") else { return }
+
+        @discardableResult func sh(_ args: String...) -> Bool {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            proc.arguments = args
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            try? proc.run()
+            proc.waitUntilExit()
+            return proc.terminationStatus == 0
+        }
+
+        sh("git", "-C", dir, "init", "-b", "main")
+        let gitignore = "\(dir)/.gitignore"
+        try? "/.factory\n/.DS_Store\n".write(toFile: gitignore, atomically: true, encoding: .utf8)
+        sh("git", "-C", dir, "add", ".gitignore")
+        sh("git", "-C", dir, "commit", "--allow-empty", "-m", "init: odyssey config repo")
+    }
+
+    /// Copy the bundled whats-new.json to ~/.odyssey/whats-new.json so Ulysses can read it.
+    /// Always overwrites — the bundle is the source of truth.
+    static func exportWhatsNew() {
+        guard let src = Bundle.main.resourceURL?.appendingPathComponent("WhatsNew/whats-new.json"),
+              FileManager.default.fileExists(atPath: src.path) else { return }
+        let dest = configDirectory.deletingLastPathComponent().appendingPathComponent("whats-new.json")
+        try? FileManager.default.removeItem(at: dest)
+        try? FileManager.default.copyItem(at: src, to: dest)
+    }
+
+    /// Stage all changes and commit with the given message. Best-effort — never throws.
+    static func gitCommit(message: String) {
+        let dir = configDirectory.path
+
+        @discardableResult func sh(_ args: String...) -> Bool {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            proc.arguments = args
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            try? proc.run()
+            proc.waitUntilExit()
+            return proc.terminationStatus == 0
+        }
+
+        sh("git", "-C", dir, "add", "-A")
+        sh("git", "-C", dir, "commit", "-m", message)
     }
 }

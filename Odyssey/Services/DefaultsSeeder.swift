@@ -661,7 +661,7 @@ enum DefaultsSeeder {
         skills: [String: Skill],
         templates: [String: String]
     ) {
-        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "config-agent", "friday", "coder-codex", "attacker-codex", "coder-sonnet", "tester-haiku", "coder-local", "ceo", "cto", "cmo", "cfo", "cpo"]
+        let agentFiles = ["orchestrator", "coder", "reviewer", "researcher", "tester", "devops", "writer", "product-manager", "analyst", "designer", "ulysses", "friday", "coder-codex", "attacker-codex", "coder-sonnet", "tester-haiku", "coder-local", "ceo", "cto", "cmo", "cfo", "cpo"]
 
         for fileName in agentFiles {
             guard let data = loadAgentResource(name: fileName) else {
@@ -692,6 +692,7 @@ enum DefaultsSeeder {
                 agent.instancePolicy = policy
             }
             agent.defaultWorkingDirectory = dto.defaultWorkingDirectory
+            agent.isResident = dto.resident ?? false
             agent.origin = .builtin
 
             agent.skillIds = dto.skillNames.compactMap { skills[$0]?.id }
@@ -740,6 +741,7 @@ enum DefaultsSeeder {
         let maxBudget: Double?
         let instancePolicy: String?
         let defaultWorkingDirectory: String?
+        let resident: Bool?
     }
 
     private struct SkillFrontmatter {
@@ -857,5 +859,81 @@ enum DefaultsSeeder {
             }
         }
         return nil
+    }
+
+    // MARK: - Ulysses Migration
+
+    static let ulyssesMigratedKey = "odyssey.migratedConfigAgentToUlysses"
+
+    /// Replaces any seeded "Config Agent" with Ulysses on existing installs.
+    static func migrateConfigAgentToUlyssesIfNeeded(container: ModelContainer) {
+        guard !InstanceConfig.userDefaults.bool(forKey: ulyssesMigratedKey) else { return }
+
+        let context = ModelContext(container)
+
+        // Remove legacy Config Agent
+        let descriptor = FetchDescriptor<Agent>(predicate: #Predicate { $0.name == "Config Agent" })
+        let legacy = (try? context.fetch(descriptor)) ?? []
+        for agent in legacy {
+            context.delete(agent)
+            Log.seeder.info("Migration: removed Config Agent")
+        }
+
+        // Seed Ulysses if not already present
+        let ulyssesDescriptor = FetchDescriptor<Agent>(predicate: #Predicate { $0.name == "Ulysses" })
+        let existingCount = (try? context.fetchCount(ulyssesDescriptor)) ?? 0
+        if existingCount == 0 {
+            guard let data = loadAgentResource(name: "ulysses"),
+                  let dto = try? JSONDecoder().decode(AgentDTO.self, from: data) else {
+                Log.seeder.warning("Migration: could not load ulysses.json")
+                return
+            }
+
+            let permissions = buildPermissionIndex(context: context)
+            let mcpServers = buildMCPIndex(context: context)
+            let skills = buildSkillIndex(context: context)
+            let templates = loadSystemPromptTemplates()
+
+            let systemPrompt = resolveSystemPrompt(dto: dto, templates: templates)
+            let agent = Agent(
+                name: dto.name,
+                agentDescription: dto.agentDescription,
+                systemPrompt: systemPrompt,
+                provider: dto.provider ?? ProviderSelection.system.rawValue,
+                model: dto.model,
+                icon: dto.icon,
+                color: dto.color
+            )
+            agent.maxTurns = dto.maxTurns
+            agent.maxBudget = dto.maxBudget
+            agent.defaultWorkingDirectory = dto.defaultWorkingDirectory
+            agent.isResident = dto.resident ?? false
+            agent.origin = .builtin
+            agent.skillIds = dto.skillNames.compactMap { skills[$0]?.id }
+            agent.extraMCPServerIds = dto.mcpServerNames.compactMap { mcpServers[$0]?.id }
+            if let ps = permissions[dto.permissionSetName] {
+                agent.permissionSetId = ps.id
+            }
+            context.insert(agent)
+            Log.seeder.info("Migration: seeded Ulysses")
+        }
+
+        try? context.save()
+        InstanceConfig.userDefaults.set(true, forKey: ulyssesMigratedKey)
+    }
+
+    private static func buildPermissionIndex(context: ModelContext) -> [String: PermissionSet] {
+        let all = (try? context.fetch(FetchDescriptor<PermissionSet>())) ?? []
+        return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
+    }
+
+    private static func buildMCPIndex(context: ModelContext) -> [String: MCPServer] {
+        let all = (try? context.fetch(FetchDescriptor<MCPServer>())) ?? []
+        return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
+    }
+
+    private static func buildSkillIndex(context: ModelContext) -> [String: Skill] {
+        let all = (try? context.fetch(FetchDescriptor<Skill>())) ?? []
+        return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }
 }

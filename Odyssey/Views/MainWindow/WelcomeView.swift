@@ -29,6 +29,7 @@ struct WelcomeView: View {
         ScrollView {
             VStack(spacing: 24) {
                 heroSection
+                ulyssesBanner
                 quickActionsGrid
                 if !cachedRecentAgents.isEmpty {
                     recentAgentsSection
@@ -77,6 +78,45 @@ struct WelcomeView: View {
                 .xrayId("welcome.subtitle")
         }
         .padding(.top, 40)
+    }
+
+    // MARK: - Ulysses Banner
+
+    @ViewBuilder
+    private var ulyssesBanner: some View {
+        if let ulysses = allAgents.first(where: { $0.name == "Ulysses" && $0.isEnabled }) {
+            Button { onStartAgent(ulysses) } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "map")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.indigo)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Meet Ulysses")
+                            .font(.headline)
+                        Text("Ask questions, explore features, or say \"create a team for project X\" — Ulysses manages your config and guides you through the app.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.right.circle.fill")
+                        .foregroundStyle(.indigo)
+                        .font(.title3)
+                }
+                .padding(14)
+                .background(Color.indigo.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.indigo.opacity(0.2), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: 520)
+            .appXrayTapProxy(id: "welcome.ulyssesBanner") { onStartAgent(ulysses) }
+            .stableXrayId("welcome.ulyssesBanner")
+            .accessibilityLabel("Open Ulysses")
+        }
     }
 
     // MARK: - Quick Actions

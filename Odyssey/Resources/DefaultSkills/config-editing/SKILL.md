@@ -219,3 +219,29 @@ cp .factory/agents/*.json agents/
 **Create a new agent group:** Create a new JSON file in `groups/` with all required fields. Reference existing agent names.
 
 **Add a workflow to a group:** Add a `"workflow"` array with step objects specifying which agent does what.
+
+## Git History
+
+The config directory is a git repository. Every write you make is automatically committed. Use git to inspect history and revert mistakes.
+
+**Confirm a write landed:**
+```bash
+git -C ~/.odyssey/config log --oneline -3
+```
+
+**Show what changed in the last commit:**
+```bash
+git -C ~/.odyssey/config diff HEAD~1 HEAD
+```
+
+**Revert a single file to its previous state:**
+```bash
+git -C ~/.odyssey/config checkout HEAD~1 -- agents/coder.json
+```
+
+**See full history for one file:**
+```bash
+git -C ~/.odyssey/config log --oneline -- agents/coder.json
+```
+
+Never run `git push` — this repo is local-only and not connected to a remote.

@@ -39,6 +39,7 @@ targets:
           - "Resources/DefaultAgents/**"
           - "Resources/SystemPromptTemplates/**"
           - "Resources/DefaultPromptTemplates/**"
+          - "Resources/WhatsNew/**"
           - "Resources/Catalog/**"
       - path: Odyssey/Resources/Catalog
         type: folder
@@ -49,6 +50,8 @@ targets:
       - path: Odyssey/Resources/SystemPromptTemplates
         type: folder
       - path: Odyssey/Resources/DefaultPromptTemplates
+        type: folder
+      - path: Odyssey/Resources/WhatsNew
         type: folder
       - path: Odyssey/Browser/Resources/browser-inspector.js
         type: file

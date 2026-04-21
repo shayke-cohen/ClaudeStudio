@@ -230,11 +230,6 @@ struct MainWindowView: View {
                 .environmentObject(p2pNetworkManager)
                 .environment(\.modelContext, modelContext)
         }
-        .sheet(isPresented: $ws.showWorkshop) {
-            WorkshopView()
-                .environment(appState)
-                .frame(minWidth: 960, minHeight: 640)
-        }
         .sheet(isPresented: $ws.showFTE) {
             FTEView()
         }
