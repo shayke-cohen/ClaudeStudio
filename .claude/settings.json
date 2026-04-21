@@ -45,7 +45,9 @@
       "Bash(open /Users/shayco/Library/Developer/Xcode/DerivedData/ClaudeStudio-aacesxntcduwzqbazhfjqhybjfau/Build/Products/Debug/ClaudeStudio.app)",
       "Bash(make build-check *)",
       "Bash(xcodebuild -project Odyssey.xcodeproj -scheme Odyssey -configuration Debug -derivedDataPath /tmp/odyssey-check build)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(mkdir -p /Users/shayco/Odyssey/.claude/skills/release)",
+      "Bash(mv /Users/shayco/Odyssey/.claude/skills/release.md /Users/shayco/Odyssey/.claude/skills/release/SKILL.md)"
     ],
     "additionalDirectories": [
       "/Users/shayco/.claudestudio/instances/default/data",
