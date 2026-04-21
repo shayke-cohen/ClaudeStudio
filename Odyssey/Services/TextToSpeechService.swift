@@ -14,6 +14,7 @@ final class TextToSpeechService: NSObject {
 
     // MARK: - Private
     private let synthesizer = AVSpeechSynthesizer()
+    private var activeUtterance: AVSpeechUtterance?
 
     override init() {
         super.init()
@@ -41,10 +42,12 @@ final class TextToSpeechService: NSObject {
 
         currentMessageId = messageId
         isSpeaking = true
+        activeUtterance = utterance
         synthesizer.speak(utterance)
     }
 
     func stop() {
+        activeUtterance = nil
         synthesizer.stopSpeaking(at: .immediate)
         // delegate didFinish/didCancel will update isSpeaking and currentMessageId
     }
@@ -54,15 +57,17 @@ final class TextToSpeechService: NSObject {
 extension TextToSpeechService: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
-            self?.isSpeaking = false
-            self?.currentMessageId = nil
+            guard let self, utterance === self.activeUtterance else { return }
+            self.isSpeaking = false
+            self.currentMessageId = nil
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
-            self?.isSpeaking = false
-            self?.currentMessageId = nil
+            guard let self, utterance === self.activeUtterance else { return }
+            self.isSpeaking = false
+            self.currentMessageId = nil
         }
     }
 }
