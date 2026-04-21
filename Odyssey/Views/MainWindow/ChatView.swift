@@ -541,8 +541,13 @@ struct ChatView: View {
         simplifiedChatHeader
     }
 
+    @ViewBuilder
     private var activeInputArea: some View {
-        simplifiedInputArea
+        if appState.isVoiceModeActive {
+            VoiceModeOverlay()
+        } else {
+            simplifiedInputArea
+        }
     }
 
     private var currentMissionText: String? {
@@ -717,6 +722,12 @@ struct ChatView: View {
         .onAppear {
             consumeAutoSendText()
             consumePendingTemplatePrompt()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voiceModeAutoSend)) { notification in
+            if let transcript = notification.userInfo?["transcript"] as? String, !transcript.isEmpty {
+                inputText = transcript
+                sendMessage()
+            }
         }
         .onChange(of: isProcessing) { wasProcessing, nowProcessing in
             // Show "all done" banner when processing finishes
