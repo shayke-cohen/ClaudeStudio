@@ -723,6 +723,11 @@ struct ChatView: View {
         .onAppear {
             consumeAutoSendText()
             consumePendingTemplatePrompt()
+            // Request voice permissions upfront so the dialog appears on first chat open
+            // rather than only when the user tries to hold the mic button.
+            if voiceFeaturesEnabled && !appState.voiceInput.permissionGranted {
+                Task { _ = await appState.voiceInput.requestPermissions() }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .voiceModeAutoSend)) { notification in
             if let transcript = notification.userInfo?["transcript"] as? String, !transcript.isEmpty {
@@ -2159,6 +2164,13 @@ struct ChatView: View {
                     Text(voiceError.localizedDescription)
                         .font(.system(size: 11))
                     Spacer()
+                    if case VoiceInputError.permissionDenied = voiceError {
+                        Button("Open Settings") {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!)
+                        }
+                        .font(.system(size: 11))
+                        .buttonStyle(.plain)
+                    }
                     Button("Dismiss") { appState.voiceInput.error = nil }
                         .font(.system(size: 11))
                         .buttonStyle(.plain)
