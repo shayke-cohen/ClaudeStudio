@@ -66,6 +66,29 @@ sed -i '' "s/CURRENT_PROJECT_VERSION: ${CURRENT_BUILD}$/CURRENT_PROJECT_VERSION:
 
 echo "    Version: $VERSION  |  Build: $CURRENT_BUILD → $NEW_BUILD"
 
+# Generate release notes from commits since last version bump
+PREV_BUMP=$(git log --oneline --no-merges | grep "chore: bump to v" | head -2 | tail -1 | awk '{print $1}')
+RELEASE_NOTES_MD=""
+RELEASE_NOTES_HTML="<ul>"
+while IFS= read -r line; do
+  msg=$(echo "$line" | sed 's/^[a-f0-9]* //')
+  # Skip chore/docs/test/perf internals — keep feat and fix
+  if echo "$msg" | grep -qE '^(feat|fix)\(?(.*)\)?:'; then
+    clean=$(echo "$msg" | sed 's/^feat[^:]*: //' | sed 's/^fix[^:]*: //')
+    RELEASE_NOTES_MD+="- ${clean}"$'\n'
+    RELEASE_NOTES_HTML+="<li>${clean}</li>"
+  fi
+done < <(git log ${PREV_BUMP}..HEAD --oneline --no-merges 2>/dev/null || true)
+RELEASE_NOTES_HTML+="</ul>"
+
+if [[ -z "$RELEASE_NOTES_MD" ]]; then
+  RELEASE_NOTES_MD="- Minor fixes and improvements"
+  RELEASE_NOTES_HTML="<ul><li>Minor fixes and improvements</li></ul>"
+fi
+
+echo "    Release notes:"
+echo "$RELEASE_NOTES_MD" | sed 's/^/      /'
+
 xcodegen generate
 echo "    Xcode project regenerated."
 
@@ -208,7 +231,7 @@ echo "==> Creating GitHub release v$VERSION..."
 gh release create "v${VERSION}" "$DMG_PATH" \
   --repo shayke-cohen/Odyssey-releases \
   --title "Odyssey v${VERSION}" \
-  --generate-notes
+  --notes "$RELEASE_NOTES_MD"
 
 DMG_URL="https://github.com/shayke-cohen/Odyssey-releases/releases/download/v${VERSION}/${DMG_NAME}"
 echo "    GitHub release OK: $DMG_URL"
@@ -222,11 +245,11 @@ RELEASES_REPO_DIR="$TEMP_DIR/Odyssey-releases"
 git clone https://github.com/shayke-cohen/Odyssey-releases.git "$RELEASES_REPO_DIR" --quiet
 APPCAST="$RELEASES_REPO_DIR/appcast.xml"
 
-python3 - "$APPCAST" "$VERSION" "$NEW_BUILD" "$PUB_DATE" "$DMG_URL" "$ED_SIGNATURE" "$DMG_LENGTH" << 'PYEOF'
-import sys
+python3 - "$APPCAST" "$VERSION" "$NEW_BUILD" "$PUB_DATE" "$DMG_URL" "$ED_SIGNATURE" "$DMG_LENGTH" "$RELEASE_NOTES_HTML" << 'PYEOF'
+import sys, re
 import xml.etree.ElementTree as ET
 
-appcast_path, version, build, pub_date, dmg_url, ed_sig, dmg_len = sys.argv[1:]
+appcast_path, version, build, pub_date, dmg_url, ed_sig, dmg_len, notes_html = sys.argv[1:]
 
 SPARKLE_NS = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 ET.register_namespace("sparkle", SPARKLE_NS)
@@ -241,6 +264,8 @@ ET.SubElement(item, "title").text = f"Version {version}"
 ET.SubElement(item, "pubDate").text = pub_date
 ET.SubElement(item, f"{{{SPARKLE_NS}}}version").text = build
 ET.SubElement(item, f"{{{SPARKLE_NS}}}shortVersionString").text = version
+# Release notes shown in Sparkle update dialog
+ET.SubElement(item, "description").text = f"CDATA_PLACEHOLDER_{version}"
 enc = ET.SubElement(item, "enclosure")
 enc.set("url", dmg_url)
 enc.set(f"{{{SPARKLE_NS}}}edSignature", ed_sig)
@@ -256,6 +281,17 @@ for existing in existing_items:
     channel.append(existing)
 
 tree.write(appcast_path, encoding="unicode", xml_declaration=True)
+
+# Replace placeholder with real CDATA (ElementTree can't write CDATA natively)
+with open(appcast_path) as f:
+    content = f.read()
+content = content.replace(
+    f"CDATA_PLACEHOLDER_{version}",
+    f"<![CDATA[{notes_html}]]>"
+)
+with open(appcast_path, "w") as f:
+    f.write(content)
+
 print(f"    appcast.xml updated with v{version} (build {build}).")
 PYEOF
 

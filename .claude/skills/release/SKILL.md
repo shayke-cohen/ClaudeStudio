@@ -89,15 +89,16 @@ git push origin main
 
 1. Validates all prerequisites
 2. Bumps `MARKETING_VERSION` and increments `CURRENT_PROJECT_VERSION` in `project.yml`, runs `xcodegen`
-3. `xcodebuild archive` → Developer ID signed `.xcarchive`
-4. `xcodebuild -exportArchive` using `distribution/ExportOptions.plist`
-5. `xcrun notarytool submit` + waits for Apple `Accepted`
-6. `xcrun stapler staple` — attaches notarization ticket to `.app`
-7. `create-dmg` — builds signed DMG with icon layout
-8. `sign_update` — generates EdDSA signature for Sparkle auto-update integrity
-9. `gh release create` on `shayko-cohen/Odyssey-releases`
-10. Clones releases repo, prepends new `<item>` in `appcast.xml`, commits & pushes
-11. Commits version bump to private source repo and pushes
+3. Auto-generates release notes from `feat:` and `fix:` commits since the last version bump
+4. `xcodebuild archive` → Developer ID signed `.xcarchive`
+5. `xcodebuild -exportArchive` using `distribution/ExportOptions.plist`
+6. `xcrun notarytool submit` + waits for Apple `Accepted`
+7. `xcrun stapler staple` — attaches notarization ticket to `.app`
+8. `create-dmg` — builds signed DMG with icon layout
+9. `sign_update` — generates EdDSA signature for Sparkle auto-update integrity
+10. `gh release create` on `shayke-cohen/Odyssey-releases` with generated release notes as body
+11. Clones releases repo, prepends new `<item>` in `appcast.xml` with `<description><![CDATA[...]]></description>` — Sparkle renders this HTML in the update dialog, commits & pushes
+12. Commits version bump to private source repo and pushes
 
 ## Common Failures
 
