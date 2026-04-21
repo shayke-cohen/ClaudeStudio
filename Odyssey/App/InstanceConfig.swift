@@ -13,8 +13,27 @@ enum InstanceConfig {
         if let idx = args.firstIndex(of: "--instance"), idx + 1 < args.count {
             return args[idx + 1]
         }
-        return "default"
+        if tryAcquireLock(for: "default") { return "default" }
+        return "instance-\(UUID().uuidString.prefix(8).lowercased())"
     }()
+
+    // Held open for process lifetime so the flock stays acquired.
+    nonisolated(unsafe) private static var _lockFd: Int32 = -1
+
+    private static func tryAcquireLock(for instanceName: String) -> Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let dir = home.appendingPathComponent(".odyssey/instances/\(instanceName)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let lockPath = dir.appendingPathComponent(".instance.lock").path
+        let fd = open(lockPath, O_CREAT | O_RDWR, 0o644)
+        guard fd >= 0 else { return false }
+        if flock(fd, LOCK_EX | LOCK_NB) == 0 {
+            _lockFd = fd
+            return true
+        }
+        close(fd)
+        return false
+    }
 
     static let isDefault: Bool = name == "default"
 
