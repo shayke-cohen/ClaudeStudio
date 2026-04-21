@@ -519,6 +519,7 @@ struct ConfigurationSettingsTab: View {
 // MARK: - Voice Settings Pane
 
 private struct VoiceSettingsPane: View {
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
     @AppStorage("voice.voiceIdentifier") private var ttsVoiceIdentifier: String = ""
     @AppStorage("voice.autoSpeak") private var autoSpeak: Bool = true
     @AppStorage("voice.speakingRate") private var speakingRate: Double = Double(AVSpeechUtteranceDefaultSpeechRate)
@@ -533,6 +534,12 @@ private struct VoiceSettingsPane: View {
     var body: some View {
         Form {
             Section("Voice") {
+                Toggle("Voice Features", isOn: $voiceFeaturesEnabled)
+                    .help("Enable mic input, speaker buttons, and voice conversation mode")
+                    .accessibilityIdentifier("settings.voice.featuresEnabledToggle")
+            }
+
+            Section {
                 Picker("Voice", selection: $ttsVoiceIdentifier) {
                     Text("System Default").tag("")
                     ForEach(availableVoices, id: \.identifier) { voice in
@@ -561,6 +568,7 @@ private struct VoiceSettingsPane: View {
                     .help("Show a speaker button under every agent message")
                     .accessibilityIdentifier("settings.voice.showSpeakerButtonToggle")
             }
+            .disabled(!voiceFeaturesEnabled)
         }
         .formStyle(.grouped)
         .padding()

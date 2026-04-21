@@ -497,6 +497,7 @@ struct MessageBubble: View {
 private struct SpeakerButtonRow: View {
     let message: ConversationMessage
     @Environment(AppState.self) private var appState
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
     @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = true
 
     private var isSpeakingThis: Bool {
@@ -504,7 +505,7 @@ private struct SpeakerButtonRow: View {
     }
 
     var body: some View {
-        if showSpeakerButton {
+        if voiceFeaturesEnabled && showSpeakerButton {
             HStack(spacing: 6) {
                 Button {
                     if isSpeakingThis {

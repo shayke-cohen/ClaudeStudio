@@ -180,6 +180,7 @@ struct ChatView: View {
     @Environment(WindowState.self) private var windowState: WindowState
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
     @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
     @ObservedObject private var quickActionStore = QuickActionStore.shared
 
     private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
@@ -543,7 +544,7 @@ struct ChatView: View {
 
     @ViewBuilder
     private var activeInputArea: some View {
-        if appState.isVoiceModeActive {
+        if voiceFeaturesEnabled && appState.isVoiceModeActive {
             VoiceModeOverlay()
         } else {
             simplifiedInputArea
@@ -2151,7 +2152,7 @@ struct ChatView: View {
             }
 
             // Live waveform while recording
-            if appState.voiceInput.isRecording {
+            if voiceFeaturesEnabled && appState.voiceInput.isRecording {
                 WaveformBarsView(audioLevel: appState.voiceInput.audioLevel)
                     .frame(height: 20)
                     .padding(.horizontal, 14)
@@ -2159,7 +2160,7 @@ struct ChatView: View {
             }
 
             // Live partial transcript overlay (blue italic style)
-            if appState.voiceInput.isRecording, !appState.voiceInput.partialTranscript.isEmpty {
+            if voiceFeaturesEnabled && appState.voiceInput.isRecording, !appState.voiceInput.partialTranscript.isEmpty {
                 Text(appState.voiceInput.partialTranscript)
                     .font(.system(size: 13))
                     .italic()
@@ -2290,7 +2291,8 @@ struct ChatView: View {
                         .disabled(isProcessing)
                 }
 
-                // Mic button (push-to-talk)
+                // Mic button (push-to-talk) — hidden when voice features disabled
+                if voiceFeaturesEnabled {
                 Button {
                     // tap does nothing — hold gesture handles it
                 } label: {
@@ -2330,6 +2332,7 @@ struct ChatView: View {
                 .accessibilityIdentifier("chat.voiceModeButton")
                 .accessibilityLabel("Toggle voice conversation mode")
                 .buttonStyle(.plain)
+                } // end voiceFeaturesEnabled
 
                 Spacer()
 
