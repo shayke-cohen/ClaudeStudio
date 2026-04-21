@@ -3,7 +3,7 @@
   "enabled": true,
   "agentDescription": "Team lead that breaks complex requests into subtasks and delegates to specialist agents. Monitors progress via the blackboard. Synthesizes final results. Never does implementation itself.",
   "model": "opus",
-  "icon": "gear.2",
+  "icon": "gearshape.2",
   "color": "purple",
   "skillNames": [
     "peer-collaboration",

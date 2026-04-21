@@ -692,21 +692,8 @@ final class AppState {
                 registerAgentDefinitions()
                 registerConnections()
                 startNostrRelay(for: manager)
-                // Push conversation/project snapshot so iOS can read them immediately
-                if let ctx = modelContext {
-                    await manager.pushConversationSync(modelContext: ctx, pushMessages: true)
-                }
-                // Start periodic sync timer for the initial connection
-                conversationSyncTimer?.cancel()
-                conversationSyncTimer = Task { [weak self] in
-                    while !Task.isCancelled {
-                        try? await Task.sleep(for: .seconds(30))
-                        guard let self, !Task.isCancelled else { break }
-                        if let ctx = self.modelContext {
-                            await self.sidecarManager?.pushConversationSync(modelContext: ctx, pushMessages: false)
-                        }
-                    }
-                }
+                // Conversation sync and timer are handled by the .connected event handler
+                // which fires from the sidecar.ready handshake during start().
             } catch {
                 sidecarStatus = .error(error.localizedDescription)
             }
@@ -908,6 +895,14 @@ final class AppState {
         schedulePersistentSave()
     }
 
+    private func resolvedGenerationModel() -> String {
+        let provider = AgentDefaults.defaultProvider()
+        if provider == ProviderSelection.claude.rawValue || provider == ProviderSelection.system.rawValue {
+            return AgentDefaults.defaultModel(for: ProviderSelection.claude.rawValue)
+        }
+        return AgentDefaults.defaultModel(for: ProviderSelection.claude.rawValue)
+    }
+
     func requestAgentGeneration(prompt: String, skills: [SkillCatalogEntry], mcps: [MCPCatalogEntry]) {
         let requestId = UUID().uuidString
         generateAgentRequestId = requestId
@@ -918,7 +913,8 @@ final class AppState {
             requestId: requestId,
             prompt: prompt,
             availableSkills: skills,
-            availableMCPs: mcps
+            availableMCPs: mcps,
+            model: resolvedGenerationModel()
         ))
     }
 
@@ -931,7 +927,8 @@ final class AppState {
         sendToSidecar(.generateGroup(
             requestId: requestId,
             prompt: prompt,
-            availableAgents: agents
+            availableAgents: agents,
+            model: resolvedGenerationModel()
         ))
     }
 
@@ -945,7 +942,8 @@ final class AppState {
             requestId: requestId,
             prompt: prompt,
             availableCategories: categories,
-            availableMCPs: mcps
+            availableMCPs: mcps,
+            model: resolvedGenerationModel()
         ))
     }
 
@@ -959,7 +957,8 @@ final class AppState {
             requestId: rid,
             intent: intent,
             agentName: agentName,
-            agentSystemPrompt: agentSystemPrompt
+            agentSystemPrompt: agentSystemPrompt,
+            model: resolvedGenerationModel()
         ))
     }
 
@@ -1298,6 +1297,17 @@ final class AppState {
             }
 
         case .sessionError(let sessionId, let error):
+            // Stale session references from previous app sessions are harmless — clean up silently.
+            if error.contains("Session not found") {
+                Log.appState.debug("Session \(sessionId, privacy: .public): stale reference, cleaning up")
+                thinkingText.removeValue(forKey: sessionId)
+                streamingTokens.removeValue(forKey: sessionId)
+                streamingImages.removeValue(forKey: sessionId)
+                streamingFileCards.removeValue(forKey: sessionId)
+                clearPendingUserInput(for: sessionId)
+                workerStandbySessions.remove(sessionId)
+                break
+            }
             workerStandbySessions.remove(sessionId)
             if let uuid = ensureActiveSessionInfo(sessionId: sessionId) {
                 activeSessions[uuid]?.isStreaming = false

@@ -80,6 +80,10 @@ struct SkillFileDTO: Codable {
 }
 
 // MARK: MCPConfigFileDTO — mirrors mcps/{slug}.json
+//
+// Supports two on-disk transport encodings:
+//   Flat (new user-config format):    "transport": "stdio", "command": "...", "args": [...]
+//   Nested (catalog entry format):    "transport": { "kind": "stdio", "command": "...", "args": [...] }
 
 struct MCPConfigFileDTO: Codable {
     var name: String
@@ -90,4 +94,65 @@ struct MCPConfigFileDTO: Codable {
     var env: [String: String]?
     var url: String?
     var headers: [String: String]?
+
+    private enum CodingKeys: String, CodingKey {
+        case name, description, transport, command, args, env, url, headers
+    }
+
+    private struct NestedTransport: Decodable {
+        let kind: String
+        let command: String?
+        let args: [String]?
+        let env: [String: String]?
+        let url: String?
+        let headers: [String: String]?
+    }
+
+    init(name: String, description: String? = nil, transport: String,
+         command: String? = nil, args: [String]? = nil, env: [String: String]? = nil,
+         url: String? = nil, headers: [String: String]? = nil) {
+        self.name = name
+        self.description = description
+        self.transport = transport
+        self.command = command
+        self.args = args
+        self.env = env
+        self.url = url
+        self.headers = headers
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        headers = try c.decodeIfPresent([String: String].self, forKey: .headers)
+
+        // Transport can be a plain string ("stdio") or a nested object ({ "kind": "stdio", ... })
+        if let nested = try? c.decode(NestedTransport.self, forKey: .transport) {
+            transport = nested.kind
+            command = nested.command
+            args = nested.args
+            env = nested.env
+            if url == nil { url = nested.url }
+            if headers == nil { headers = nested.headers }
+        } else {
+            transport = try c.decode(String.self, forKey: .transport)
+            command = try c.decodeIfPresent(String.self, forKey: .command)
+            args = try c.decodeIfPresent([String].self, forKey: .args)
+            env = try c.decodeIfPresent([String: String].self, forKey: .env)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encode(transport, forKey: .transport)
+        try c.encodeIfPresent(command, forKey: .command)
+        try c.encodeIfPresent(args, forKey: .args)
+        try c.encodeIfPresent(env, forKey: .env)
+        try c.encodeIfPresent(url, forKey: .url)
+        try c.encodeIfPresent(headers, forKey: .headers)
+    }
 }

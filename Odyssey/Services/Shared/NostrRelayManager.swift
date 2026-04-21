@@ -172,8 +172,14 @@ final class NostrRelayManager: NSObject {
         }
     }
 
+    private static let maxReconnectAttempts = 30
+
     private func scheduleReconnect(to relayURL: String) {
         let attempt = reconnectAttempts[relayURL, default: 0]
+        guard attempt < Self.maxReconnectAttempts else {
+            Log.sidecar.warning("NostrRelayManager: giving up on \(relayURL, privacy: .public) after \(attempt) attempts")
+            return
+        }
         let delay = Self.backoffDuration(attempt: attempt)
         reconnectAttempts[relayURL] = attempt + 1
 
