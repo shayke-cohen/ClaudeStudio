@@ -203,6 +203,7 @@ struct SidebarView: View {
     @State private var cachedActiveAgentIds: Set<UUID> = []
     @State private var cachedActiveGroupIds: Set<UUID> = []
     @State private var sessionIdToAgentId: [UUID: UUID] = [:]
+    @State private var conversationIndexRebuildTask: Task<Void, Never>?
 
     private var workshopEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.workshopKey) || (masterFlag && workshopFlag) }
     private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
@@ -397,9 +398,9 @@ struct SidebarView: View {
             .onChange(of: groups.count) { _, _ in rebuildGroupCaches() }
             .onChange(of: groups.map { $0.showInSidebar }) { _, _ in rebuildGroupCaches() }
             .onChange(of: groups.map { $0.isResident }) { _, _ in rebuildGroupCaches() }
-            .onChange(of: conversations.count) { _, _ in rebuildConversationIndex() }
+            .onChange(of: conversations.count) { _, _ in scheduleConversationIndexRebuild() }
             .onChange(of: appState.createdSessions.count) { _, _ in
-                rebuildConversationIndex()
+                scheduleConversationIndexRebuild()
             }
     }
 
@@ -547,6 +548,15 @@ struct SidebarView: View {
     private func rebuildGroupCaches() {
         cachedResidentGroups = groups.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
         cachedNonResidentGroups = groups.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }.sorted { $0.name < $1.name }
+    }
+
+    private func scheduleConversationIndexRebuild() {
+        conversationIndexRebuildTask?.cancel()
+        conversationIndexRebuildTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            rebuildConversationIndex()
+        }
     }
 
     private func rebuildConversationIndex() {
