@@ -47,9 +47,10 @@ final class TextToSpeechService: NSObject {
     }
 
     func stop() {
+        isSpeaking = false
+        currentMessageId = nil
         activeUtterance = nil
         synthesizer.stopSpeaking(at: .immediate)
-        // delegate didFinish/didCancel will update isSpeaking and currentMessageId
     }
 }
 

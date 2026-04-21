@@ -235,7 +235,7 @@ struct MessageBubble: View {
                 }
 
                 if !isUser {
-                    SpeakerButtonRow(message: message, appState: appState)
+                    SpeakerButtonRow(message: message)
                 }
             }
 
@@ -496,8 +496,7 @@ struct MessageBubble: View {
 
 private struct SpeakerButtonRow: View {
     let message: ConversationMessage
-    let appState: AppState
-
+    @Environment(AppState.self) private var appState
     @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = true
 
     private var isSpeakingThis: Bool {
@@ -520,7 +519,7 @@ private struct SpeakerButtonRow: View {
                         Text(isSpeakingThis ? "Stop" : "Speak")
                             .font(.system(size: 11))
                     }
-                    .foregroundColor(isSpeakingThis ? .accentColor : .secondary)
+                    .foregroundStyle(isSpeakingThis ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("messageBubble.speakerButton.\(message.id.uuidString)")
@@ -548,7 +547,7 @@ private struct SpeakingDotsView: View {
             }
             Text("Speaking…")
                 .font(.system(size: 10))
-                .foregroundColor(.accentColor)
+                .foregroundStyle(Color.accentColor)
         }
         .onAppear {
             withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
