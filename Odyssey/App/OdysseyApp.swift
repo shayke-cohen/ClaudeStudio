@@ -451,7 +451,7 @@ private struct ProjectWindowContent: View {
                 appState.executeLaunchIntent(intent, modelContext: modelContainer.mainContext, windowState: ws)
             }
         }
-        .navigationTitle(windowState.map { "Odyssey — \($0.projectName)" } ?? "Odyssey")
+        .navigationTitle(windowState.map { "Odyssey — \($0.projectName)" } ?? (InstanceConfig.isDefault ? "Odyssey" : "Odyssey — \(InstanceConfig.name)"))
     }
 
     private var hasExistingProjects: Bool {
