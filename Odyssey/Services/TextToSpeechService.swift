@@ -36,8 +36,9 @@ final class TextToSpeechService: NSObject {
             utterance.voice = voice
         }
 
-        // Apply user's rate preference (stored as Float, default to 0.5 = normal)
-        let rate = UserDefaults.standard.object(forKey: "voice.speakingRate") as? Float ?? AVSpeechUtteranceDefaultSpeechRate
+        // Apply user's rate preference (stored as Double by @AppStorage, coerce via NSNumber)
+        let rate = UserDefaults.standard.object(forKey: "voice.speakingRate")
+            .flatMap { ($0 as? NSNumber)?.floatValue } ?? AVSpeechUtteranceDefaultSpeechRate
         utterance.rate = max(AVSpeechUtteranceMinimumSpeechRate, min(AVSpeechUtteranceMaximumSpeechRate, rate))
 
         currentMessageId = messageId
