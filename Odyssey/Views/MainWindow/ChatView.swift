@@ -723,11 +723,6 @@ struct ChatView: View {
         .onAppear {
             consumeAutoSendText()
             consumePendingTemplatePrompt()
-            // Request voice permissions upfront so the dialog appears on first chat open
-            // rather than only when the user tries to hold the mic button.
-            if voiceFeaturesEnabled && !appState.voiceInput.permissionGranted {
-                Task { _ = await appState.voiceInput.requestPermissions() }
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .voiceModeAutoSend)) { notification in
             if let transcript = notification.userInfo?["transcript"] as? String, !transcript.isEmpty {
