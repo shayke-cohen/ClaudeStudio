@@ -121,6 +121,19 @@ final class ConfigSyncService {
         // Note: performFullSync() also calls syncFeaturesFromDisk() for features.json support.
         performFullSync()
 
+        // One-time migration: pin Friday by default
+        let fridayPinnedKey = "odyssey.migration.fridayPinned"
+        if !InstanceConfig.userDefaults.bool(forKey: fridayPinnedKey) {
+            let ctx = ModelContext(container)
+            var pred = FetchDescriptor<Agent>()
+            pred.predicate = #Predicate { $0.configSlug == "friday" }
+            if let friday = (try? ctx.fetch(pred))?.first, !friday.isResident {
+                friday.isResident = true
+                try? ctx.save()
+            }
+            InstanceConfig.userDefaults.set(true, forKey: fridayPinnedKey)
+        }
+
         // Start watching
         startFileWatcher()
     }
@@ -798,6 +811,7 @@ final class ConfigSyncService {
                     entity.instancePolicy = AgentInstancePolicy(rawValue: entry.config.instancePolicy ?? "") ?? .agentDefault
                     entity.instancePolicyPoolMax = entry.config.instancePolicyPoolMax
                     if let isShared = entry.config.isShared { entity.isShared = isShared }
+                    if let resident = entry.config.resident { entity.isResident = resident }
                     entity.configSlug = slug
                     entity.origin = .builtin
                     context.insert(entity)

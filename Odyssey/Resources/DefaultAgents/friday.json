@@ -6,6 +6,7 @@
   "icon": "sparkles",
   "color": "indigo",
   "instancePolicy": "singleton",
+  "resident": true,
   "defaultWorkingDirectory": "~/.odyssey/residents/friday",
   "skillNames": [
     "agent-identity",

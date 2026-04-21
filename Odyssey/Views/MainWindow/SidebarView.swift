@@ -170,6 +170,8 @@ struct SidebarView: View {
     @State private var showAutoAssemble = false
     @State private var showAgentCreation = false
     @State private var showGroupCreation = false
+    @State private var showAgentBrowseSheet = false
+    @State private var showGroupBrowseSheet = false
     @State private var renamingConversation: Conversation?
     @State private var renameText = ""
     @State private var renamingProject: Project?
@@ -187,14 +189,15 @@ struct SidebarView: View {
     @State private var hoveredProjectId: UUID?
     @State private var hoveredConversationId: UUID?
     @State private var expandedProjectIds: Set<UUID> = []
-    @AppStorage("sidebar.nonResidentAgentsExpanded") private var isNonResidentAgentsExpanded: Bool = false
     @AppStorage("sidebar.agentsExpanded") private var isAgentsSectionExpanded: Bool = true
     @AppStorage("sidebar.groupsExpanded") private var isGroupsSectionExpanded: Bool = true
+    @AppStorage("sidebar.pinnedExpanded") private var isPinnedSectionExpanded: Bool = true
     @AppStorage("sidebar.schedulesExpanded") private var isSchedulesSectionExpanded: Bool = true
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
     @AppStorage("sidebar.allSchedulesExpanded") private var isAllSchedulesExpanded: Bool = false
     @State private var globalScheduleEditRequest: GlobalScheduleEditRequest?
     @State private var cachedSortedProjects: [Project] = []
+    @State private var cachedPinnedProjects: [Project] = []
     @State private var cachedResidentAgents: [Agent] = []
     @State private var cachedNonResidentAgents: [Agent] = []
     @State private var cachedResidentGroups: [AgentGroup] = []
@@ -202,6 +205,8 @@ struct SidebarView: View {
     @State private var conversationToAgentIndex: [UUID: UUID] = [:]
     @State private var cachedActiveAgentIds: Set<UUID> = []
     @State private var cachedActiveGroupIds: Set<UUID> = []
+    @State private var agentsWithConversations: Set<UUID> = []
+    @State private var groupsWithConversations: Set<UUID> = []
     @State private var sessionIdToAgentId: [UUID: UUID] = [:]
     @State private var conversationIndexRebuildTask: Task<Void, Never>?
 
@@ -351,6 +356,24 @@ struct SidebarView: View {
                 GroupEditorView(group: nil)
                     .environment(appState)
             }
+            .sheet(isPresented: $showAgentBrowseSheet) {
+                AgentBrowseSheet(
+                    initialTab: .agents,
+                    projectId: windowState.selectedProjectId,
+                    projectDirectory: windowState.projectDirectory
+                )
+                .environment(appState)
+                .environment(windowState)
+            }
+            .sheet(isPresented: $showGroupBrowseSheet) {
+                AgentBrowseSheet(
+                    initialTab: .groups,
+                    projectId: windowState.selectedProjectId,
+                    projectDirectory: windowState.projectDirectory
+                )
+                .environment(appState)
+                .environment(windowState)
+            }
             .sheet(isPresented: $showingAgentScheduleEditor) {
                 ScheduleEditorView(schedule: nil, draft: agentScheduleDraft)
                     .environment(appState)
@@ -389,6 +412,7 @@ struct SidebarView: View {
                 rebuildConversationIndex()
             }
             .onChange(of: projects.count) { _, _ in rebuildProjectCache() }
+            .onChange(of: projects.map { $0.isPinned }) { _, _ in rebuildProjectCache() }
             .onChange(of: agents.count) { _, _ in
                 rebuildAgentCaches()
                 rebuildConversationIndex()
@@ -411,6 +435,8 @@ struct SidebarView: View {
         @Bindable var as_ = appState
         return List {
             globalUtilitiesSection
+
+            pinnedSection
 
             agentsSection
 
@@ -534,20 +560,19 @@ struct SidebarView: View {
     private var nonResidentGroups: [AgentGroup] { cachedNonResidentGroups }
 
     private func rebuildProjectCache() {
-        cachedSortedProjects = projects.sorted { lhs, rhs in
-            if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
-            return lhs.createdAt > rhs.createdAt
-        }
+        let byDate: (Project, Project) -> Bool = { $0.createdAt > $1.createdAt }
+        cachedPinnedProjects = projects.filter { $0.isPinned }.sorted(by: byDate)
+        cachedSortedProjects = projects.filter { !$0.isPinned }.sorted(by: byDate)
     }
 
     private func rebuildAgentCaches() {
         cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
-        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }.sorted { $0.name < $1.name }
+        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && agentsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
     }
 
     private func rebuildGroupCaches() {
         cachedResidentGroups = groups.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
-        cachedNonResidentGroups = groups.filter { $0.isEnabled && !$0.isResident && $0.showInSidebar }.sorted { $0.name < $1.name }
+        cachedNonResidentGroups = groups.filter { $0.isEnabled && !$0.isResident && groupsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
     }
 
     private func scheduleConversationIndexRebuild() {
@@ -573,6 +598,10 @@ struct SidebarView: View {
         }
         conversationToAgentIndex = index
         sessionIdToAgentId = sessionAgentMap
+        agentsWithConversations = Set(index.values)
+        groupsWithConversations = Set(conversations.compactMap(\.sourceGroupId))
+        rebuildAgentCaches()
+        rebuildGroupCaches()
     }
 
     private var projectsHeader: some View {
@@ -1308,8 +1337,13 @@ struct SidebarView: View {
             onTogglePin: {
                 group.isResident.toggle()
                 try? modelContext.save()
+                rebuildGroupCaches()
             },
-            onHideFromSidebar: { group.showInSidebar = false; try? modelContext.save() },
+            onHideFromSidebar: {
+                group.showInSidebar = false
+                try? modelContext.save()
+                rebuildGroupCaches()
+            },
             onScheduleMission: {
                 groupScheduleDraft = ScheduledMissionDraft(
                     name: "\(group.name) schedule",
@@ -1335,52 +1369,27 @@ struct SidebarView: View {
         )
     }
 
-    @AppStorage("sidebar.nonResidentGroupsExpanded") private var isNonResidentGroupsExpanded: Bool = false
-
     @ViewBuilder
     private var groupsSection: some View {
         Section {
             if isGroupsSectionExpanded {
-                // 1. Resident (pinned) groups — always shown
-                ForEach(residentGroups) { group in
-                    groupSidebarRow(group, isPinned: true)
+                // Groups with conversation history — shown directly
+                ForEach(nonResidentGroups) { group in
+                    groupSidebarRow(group, isPinned: false)
                 }
 
-                // 2. Non-resident groups — collapsed under "N more groups..."
-                if !nonResidentGroups.isEmpty {
-                    if isNonResidentGroupsExpanded {
-                        ForEach(nonResidentGroups) { group in
-                            groupSidebarRow(group, isPinned: false)
-                        }
-                    }
+                // 3. Library hint for groups with no history
+                let inLibraryCount = groups.filter { $0.isEnabled && !$0.isResident && !groupsWithConversations.contains($0.id) }.count
+                if inLibraryCount > 0 {
                     Button {
-                        isNonResidentGroupsExpanded.toggle()
+                        showGroupBrowseSheet = true
                     } label: {
-                        Label(
-                            isNonResidentGroupsExpanded
-                                ? "Show fewer"
-                                : "\(nonResidentGroups.count) more group\(nonResidentGroups.count == 1 ? "" : "s")\u{2026}",
-                            systemImage: isNonResidentGroupsExpanded ? "chevron.up" : "chevron.down"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 8)
-                    .accessibilityIdentifier("sidebar.groupsShowMore")
-                }
-
-                let hiddenGroupCount = groups.filter { $0.isEnabled && !$0.showInSidebar }.count
-                if hiddenGroupCount > 0 {
-                    Button {
-                        windowState.openConfiguration(section: .groups)
-                    } label: {
-                        Text("\(hiddenGroupCount) hidden · manage →")
+                        Text("\(inLibraryCount) more in library →")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("sidebar.groupsHiddenHint")
+                    .accessibilityIdentifier("sidebar.groupsLibraryHint")
                 }
             }
         } header: {
@@ -1642,49 +1651,63 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
+    private var pinnedSection: some View {
+        let hasPinned = !residentAgents.isEmpty || !residentGroups.isEmpty || !cachedPinnedProjects.isEmpty
+        if hasPinned {
+            Section {
+                if isPinnedSectionExpanded {
+                    ForEach(residentAgents) { agent in
+                        agentSidebarRow(agent, isPinned: true)
+                    }
+                    ForEach(residentGroups) { group in
+                        groupSidebarRow(group, isPinned: true)
+                    }
+                    ForEach(cachedPinnedProjects) { project in
+                        projectRows(project)
+                    }
+                }
+            } header: {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isPinnedSectionExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isPinnedSectionExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Pinned")
+                            .font(.headline.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.pinnedSection.header")
+            }
+            .stableXrayId("sidebar.pinnedSection")
+        }
+    }
+
+    @ViewBuilder
     private var agentsSection: some View {
         Section {
             if isAgentsSectionExpanded {
-                // 1. Resident (pinned) agents — always shown
-                ForEach(residentAgents) { agent in
-                    agentSidebarRow(agent, isPinned: true)
+                // Agents with conversation history — shown directly
+                ForEach(nonResidentAgents) { agent in
+                    agentSidebarRow(agent, isPinned: false)
                 }
 
-                // 2. Non-resident agents — collapsed under "N more agents..."
-                if !nonResidentAgents.isEmpty {
-                    if isNonResidentAgentsExpanded {
-                        ForEach(nonResidentAgents) { agent in
-                            agentSidebarRow(agent, isPinned: false)
-                        }
-                    }
+                // 3. Library hint for agents with no history
+                let inLibraryCount = agents.filter { $0.isEnabled && !$0.isResident && !agentsWithConversations.contains($0.id) }.count
+                if inLibraryCount > 0 {
                     Button {
-                        isNonResidentAgentsExpanded.toggle()
+                        showAgentBrowseSheet = true
                     } label: {
-                        Label(
-                            isNonResidentAgentsExpanded
-                                ? "Show fewer"
-                                : "\(nonResidentAgents.count) more agent\(nonResidentAgents.count == 1 ? "" : "s")\u{2026}",
-                            systemImage: isNonResidentAgentsExpanded ? "chevron.up" : "chevron.down"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .xrayId("sidebar.agents.showMore")
-                }
-
-                // 3. Hidden agents hint
-                let hiddenAgentCount = agents.filter { $0.isEnabled && !$0.isResident && !$0.showInSidebar }.count
-                if hiddenAgentCount > 0 {
-                    Button {
-                        windowState.openConfiguration(section: .agents)
-                    } label: {
-                        Text("\(hiddenAgentCount) hidden · manage →")
+                        Text("\(inLibraryCount) more in library →")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("sidebar.agentsHiddenHint")
+                    .accessibilityIdentifier("sidebar.agentsLibraryHint")
                 }
             }
         } header: {
@@ -1726,10 +1749,12 @@ struct SidebarView: View {
             onTogglePin: {
                 agent.isResident.toggle()
                 try? modelContext.save()
+                rebuildAgentCaches()
             },
             onHideFromSidebar: {
                 agent.showInSidebar = false
                 try? modelContext.save()
+                rebuildAgentCaches()
             },
             onScheduleMission: {
                 agentScheduleDraft = ScheduledMissionDraft(
@@ -2104,6 +2129,7 @@ struct SidebarView: View {
     private func toggleProjectPin(_ project: Project) {
         project.isPinned.toggle()
         try? modelContext.save()
+        rebuildProjectCache()
     }
 
     private func toggleUnread(_ convo: Conversation) {
