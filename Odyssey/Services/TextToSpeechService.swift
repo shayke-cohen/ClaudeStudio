@@ -56,16 +56,18 @@ final class TextToSpeechService: NSObject {
 // MARK: - AVSpeechSynthesizerDelegate
 extension TextToSpeechService: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
-            guard let self, utterance === self.activeUtterance else { return }
+            guard let self, let active = self.activeUtterance, ObjectIdentifier(active) == id else { return }
             self.isSpeaking = false
             self.currentMessageId = nil
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
-            guard let self, utterance === self.activeUtterance else { return }
+            guard let self, let active = self.activeUtterance, ObjectIdentifier(active) == id else { return }
             self.isSpeaking = false
             self.currentMessageId = nil
         }

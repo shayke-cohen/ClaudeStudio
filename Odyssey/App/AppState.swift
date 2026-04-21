@@ -93,6 +93,11 @@ final class AppState {
     /// AppState auto-persists agent messages for sessions in this set on `sessionResult`.
     var sharedRoomAutoFinalizeSessionIds: Set<String> = []
 
+    // MARK: - Voice
+    let voiceInput = VoiceInputService()
+    let tts = TextToSpeechService()
+    var isVoiceModeActive: Bool = false
+
     // MARK: - Browser state (keyed by sessionId)
     var browserControllers: [String: WKWebViewBrowserController] = [:]
     var browserCoordinators: [String: BrowserOverlayCoordinator] = [:]
@@ -1279,6 +1284,7 @@ final class AppState {
             streamingTokens.removeValue(forKey: sessionId)
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .done
+            handleVoiceModeCompletion(sessionId: sessionId)
             checkConversationIdle(for: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, topic in
                 ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
@@ -2095,6 +2101,15 @@ final class AppState {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return nil }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.id == uuid })
         return (try? ctx.fetch(descriptor).first)?.conversations?.first
+    }
+
+    // MARK: - Voice Mode Helpers
+
+    private func handleVoiceModeCompletion(sessionId: String) {
+        guard isVoiceModeActive else { return }
+        guard UserDefaults.standard.object(forKey: "voice.autoSpeak") as? Bool ?? true else { return }
+        guard let responseText = streamingText[sessionId], !responseText.isEmpty else { return }
+        tts.speak(responseText, messageId: UUID())
     }
 
     // MARK: - Coalesced SwiftData Save

@@ -10,6 +10,7 @@
 		0083173AEC8CFAC590A07E1C /* AcceptInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D0A4DFEB1D22D0F288817 /* AcceptInviteView.swift */; };
 		00E2394C0D8E3B3B624E0A37 /* ScheduleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E66DBCD1DC9CCFE067172E /* ScheduleDetailView.swift */; };
 		01AD288AAD7C1C206D8311A2 /* QuickActionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF134C6E798CB85E421324B /* QuickActionsSettingsView.swift */; };
+		04071C78BA743327DBB3C6A9 /* TextToSpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56C2A8943A475131A068BAEA /* TextToSpeechService.swift */; };
 		046B4625F3BCF356703A819F /* NostrRelayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFC7728E9C8020F71F960F1 /* NostrRelayManagerTests.swift */; };
 		04E888332678007B119BC156 /* ScheduledMissionRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE135214E24F6248D5EA9CF /* ScheduledMissionRun.swift */; };
 		051D4B295377527541A64837 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FD67A4B246106B4021B8EA /* MainWindowView.swift */; };
@@ -68,6 +69,7 @@
 		2D0A0ECBAD170DF82685020B /* SidebarActivityIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7333AE73C0663A0A85F8F9A /* SidebarActivityIndicator.swift */; };
 		2E20FAA5CAD426395D5BE5B1 /* NewGroupThreadSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA04E7FA48238BEC1518062 /* NewGroupThreadSheet.swift */; };
 		2F60E7E2B593E260764212A2 /* SharedWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0CB5B543443F65B40074D0 /* SharedWorkspace.swift */; };
+		31D2A67B3046B1C305C18993 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF12F5C2256DB79BB34AF25C /* VoiceInputService.swift */; };
 		3395077A3A96CF4451AF6DF4 /* PeerChannelMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE39C3CFD123135B0B9BCCE3 /* PeerChannelMessageTests.swift */; };
 		339AB580DED537F9467BCAC4 /* ToolCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8983F57EE0BBBE41EAA97B17 /* ToolCallView.swift */; };
 		33CD91AC23C96F8C1606D3DD /* SidebarConversationMetadataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 008F1F9079F356A73D0A16DB /* SidebarConversationMetadataTests.swift */; };
@@ -430,6 +432,7 @@
 		54A594D1041B3E82228DBCCB /* NostrSidecarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NostrSidecarBridge.swift; sourceTree = "<group>"; };
 		558615E63E7CD517950BA9C3 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		55A5CCDEF8324B36924D8363 /* ConfigSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSyncService.swift; sourceTree = "<group>"; };
+		56C2A8943A475131A068BAEA /* TextToSpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechService.swift; sourceTree = "<group>"; };
 		5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeManager.swift; sourceTree = "<group>"; };
 		574C54B33D6054811200930A /* AgentSidebarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSidebarTests.swift; sourceTree = "<group>"; };
 		58B71FF07BC56B7505F0D1BF /* SlashCommandDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommandDropdown.swift; sourceTree = "<group>"; };
@@ -533,6 +536,7 @@
 		BD82750C21589B242699A02E /* StreamingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingIndicator.swift; sourceTree = "<group>"; };
 		BDB3C00DB70530613EE74D1F /* WKWebViewBrowserController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WKWebViewBrowserController.swift; sourceTree = "<group>"; };
 		BE2E60A29D216D4EC39AD5DD /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		BF12F5C2256DB79BB34AF25C /* VoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputService.swift; sourceTree = "<group>"; };
 		BF50A910B05D937FF4A593D2 /* MatrixKeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatrixKeychainStore.swift; sourceTree = "<group>"; };
 		BFD19B50DA0A5BB9D7845A11 /* MessageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageAttachment.swift; sourceTree = "<group>"; };
 		C098B6CED63A531521590DFB /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
@@ -1158,7 +1162,9 @@
 				AEE6D5BFEC4719B2DBEFB703 /* SidecarManager.swift */,
 				CB40D1714862410A5EDA2D0F /* SidecarProtocol.swift */,
 				BB3329B9007D93114D6F50FA /* SlashCommandRegistry.swift */,
+				56C2A8943A475131A068BAEA /* TextToSpeechService.swift */,
 				F284C7E821B9B70D3FF28CF5 /* TransportManager.swift */,
+				BF12F5C2256DB79BB34AF25C /* VoiceInputService.swift */,
 				2E6F214B3DA3B4C401EBC4CE /* WorktreeCleanup.swift */,
 				5707ABC7E58B374D9A0915E9 /* WorktreeManager.swift */,
 				B501E6C9D872977C1BB0874F /* Shared */,
@@ -1766,11 +1772,13 @@
 				E65A2B757B152673E7A2D0AE /* TemplatePickerRow.swift in Sources */,
 				9ED4FD197D1E511B44B87EAD /* TemplatesSettingsTab.swift in Sources */,
 				BFD29E858CE515DD4400DC7D /* TerminalOutputView.swift in Sources */,
+				04071C78BA743327DBB3C6A9 /* TextToSpeechService.swift in Sources */,
 				339AB580DED537F9467BCAC4 /* ToolCallView.swift in Sources */,
 				A5F456BAEBB6C649F464697C /* TransportManager.swift in Sources */,
 				1C65270709A2A7F89B0A122D /* UnifiedLogEntry.swift in Sources */,
 				0BA8A404E682AF5BEF8D2C62 /* UserIdentity.swift in Sources */,
 				DB83A2142A011F0A770A4208 /* UserInviteSheet.swift in Sources */,
+				31D2A67B3046B1C305C18993 /* VoiceInputService.swift in Sources */,
 				8FCF0C44A4BA6305328FCD65 /* WKWebViewBrowserController.swift in Sources */,
 				B92233E3D31EC1E45A0A6200 /* WelcomeView.swift in Sources */,
 				4CDE0E9F3B4D1982E5A1B9B0 /* WindowState.swift in Sources */,
