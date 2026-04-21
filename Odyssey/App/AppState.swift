@@ -236,6 +236,7 @@ final class AppState {
     ]
     private static let iso8601 = ISO8601DateFormatter()
     private var pendingTokenCounts: [UUID: Int] = [:]
+    private var pendingPersistFlushTask: Task<Void, Never>?
 
     private(set) var sidecarManager: SidecarManager?
     private var nostrEventRelay: NostrEventRelay?
@@ -904,7 +905,7 @@ final class AppState {
         msg.toolOutput = height.map { String($0) }
         convo.messages = (convo.messages ?? []) + [msg]
         ctx.insert(msg)
-        try? ctx.save()
+        schedulePersistentSave()
     }
 
     func requestAgentGeneration(prompt: String, skills: [SkillCatalogEntry], mcps: [MCPCatalogEntry]) {
@@ -1283,6 +1284,8 @@ final class AppState {
             notifyIfNeeded(sessionId: sessionId) { name, topic in
                 ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
             }
+            // Flush any coalesced peer/blackboard saves before the batched completion save
+            flushPendingPersistentSave()
             // Batch session-end persistence into one fetch + one save instead of 3 separate cycles
             persistSessionCompletion(sessionId: sessionId, status: .completed, tokenCount: tokenCount, cost: cost, toolCallCount: toolCallCount)
             cleanupWorktreeIfNeeded(sessionId: sessionId)
@@ -1311,6 +1314,7 @@ final class AppState {
                 ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
             }
             Log.appState.error("Session \(sessionId, privacy: .public) error: \(error, privacy: .public)")
+            flushPendingPersistentSave()
             persistSessionCompletion(sessionId: sessionId, status: .failed)
             cleanupWorktreeIfNeeded(sessionId: sessionId)
 
@@ -2083,13 +2087,37 @@ final class AppState {
         return (try? ctx.fetch(descriptor).first)?.conversations?.first
     }
 
+    // MARK: - Coalesced SwiftData Save
+
+    /// Debounces rapid peer/blackboard/richContent events into a single save.
+    /// Rapid bursts (e.g. multi-agent chat with peer messages) used to trigger
+    /// one main-thread SQLite transaction per event; now they coalesce.
+    private func schedulePersistentSave() {
+        pendingPersistFlushTask?.cancel()
+        pendingPersistFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled, let self else { return }
+            self.flushPendingPersistentSave()
+        }
+    }
+
+    /// Flushes any pending coalesced save immediately.
+    /// Called on terminal events (sessionResult/sessionError) so persistence
+    /// is guaranteed before downstream snapshots are pushed.
+    func flushPendingPersistentSave() {
+        pendingPersistFlushTask?.cancel()
+        pendingPersistFlushTask = nil
+        guard let ctx = modelContext, ctx.hasChanges else { return }
+        try? ctx.save()
+    }
+
     private func persistPeerChatMessage(sessionId: String, channelId: String, from: String, message: String) {
         guard let ctx = modelContext,
               let convo = conversationForSession(sessionId: sessionId) else { return }
         let msg = ConversationMessage(text: "\(from): \(message)", type: .peerMessage, conversation: convo)
         msg.toolName = channelId
         ctx.insert(msg)
-        try? ctx.save()
+        schedulePersistentSave()
     }
 
     private func persistDelegationEvent(sessionId: String, from: String, to: String, task: String) {
@@ -2101,7 +2129,7 @@ final class AppState {
             conversation: convo
         )
         ctx.insert(msg)
-        try? ctx.save()
+        schedulePersistentSave()
     }
 
     private func persistBlackboardUpdate(sessionId: String, key: String, value: String, writtenBy: String) {
@@ -2132,7 +2160,7 @@ final class AppState {
             msg.toolInput = writtenBy
             ctx.insert(msg)
         }
-        try? ctx.save()
+        schedulePersistentSave()
     }
 
     private func persistWorkspaceEvent(sessionId: String, workspaceName: String, agentName: String, action: String) {

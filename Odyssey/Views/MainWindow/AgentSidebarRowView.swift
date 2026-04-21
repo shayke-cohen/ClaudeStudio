@@ -38,11 +38,10 @@ struct AgentSidebarRowView: View {
             let displayed = showAllConversations ? conversations : Array(conversations.prefix(10))
             ForEach(displayed) { conv in
                 let isConvSelected = selectedConversationId == conv.id
-                let activity = appState.conversationActivity(for: conv)
                 Button {
                     onSelectConversation(conv)
                 } label: {
-                    threadRowLabel(conv, isConvSelected: isConvSelected, activity: activity)
+                    threadRowLabel(conv, isConvSelected: isConvSelected)
                 }
                 .buttonStyle(.plain)
                 .stableXrayId("sidebar.agentRow.\(agent.id.uuidString).chatRow.\(conv.id.uuidString)")
@@ -346,8 +345,7 @@ struct AgentSidebarRowView: View {
     @ViewBuilder
     private func threadRowLabel(
         _ conv: Conversation,
-        isConvSelected: Bool,
-        activity: AppState.ConversationActivitySummary
+        isConvSelected: Bool
     ) -> some View {
         let tint = Color.fromAgentColor(agent.color)
         HStack(spacing: 7) {
@@ -408,7 +406,7 @@ struct AgentSidebarRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            SidebarActivityIndicator(summary: activity, conversationStatus: conv.status)
+            ThreadActivityIndicator(conversation: conv)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
@@ -420,5 +418,20 @@ struct AgentSidebarRowView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isConvSelected ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Isolated Activity Indicator
+
+/// Leaf view that reads `appState.conversationActivity(for:)` in its own body so
+/// only this indicator re-renders when session activity changes — not the parent
+/// ForEach or the containing sidebar row.
+struct ThreadActivityIndicator: View {
+    @Environment(AppState.self) private var appState
+    let conversation: Conversation
+
+    var body: some View {
+        let summary = appState.conversationActivity(for: conversation)
+        SidebarActivityIndicator(summary: summary, conversationStatus: conversation.status)
     }
 }

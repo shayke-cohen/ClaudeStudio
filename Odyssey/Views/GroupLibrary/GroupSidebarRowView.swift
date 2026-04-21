@@ -41,11 +41,10 @@ struct GroupSidebarRowView: View {
             let displayed = showAllConversations ? conversations : Array(conversations.prefix(10))
             ForEach(displayed) { conv in
                 let isConvSelected = selectedConversationId == conv.id
-                let activity = appState.conversationActivity(for: conv)
                 Button {
                     onSelectConversation(conv)
                 } label: {
-                    threadRowLabel(conv, isConvSelected: isConvSelected, activity: activity)
+                    threadRowLabel(conv, isConvSelected: isConvSelected)
                 }
                 .buttonStyle(.plain)
                 .stableXrayId("sidebar.groupRow.\(group.id.uuidString).chatRow.\(conv.id.uuidString)")
@@ -377,8 +376,7 @@ struct GroupSidebarRowView: View {
     @ViewBuilder
     private func threadRowLabel(
         _ conv: Conversation,
-        isConvSelected: Bool,
-        activity: AppState.ConversationActivitySummary
+        isConvSelected: Bool
     ) -> some View {
         let tint = Color.fromAgentColor(group.color)
         HStack(spacing: 7) {
@@ -438,7 +436,7 @@ struct GroupSidebarRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            SidebarActivityIndicator(summary: activity, conversationStatus: conv.status)
+            ThreadActivityIndicator(conversation: conv)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)

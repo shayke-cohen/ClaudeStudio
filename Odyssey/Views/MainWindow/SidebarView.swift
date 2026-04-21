@@ -1762,7 +1762,6 @@ struct SidebarView: View {
     // MARK: - Conversation Row
 
     private func conversationRow(_ convo: Conversation) -> some View {
-        let activity = appState.conversationActivity(for: convo)
         let isHovered = hoveredConversationId == convo.id
         let isSelected = windowState.selectedConversationId == convo.id
         let showsConversationMenu = isHovered || isSelected
@@ -1832,10 +1831,7 @@ struct SidebarView: View {
                 .xrayId("sidebar.moreMenu.\(convo.id.uuidString)")
                 .accessibilityLabel("More options for \(convo.topic ?? "this thread")")
             }
-            SidebarActivityIndicator(
-                summary: activity,
-                conversationStatus: convo.status
-            )
+            ThreadActivityIndicator(conversation: convo)
             .xrayId("sidebar.activityIndicator.\(convo.id.uuidString)")
             if let result = appState.idleResults[convo.id.uuidString] {
                 Image(systemName: result.status.icon)

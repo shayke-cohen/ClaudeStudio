@@ -294,7 +294,7 @@ struct InspectorView: View {
             sectionLabel("Session", systemImage: "terminal")
                 .xrayId("inspector.sessionHeading")
 
-            InfoRow(label: "Status", value: appState.sessionActivity[session.id.uuidString]?.displayLabel ?? session.status.rawValue.capitalized)
+            LiveSessionStatusRow(session: session)
             InfoRow(label: "Model", value: modelShortName(session.model ?? session.agent?.model ?? ""))
             InfoRow(label: "Mode", value: session.mode.rawValue.capitalized)
             LiveDurationRow(startedAt: conversation.startedAt)
@@ -319,54 +319,20 @@ struct InspectorView: View {
 
     @ViewBuilder
     private var sessionTotalsRow: some View {
-        let totalTokens = orderedSessions.reduce(0) { sum, s in
-            sum + (liveInfo(for: s)?.tokenCount ?? s.tokenCount)
-        }
-        let totalCost = orderedSessions.reduce(0.0) { sum, s in
-            sum + (liveInfo(for: s)?.cost ?? s.totalCost)
-        }
-        let totalToolCalls = orderedSessions.reduce(0) { sum, s in
-            sum + (liveInfo(for: s)?.toolCallCount ?? s.toolCallCount)
-        }
-
         Divider()
-
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Totals")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-            InfoRow(label: "Sessions", value: "\(orderedSessions.count)")
-            InfoRow(label: "Tokens", value: formatNumber(totalTokens))
-            InfoRow(label: "Cost", value: String(format: "$%.4f", totalCost))
-            InfoRow(label: "Tool Calls", value: "\(totalToolCalls)")
-        }
-        .xrayId("inspector.sessionTotals")
+        LiveSessionTotals(sessions: orderedSessions)
+            .xrayId("inspector.sessionTotals")
     }
 
     @ViewBuilder
     private func multiSessionRow(session: Session) -> some View {
-        let live = liveInfo(for: session)
         let agent = session.agent
-        let liveTokens = live?.tokenCount ?? session.tokenCount
-        let liveCost = live?.cost ?? session.totalCost
-        let activityState = appState.sessionActivity[session.id.uuidString]
-        let statusText = activityState?.displayLabel ?? session.status.rawValue.capitalized
 
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(agent?.name ?? "Agent")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                if let state = activityState, state.isActive {
-                    ActivityDot(state: state)
-                        .frame(width: 6, height: 6)
-                }
-            }
-            InfoRow(label: "Status", value: statusText)
+            LiveSessionRowHeader(session: session, agentName: agent?.name ?? "Agent")
+            LiveSessionStatusRow(session: session)
             InfoRow(label: "Model", value: modelShortName(session.model ?? agent?.model ?? ""))
-            InfoRow(label: "Tokens", value: formatNumber(liveTokens))
-            InfoRow(label: "Cost", value: String(format: "$%.4f", liveCost))
-            InfoRow(label: "Tool Calls", value: "\(live?.toolCallCount ?? session.toolCallCount)")
+            LiveSessionUsageRows(session: session)
             if let agent {
                 Button {
                     windowState.openConfiguration(section: .agents)
@@ -390,43 +356,7 @@ struct InspectorView: View {
             sectionLabel("Usage", systemImage: "chart.bar")
                 .xrayId("inspector.usageHeading")
 
-            let live = liveInfo(for: session)
-            let liveTokens = live?.tokenCount ?? session.tokenCount
-            let liveCost = live?.cost ?? session.totalCost
-            let maxTurns = agent?.maxTurns ?? 30
-            let toolCalls = live?.toolCallCount ?? session.toolCallCount
-
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8),
-                ],
-                alignment: .leading,
-                spacing: 8
-            ) {
-                InspectorMetricTile(title: "Tokens", value: formatNumber(liveTokens))
-                InspectorMetricTile(title: "Cost", value: String(format: "$%.4f", liveCost))
-                InspectorMetricTile(title: "Tool Calls", value: "\(toolCalls)")
-                InspectorMetricTile(title: "Turns", value: "\(toolCalls) / \(maxTurns)")
-                    .xrayId("inspector.turnsLabel")
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("Turn budget")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(max(0, maxTurns - toolCalls)) remaining")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-
-                ProgressView(value: min(Double(toolCalls), Double(maxTurns)), total: Double(maxTurns))
-                    .tint(turnProgressColor(used: toolCalls, max: maxTurns))
-                    .xrayId("inspector.turnsProgress")
-            }
+            LiveUsageMetrics(session: session, maxTurns: agent?.maxTurns ?? 30)
         }
         .inspectorSectionCard()
     }
@@ -1127,14 +1057,7 @@ private struct BlackboardInspectorPanel: View {
     @State private var expandedKeys: Set<String> = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-
-    private var blackboardEventCount: Int {
-        appState.commsEvents.reduce(into: 0) { partial, event in
-            if case .blackboardUpdate = event.kind {
-                partial += 1
-            }
-        }
-    }
+    @State private var refreshDebounceTask: Task<Void, Never>?
 
     private var filteredEntries: [BlackboardSnapshotEntry] {
         BlackboardSnapshotFilter.filteredEntries(
@@ -1179,8 +1102,18 @@ private struct BlackboardInspectorPanel: View {
         .onChange(of: conversation.id) { _, _ in
             expandedKeys.removeAll()
         }
-        .onChange(of: blackboardEventCount) { _, _ in
-            Task { await loadEntries() }
+        .background {
+            BlackboardRefreshObserver(onRefreshRequested: scheduleRefresh)
+        }
+    }
+
+    /// Debounce rapid blackboard events into a single refresh.
+    private func scheduleRefresh() {
+        refreshDebounceTask?.cancel()
+        refreshDebounceTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await loadEntries()
         }
     }
 
@@ -1289,6 +1222,29 @@ private struct BlackboardInspectorPanel: View {
         } else {
             expandedKeys.insert(key)
         }
+    }
+}
+
+/// Isolates the `appState.commsEvents` subscription to a tiny invisible view so
+/// the parent BlackboardInspectorPanel body doesn't re-evaluate on every peer event.
+private struct BlackboardRefreshObserver: View {
+    @Environment(AppState.self) private var appState
+    let onRefreshRequested: () -> Void
+
+    private var blackboardEventCount: Int {
+        appState.commsEvents.reduce(into: 0) { partial, event in
+            if case .blackboardUpdate = event.kind {
+                partial += 1
+            }
+        }
+    }
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onChange(of: blackboardEventCount) { _, _ in
+                onRefreshRequested()
+            }
     }
 }
 
@@ -1555,6 +1511,153 @@ private extension WindowInspectorTab {
             return "person.3"
         }
     }
+}
+
+// MARK: - Isolated Live-AppState Subviews
+//
+// These leaf views read high-frequency AppState dictionaries
+// (`sessionActivity`, `activeSessions`) in their own body so only the
+// small view re-renders on every token/state change — not the entire
+// InspectorView.
+
+/// Status row: subscribes to `appState.sessionActivity` in isolation.
+private struct LiveSessionStatusRow: View {
+    @Environment(AppState.self) private var appState
+    let session: Session
+
+    var body: some View {
+        let label = appState.sessionActivity[session.id.uuidString]?.displayLabel
+            ?? session.status.rawValue.capitalized
+        InfoRow(label: "Status", value: label)
+    }
+}
+
+/// Row header with agent name + activity dot (reads `appState.sessionActivity`).
+private struct LiveSessionRowHeader: View {
+    @Environment(AppState.self) private var appState
+    let session: Session
+    let agentName: String
+
+    var body: some View {
+        let activityState = appState.sessionActivity[session.id.uuidString]
+        HStack(spacing: 6) {
+            Text(agentName)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            if let state = activityState, state.isActive {
+                ActivityDot(state: state)
+                    .frame(width: 6, height: 6)
+            }
+        }
+    }
+}
+
+/// Tokens/Cost/Tool Calls rows (reads `appState.activeSessions[session.id]`).
+private struct LiveSessionUsageRows: View {
+    @Environment(AppState.self) private var appState
+    let session: Session
+
+    var body: some View {
+        let live = appState.activeSessions[session.id]
+        let liveTokens = live?.tokenCount ?? session.tokenCount
+        let liveCost = live?.cost ?? session.totalCost
+        let toolCalls = live?.toolCallCount ?? session.toolCallCount
+
+        VStack(alignment: .leading, spacing: 0) {
+            InfoRow(label: "Tokens", value: formatNumberLocal(liveTokens))
+            InfoRow(label: "Cost", value: String(format: "$%.4f", liveCost))
+            InfoRow(label: "Tool Calls", value: "\(toolCalls)")
+        }
+    }
+}
+
+/// Totals across all sessions (reads `appState.activeSessions` in isolation).
+private struct LiveSessionTotals: View {
+    @Environment(AppState.self) private var appState
+    let sessions: [Session]
+
+    var body: some View {
+        let totalTokens = sessions.reduce(0) { sum, s in
+            sum + (appState.activeSessions[s.id]?.tokenCount ?? s.tokenCount)
+        }
+        let totalCost = sessions.reduce(0.0) { sum, s in
+            sum + (appState.activeSessions[s.id]?.cost ?? s.totalCost)
+        }
+        let totalToolCalls = sessions.reduce(0) { sum, s in
+            sum + (appState.activeSessions[s.id]?.toolCallCount ?? s.toolCallCount)
+        }
+
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Totals")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            InfoRow(label: "Sessions", value: "\(sessions.count)")
+            InfoRow(label: "Tokens", value: formatNumberLocal(totalTokens))
+            InfoRow(label: "Cost", value: String(format: "$%.4f", totalCost))
+            InfoRow(label: "Tool Calls", value: "\(totalToolCalls)")
+        }
+    }
+}
+
+/// Usage grid + turn budget progress bar (reads `appState.activeSessions`).
+private struct LiveUsageMetrics: View {
+    @Environment(AppState.self) private var appState
+    let session: Session
+    let maxTurns: Int
+
+    var body: some View {
+        let live = appState.activeSessions[session.id]
+        let liveTokens = live?.tokenCount ?? session.tokenCount
+        let liveCost = live?.cost ?? session.totalCost
+        let toolCalls = live?.toolCallCount ?? session.toolCallCount
+
+        VStack(alignment: .leading, spacing: 8) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8),
+                ],
+                alignment: .leading,
+                spacing: 8
+            ) {
+                InspectorMetricTile(title: "Tokens", value: formatNumberLocal(liveTokens))
+                InspectorMetricTile(title: "Cost", value: String(format: "$%.4f", liveCost))
+                InspectorMetricTile(title: "Tool Calls", value: "\(toolCalls)")
+                InspectorMetricTile(title: "Turns", value: "\(toolCalls) / \(maxTurns)")
+                    .xrayId("inspector.turnsLabel")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Turn budget")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(max(0, maxTurns - toolCalls)) remaining")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+
+                ProgressView(value: min(Double(toolCalls), Double(maxTurns)), total: Double(maxTurns))
+                    .tint(turnProgressColorLocal(used: toolCalls, max: maxTurns))
+                    .xrayId("inspector.turnsProgress")
+            }
+        }
+    }
+}
+
+private func formatNumberLocal(_ n: Int) -> String {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    return f.string(from: NSNumber(value: n)) ?? "\(n)"
+}
+
+private func turnProgressColorLocal(used: Int, max: Int) -> Color {
+    let ratio = Double(used) / Double(max)
+    if ratio >= 0.9 { return .red }
+    if ratio >= 0.7 { return .orange }
+    return .accentColor
 }
 
 /// Isolated subview that owns the 1-second timer so only this tiny Text
