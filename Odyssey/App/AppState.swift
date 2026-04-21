@@ -679,7 +679,8 @@ final class AppState {
             bunPathOverride: bunOverride?.isEmpty == true ? nil : bunOverride,
             sidecarPathOverride: sidecarPathOverride?.isEmpty == true ? nil : sidecarPathOverride,
             localAgentHostPathOverride: localAgentHostOverride?.isEmpty == true ? nil : localAgentHostOverride,
-            mlxRunnerPathOverride: mlxRunnerOverride?.isEmpty == true ? nil : mlxRunnerOverride
+            mlxRunnerPathOverride: mlxRunnerOverride?.isEmpty == true ? nil : mlxRunnerOverride,
+            instanceName: InstanceConfig.name
         )
         let manager = SidecarManager(config: config)
         self.sidecarManager = manager
