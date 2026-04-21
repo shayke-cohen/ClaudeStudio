@@ -5378,25 +5378,22 @@ struct StreamingBubbleView: View {
 
 private struct WaveformBarsView: View {
     let audioLevel: Float
-    @State private var animationPhase: Double = 0
 
     var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(0..<7, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.accentColor)
-                    .frame(width: 3, height: barHeight(for: index))
-                    .animation(.easeInOut(duration: 0.15), value: audioLevel)
+        TimelineView(.animation) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate * 3.0  // ~3 rad/sec sweep
+            HStack(alignment: .center, spacing: 2) {
+                ForEach(0..<7, id: \.self) { index in
+                    let offsets: [Double] = [0, 0.7, 1.4, 0.35, 1.05, 1.75, 0.7]
+                    let wave = sin(phase + offsets[index]) * 0.5 + 0.5
+                    let base: CGFloat = 4
+                    let maxH: CGFloat = 18
+                    let height = base + (maxH - base) * CGFloat(audioLevel) * CGFloat(wave)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.accentColor)
+                        .frame(width: 3, height: max(base, height))
+                }
             }
         }
-    }
-
-    private func barHeight(for index: Int) -> CGFloat {
-        let base: CGFloat = 4
-        let max: CGFloat = 18
-        let phases: [Double] = [0, 0.1, 0.2, 0.05, 0.15, 0.25, 0.1]
-        let wave = sin(animationPhase + phases[index]) * 0.5 + 0.5
-        let level = CGFloat(audioLevel)
-        return base + (max - base) * level * CGFloat(wave)
     }
 }
