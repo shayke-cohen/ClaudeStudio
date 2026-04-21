@@ -189,43 +189,49 @@ final class ConfigSyncService {
 
     func performFullSync() {
         guard let container = modelContainer else { return }
-        let context = ModelContext(container)
+        // Run as an async Task so each yield point lets the run loop process UI events,
+        // preventing the 200-500ms main-thread stall from 254+ file reads.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let context = ModelContext(container)
 
-        Log.configSync.info("Starting full sync")
+            Log.configSync.info("Starting full sync")
 
-        // Load templates for system prompt resolution
-        let templates = ConfigFileManager.readAllTemplates()
+            let templates = ConfigFileManager.readAllTemplates()
+            await Task.yield()
 
-        // Sync each entity type (catalog / legacy flat-file format)
-        syncPermissions(context: context)
-        syncMCPs(context: context)
-        syncSkills(context: context)
-        syncAgents(context: context, templates: templates)
-        syncGroups(context: context)
-        syncPromptTemplates(context: context)
+            syncPermissions(context: context)
+            syncMCPs(context: context)
+            await Task.yield()
 
-        // Sync file-backed entities (new subdirectory / slug-file format)
-        syncAgentFiles(context: context)
-        syncGroupFiles(context: context)
-        syncSkillFiles(context: context)
-        syncMCPFiles(context: context)
+            syncSkills(context: context)
+            syncAgents(context: context, templates: templates)
+            await Task.yield()
 
-        // Sync feature flags from features.json (restart-free flag flipping)
-        syncFeaturesFromDisk()
+            syncGroups(context: context)
+            syncPromptTemplates(context: context)
+            await Task.yield()
 
-        // Repair: ensure every resident agent and group has a home folder
-        repairResidentHomeFolders(context: context)
-        repairGroupHomeFolders(context: context)
+            syncAgentFiles(context: context)
+            syncGroupFiles(context: context)
+            syncSkillFiles(context: context)
+            syncMCPFiles(context: context)
+            await Task.yield()
 
-        do {
-            if context.hasChanges {
-                try context.save()
-                Log.configSync.info("Full sync complete (saved changes)")
-            } else {
-                Log.configSync.info("Full sync complete (no changes)")
+            syncFeaturesFromDisk()
+            repairResidentHomeFolders(context: context)
+            repairGroupHomeFolders(context: context)
+
+            do {
+                if context.hasChanges {
+                    try context.save()
+                    Log.configSync.info("Full sync complete (saved changes)")
+                } else {
+                    Log.configSync.info("Full sync complete (no changes)")
+                }
+            } catch {
+                Log.configSync.error("Failed to save: \(error)")
             }
-        } catch {
-            Log.configSync.error("Failed to save: \(error)")
         }
     }
 

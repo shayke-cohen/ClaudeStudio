@@ -228,6 +228,7 @@ struct ChatView: View {
     @State private var didPerformInitialScrollRestore = false
     @State private var isRestoringScrollPosition = true
     @State private var cachedSortedMessages: [ConversationMessage] = []
+    @State private var cachedDisplayMessages: [ConversationMessage] = []
     @State private var cachedParticipantAppearanceMap: [UUID: AgentAppearance]? = nil
     @State private var lastAutoScrollTime: Date = .distantPast
     private var planModeEnabled: Bool {
@@ -253,6 +254,7 @@ struct ChatView: View {
     @State private var showSlashLoopSheet = false
     @State private var showSlashBranchPicker = false
     @State private var slashPlanModeActive = false
+    @State private var streamingStateRestoreTask: Task<Void, Never>?
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
@@ -297,15 +299,18 @@ struct ChatView: View {
 
     private var sortedMessages: [ConversationMessage] { cachedSortedMessages }
 
-    private var displayMessages: [ConversationMessage] {
+    private var displayMessages: [ConversationMessage] { cachedDisplayMessages }
+
+    private func rebuildDisplayMessages() {
         let allEnabled = enabledPeerCategories.count == PeerChannelCategory.allCases.count
         if allEnabled {
-            return sortedMessages.filter { $0.type != .systemEvaluation }
-        }
-        return sortedMessages.filter { msg in
-            guard msg.type != .systemEvaluation else { return false }
-            guard let category = msg.type.peerChannelCategory else { return true }
-            return enabledPeerCategories.contains(category)
+            cachedDisplayMessages = sortedMessages.filter { $0.type != .systemEvaluation }
+        } else {
+            cachedDisplayMessages = sortedMessages.filter { msg in
+                guard msg.type != .systemEvaluation else { return false }
+                guard let category = msg.type.peerChannelCategory else { return true }
+                return enabledPeerCategories.contains(category)
+            }
         }
     }
 
@@ -367,13 +372,9 @@ struct ChatView: View {
         return orderedActive + extraKeys
     }
 
-    private var streamingContentVersion: Int {
-        activeStreamingSessionOrder.reduce(0) { partial, key in
-            partial
-                + (appState.streamingText[key]?.count ?? 0)
-                + (appState.thinkingText[key]?.count ?? 0)
-        }
-    }
+    // Now a @State incremented by StreamingObserver instead of a computed property
+    // that read appState.streamingText (which subscribed the entire ChatView to every token).
+    @State private var streamingContentVersion: Int = 0
 
     private var mentionAutocompleteAgents: [Agent] {
         guard let r = inputText.range(of: #"@([^@\n]*)$"#, options: .regularExpression) else { return [] }
@@ -532,7 +533,7 @@ struct ChatView: View {
     }
 
     private var canExportChat: Bool {
-        !sortedMessages.isEmpty || streamingAppendix != nil
+        !sortedMessages.isEmpty || isProcessing
     }
 
     private var activeChatHeader: some View {
@@ -637,23 +638,21 @@ struct ChatView: View {
             try? await Task.sleep(for: .milliseconds(300))
             checkForPendingResponse()
         }
-        .onChange(of: appState.lastSessionEvent) { _, events in
-            restoreStreamingStateFromAppState()
-            checkForCompletion(events: events)
-        }
-        .onChange(of: appState.streamingText) { _, texts in
-            for key in activeStreamingSessionKeys {
-                let newCount = texts[key]?.count ?? 0
-                let previousCount = lastStreamingTextLengths[key] ?? 0
-                if newCount > previousCount {
-                    lastTokenTimes[key] = Date()
-                }
-                lastStreamingTextLengths[key] = newCount
-            }
-            restoreStreamingStateFromAppState()
-        }
-        .onChange(of: appState.thinkingText) { _, _ in
-            restoreStreamingStateFromAppState()
+        .background {
+            // Isolated observer: subscribes to streaming AppState properties WITHOUT
+            // invalidating the main ChatView body on every token.
+            ChatStreamingObserver(
+                activeStreamingSessionKeys: $activeStreamingSessionKeys,
+                activeStreamingDisplayNames: $activeStreamingDisplayNames,
+                lastTokenTimes: $lastTokenTimes,
+                lastStreamingTextLengths: $lastStreamingTextLengths,
+                processingStartTimes: $processingStartTimes,
+                expandedStreamingThinkingSessionKeys: $expandedStreamingThinkingSessionKeys,
+                isProcessing: $isProcessing,
+                streamingContentVersion: $streamingContentVersion,
+                conversation: conversation,
+                onCheckCompletion: { events in checkForCompletion(events: events) }
+            )
         }
         .onChange(of: appState.sidecarStatus) { _, status in
             if status != .connected && isProcessing {
@@ -717,20 +716,21 @@ struct ChatView: View {
         .onAppear {
             consumeAutoSendText()
             consumePendingTemplatePrompt()
-            restoreStreamingStateFromAppState()
         }
-        .onChange(of: appState.sessionActivity) { _, _ in
-            restoreStreamingStateFromAppState()
-            if let convo = conversation {
-                let summary = appState.conversationActivity(for: convo)
-                if case .allDone = summary.aggregate, summary.totalSessions > 0, !showAllDoneBanner {
-                    withAnimation(.easeInOut(duration: 0.3)) { showAllDoneBanner = true }
-                    allDoneBannerTimer?.cancel()
-                    allDoneBannerTimer = Task {
-                        try? await Task.sleep(for: .seconds(5))
-                        guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            withAnimation(.easeInOut(duration: 0.5)) { showAllDoneBanner = false }
+        .onChange(of: isProcessing) { wasProcessing, nowProcessing in
+            // Show "all done" banner when processing finishes
+            if wasProcessing, !nowProcessing, !showAllDoneBanner {
+                if let convo = conversation {
+                    let summary = appState.conversationActivity(for: convo)
+                    if case .allDone = summary.aggregate, summary.totalSessions > 0 {
+                        withAnimation(.easeInOut(duration: 0.3)) { showAllDoneBanner = true }
+                        allDoneBannerTimer?.cancel()
+                        allDoneBannerTimer = Task {
+                            try? await Task.sleep(for: .seconds(5))
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run {
+                                withAnimation(.easeInOut(duration: 0.5)) { showAllDoneBanner = false }
+                            }
                         }
                     }
                 }
@@ -796,12 +796,17 @@ struct ChatView: View {
         }
         .onChange(of: conversation?.messages?.count) { _, _ in
             cachedSortedMessages = (conversation?.messages ?? []).sorted { $0.timestamp < $1.timestamp }
+            rebuildDisplayMessages()
+        }
+        .onChange(of: enabledPeerCategories) { _, _ in
+            rebuildDisplayMessages()
         }
         .onChange(of: conversation?.sessions?.count) { _, _ in
             rebuildParticipantAppearanceMap()
         }
         .onAppear {
             cachedSortedMessages = (conversation?.messages ?? []).sorted { $0.timestamp < $1.timestamp }
+            rebuildDisplayMessages()
             rebuildParticipantAppearanceMap()
         }
         .sheet(isPresented: $showingScheduleEditor) {
@@ -1820,7 +1825,12 @@ struct ChatView: View {
                         }
 
                         if isProcessing {
-                            streamingBubble
+                            StreamingBubbleView(
+                                sessionOrder: activeStreamingSessionOrder,
+                                displayNames: activeStreamingDisplayNames,
+                                participantAppearanceMap: cachedParticipantAppearanceMap ?? [:],
+                                expandedThinkingKeys: $expandedStreamingThinkingSessionKeys
+                            )
                                 .id("streaming")
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
@@ -1981,7 +1991,7 @@ struct ChatView: View {
                     .onChange(of: streamingContentVersion) { _, _ in
                         guard isProcessing, shouldAutoScroll else { return }
                         let now = Date()
-                        guard now.timeIntervalSince(lastAutoScrollTime) >= 0.08 else { return }
+                        guard now.timeIntervalSince(lastAutoScrollTime) >= 0.25 else { return }
                         lastAutoScrollTime = now
                         scrollToBottom(proxy, animated: false)
                     }
@@ -2824,7 +2834,12 @@ struct ChatView: View {
                 }
 
                 if let text, !text.isEmpty {
-                    MarkdownContent(text: text, onOpenLocalReference: openLocalFileReference)
+                    // Use plain Text while streaming — MarkdownContent re-parses the
+                    // entire string on every token (O(n) per token = O(n²) total).
+                    // Final messages use MarkdownContent after commit.
+                    Text(text)
+                        .font(.body)
+                        .textSelection(.enabled)
                 } else if thinking?.isEmpty != false {
                     StreamingIndicator()
                 }
@@ -4418,54 +4433,9 @@ struct ChatView: View {
         }
     }
 
-    @MainActor
-    private func restoreStreamingStateFromAppState() {
-        guard let convo = conversation else {
-            isProcessing = false
-            activeStreamingSessionKeys.removeAll()
-            activeStreamingDisplayNames.removeAll()
-            processingStartTimes.removeAll()
-            lastTokenTimes.removeAll()
-            lastStreamingTextLengths.removeAll()
-            expandedStreamingThinkingSessionKeys.removeAll()
-            return
-        }
-
-        let now = Date()
-        var restoredKeys: Set<String> = []
-        var restoredDisplayNames: [String: String] = [:]
-
-        for session in (convo.sessions ?? []) {
-            let sidecarKey = session.id.uuidString
-            let hasStreamingText = !(appState.streamingText[sidecarKey]?.isEmpty ?? true)
-            let hasThinkingText = !(appState.thinkingText[sidecarKey]?.isEmpty ?? true)
-
-            let shouldTrack = ChatSessionWatchdog.shouldTrackSession(
-                activity: appState.sessionActivity[sidecarKey] ?? .idle,
-                hasStreamingText: hasStreamingText,
-                hasThinkingText: hasThinkingText
-            )
-
-            guard shouldTrack else { continue }
-
-            restoredKeys.insert(sidecarKey)
-            restoredDisplayNames[sidecarKey] = session.agent?.name ?? AgentDefaults.displayName(forProvider: session.provider)
-            processingStartTimes[sidecarKey] = processingStartTimes[sidecarKey] ?? now
-            lastStreamingTextLengths[sidecarKey] = appState.streamingText[sidecarKey]?.count ?? 0
-        }
-
-        let removedKeys = activeStreamingSessionKeys.subtracting(restoredKeys)
-        for key in removedKeys {
-            processingStartTimes.removeValue(forKey: key)
-            lastTokenTimes.removeValue(forKey: key)
-            lastStreamingTextLengths.removeValue(forKey: key)
-            expandedStreamingThinkingSessionKeys.remove(key)
-        }
-
-        activeStreamingSessionKeys = restoredKeys
-        activeStreamingDisplayNames = restoredDisplayNames
-        isProcessing = !restoredKeys.isEmpty
-    }
+    // restoreStreamingStateFromAppState and scheduleStreamingStateRestore
+    // moved to ChatStreamingObserver (isolated subview) to prevent the main
+    // ChatView body from subscribing to streamingText/thinkingText changes.
 
     private func hasVisibleOutput(for sidecarKey: String, since start: Date) -> Bool {
         if !(appState.streamingText[sidecarKey]?.isEmpty ?? true) { return true }
@@ -5130,5 +5100,215 @@ struct QuestionRoutingPillView: View {
         )
         .cornerRadius(8)
         .xrayId(isFallback ? "chat.routingPill.fallback" : "chat.routingPill.inFlight")
+    }
+}
+
+// MARK: - Isolated Streaming Observer
+
+/// Observes high-frequency AppState streaming properties (`streamingText`, `thinkingText`,
+/// `lastSessionEvent`) in isolation so the main ChatView body is NOT invalidated on every token.
+private struct ChatStreamingObserver: View {
+    @Environment(AppState.self) private var appState
+    @Binding var activeStreamingSessionKeys: Set<String>
+    @Binding var activeStreamingDisplayNames: [String: String]
+    @Binding var lastTokenTimes: [String: Date]
+    @Binding var lastStreamingTextLengths: [String: Int]
+    @Binding var processingStartTimes: [String: Date]
+    @Binding var expandedStreamingThinkingSessionKeys: Set<String>
+    @Binding var isProcessing: Bool
+    @Binding var streamingContentVersion: Int
+    let conversation: Conversation?
+    var onCheckCompletion: (([String: AppState.SessionEventKind]) -> Void)?
+
+    @State private var debounceTask: Task<Void, Never>?
+
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0)
+            .onChange(of: appState.streamingText) { _, texts in
+                for key in activeStreamingSessionKeys {
+                    let newCount = texts[key]?.count ?? 0
+                    let previousCount = lastStreamingTextLengths[key] ?? 0
+                    if newCount > previousCount {
+                        lastTokenTimes[key] = Date()
+                    }
+                    lastStreamingTextLengths[key] = newCount
+                }
+                streamingContentVersion += 1
+                scheduleRestore()
+            }
+            .onChange(of: appState.thinkingText) { _, _ in
+                streamingContentVersion += 1
+                scheduleRestore()
+            }
+            .onChange(of: appState.lastSessionEvent) { _, events in
+                scheduleRestore()
+                onCheckCompletion?(events)
+            }
+            .onAppear { restoreNow() }
+    }
+
+    private func scheduleRestore() {
+        debounceTask?.cancel()
+        debounceTask = Task {
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { return }
+            restoreNow()
+        }
+    }
+
+    private func restoreNow() {
+        guard let convo = conversation else {
+            isProcessing = false
+            activeStreamingSessionKeys.removeAll()
+            activeStreamingDisplayNames.removeAll()
+            processingStartTimes.removeAll()
+            lastTokenTimes.removeAll()
+            lastStreamingTextLengths.removeAll()
+            expandedStreamingThinkingSessionKeys.removeAll()
+            return
+        }
+
+        let now = Date()
+        var restoredKeys: Set<String> = []
+        var restoredDisplayNames: [String: String] = [:]
+
+        for session in (convo.sessions ?? []) {
+            let sidecarKey = session.id.uuidString
+            let hasStreamingText = !(appState.streamingText[sidecarKey]?.isEmpty ?? true)
+            let hasThinkingText = !(appState.thinkingText[sidecarKey]?.isEmpty ?? true)
+
+            let shouldTrack = ChatSessionWatchdog.shouldTrackSession(
+                activity: appState.sessionActivity[sidecarKey] ?? .idle,
+                hasStreamingText: hasStreamingText,
+                hasThinkingText: hasThinkingText
+            )
+
+            guard shouldTrack else { continue }
+
+            restoredKeys.insert(sidecarKey)
+            restoredDisplayNames[sidecarKey] = session.agent?.name ?? AgentDefaults.displayName(forProvider: session.provider)
+            processingStartTimes[sidecarKey] = processingStartTimes[sidecarKey] ?? now
+            lastStreamingTextLengths[sidecarKey] = appState.streamingText[sidecarKey]?.count ?? 0
+        }
+
+        let removedKeys = activeStreamingSessionKeys.subtracting(restoredKeys)
+        for key in removedKeys {
+            processingStartTimes.removeValue(forKey: key)
+            lastTokenTimes.removeValue(forKey: key)
+            lastStreamingTextLengths.removeValue(forKey: key)
+            expandedStreamingThinkingSessionKeys.remove(key)
+        }
+
+        activeStreamingSessionKeys = restoredKeys
+        activeStreamingDisplayNames = restoredDisplayNames
+        isProcessing = !restoredKeys.isEmpty
+    }
+}
+
+// MARK: - Isolated Streaming Bubble
+
+/// Renders streaming text in its own observation scope so only this view
+/// re-renders on each token — not the entire ChatView/message list.
+struct StreamingBubbleView: View {
+    @Environment(AppState.self) private var appState
+    let sessionOrder: [String]
+    let displayNames: [String: String]
+    let participantAppearanceMap: [UUID: AgentAppearance]
+    @Binding var expandedThinkingKeys: Set<String>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(sessionOrder, id: \.self) { sidecarKey in
+                bubbleRow(for: sidecarKey)
+                    .id("streaming-\(sidecarKey)")
+            }
+        }
+        .xrayId("chat.streamingBubble")
+    }
+
+    @ViewBuilder
+    private func bubbleRow(for sidecarKey: String) -> some View {
+        let thinking = appState.thinkingText[sidecarKey]
+        let text = appState.streamingText[sidecarKey]
+
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    if let state = appState.sessionActivity[sidecarKey] {
+                        Text(state.displayLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(state.displayColor.opacity(0.8))
+                    }
+                    Text(displayNames[sidecarKey] ?? "Agent")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                if let thinking, !thinking.isEmpty {
+                    thinkingSection(thinking, sidecarKey: sidecarKey)
+                }
+
+                if let text, !text.isEmpty {
+                    Text(text)
+                        .font(.body)
+                        .textSelection(.enabled)
+                } else if thinking?.isEmpty != false {
+                    StreamingIndicator()
+                }
+            }
+
+            Spacer(minLength: 60)
+        }
+    }
+
+    @ViewBuilder
+    private func thinkingSection(_ thinking: String, sidecarKey: String) -> some View {
+        let isExpanded = expandedThinkingKeys.contains(sidecarKey)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isExpanded {
+                        expandedThinkingKeys.remove(sidecarKey)
+                    } else {
+                        expandedThinkingKeys.insert(sidecarKey)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.indigo)
+                    Text("Thinking...")
+                        .font(.system(size: 12))
+                        .fontWeight(.medium)
+                        .foregroundStyle(.indigo)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                Divider()
+                ScrollView {
+                    Text(thinking)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .italic()
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                }
+                .frame(maxHeight: 200)
+            }
+        }
+        .background(Color.indigo.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

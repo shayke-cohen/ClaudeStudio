@@ -1280,12 +1280,11 @@ final class AppState {
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .done
             checkConversationIdle(for: sessionId)
-            markConversationUnreadIfNeeded(sessionId: sessionId)
             notifyIfNeeded(sessionId: sessionId) { name, topic in
                 ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
             }
-            updatePersistedSessionStatus(sessionId: sessionId, status: .completed)
-            persistSessionUsage(sessionId: sessionId, tokenCount: tokenCount, cost: cost, toolCallCount: toolCallCount)
+            // Batch session-end persistence into one fetch + one save instead of 3 separate cycles
+            persistSessionCompletion(sessionId: sessionId, status: .completed, tokenCount: tokenCount, cost: cost, toolCallCount: toolCallCount)
             cleanupWorktreeIfNeeded(sessionId: sessionId)
             if sharedRoomAutoFinalizeSessionIds.contains(sessionId) {
                 sharedRoomAutoFinalizeSessionIds.remove(sessionId)
@@ -1312,7 +1311,7 @@ final class AppState {
                 ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
             }
             Log.appState.error("Session \(sessionId, privacy: .public) error: \(error, privacy: .public)")
-            updatePersistedSessionStatus(sessionId: sessionId, status: .failed)
+            persistSessionCompletion(sessionId: sessionId, status: .failed)
             cleanupWorktreeIfNeeded(sessionId: sessionId)
 
         case .peerChat(let sessionId, let channelId, let from, let message):
@@ -1945,17 +1944,6 @@ final class AppState {
         // Per-conversation worktrees are managed by WorktreeManager.
     }
 
-    private func updatePersistedSessionStatus(sessionId: String, status: SessionStatus) {
-        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
-        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.id == uuid })
-        guard let session = try? ctx.fetch(descriptor).first else { return }
-        session.status = status
-        session.lastActiveAt = Date()
-        try? ctx.save()
-    }
-
-    // MARK: - Unread state
-
     private func markConversationUnreadIfNeeded(sessionId: String) {
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
@@ -1963,6 +1951,36 @@ final class AppState {
               let convo = (session.conversations ?? []).first,
               !visibleConversationIds.contains(convo.id) else { return }
         convo.isUnread = true
+        try? ctx.save()
+    }
+
+    /// Batched session-end persistence: one fetch + one save instead of 3 separate cycles.
+    private func persistSessionCompletion(
+        sessionId: String,
+        status: SessionStatus,
+        tokenCount: Int? = nil,
+        cost: Double? = nil,
+        toolCallCount: Int? = nil
+    ) {
+        guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.id == uuid })
+        guard let session = try? ctx.fetch(descriptor).first else { return }
+
+        // Status
+        session.status = status
+        session.lastActiveAt = Date()
+
+        // Usage (if provided — on completion, not error)
+        if let tokenCount { session.tokenCount = tokenCount }
+        if let cost { session.totalCost = cost }
+        if let toolCallCount { session.toolCallCount = toolCallCount }
+
+        // Unread flag
+        if let convo = (session.conversations ?? []).first,
+           !visibleConversationIds.contains(convo.id) {
+            convo.isUnread = true
+        }
+
         try? ctx.save()
     }
 

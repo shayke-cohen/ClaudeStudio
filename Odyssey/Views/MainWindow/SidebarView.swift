@@ -147,7 +147,6 @@ struct SidebarView: View {
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
     @Query(sort: \PromptTemplate.sortOrder) private var allTemplates: [PromptTemplate]
-    @State private var searchText = ""
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
     @State private var expandedArchivedAgentIds: Set<UUID> = []
@@ -404,8 +403,11 @@ struct SidebarView: View {
             }
     }
 
+    private var searchText: String { appState.sidebarSearchText }
+
     private var sidebarList: some View {
         @Bindable var ws = windowState
+        @Bindable var as_ = appState
         return List {
             globalUtilitiesSection
 
@@ -428,14 +430,8 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .searchable(text: $searchText, prompt: "Search threads…")
+        .searchable(text: $as_.sidebarSearchText, prompt: "Search threads…")
         .xrayId("sidebar.conversationList")
-        .onChange(of: appState.sidebarSearchText) { _, newValue in
-            if searchText != newValue { searchText = newValue }
-        }
-        .onChange(of: searchText) { _, newValue in
-            if appState.sidebarSearchText != newValue { appState.sidebarSearchText = newValue }
-        }
         .onAppear {
             if let selectedProjectId = windowState.selectedProjectId {
                 expandedProjectIds.insert(selectedProjectId)
@@ -2245,14 +2241,6 @@ struct SidebarView: View {
                 session.workingDirectory = (windowState.projectDirectory as NSString).expandingTildeInPath
             }
         }
-        // Vault prep is independent of which directory won — a resident agent always
-        // gets its memory vault initialised wherever it works.
-        if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
-            ResidentAgentSupport.prepareVaultForSession(
-                in: (residentDir as NSString).expandingTildeInPath,
-                agentName: agent.name
-            )
-        }
         let conversation = Conversation(
             topic: nil,
             sessions: [session],
@@ -2271,9 +2259,20 @@ struct SidebarView: View {
 
         modelContext.insert(session)
         modelContext.insert(conversation)
-        try? modelContext.save()
+        // Show the UI immediately — defer blocking save and vault prep
         expandedAgentIds.insert(agent.id)
         windowState.selectedConversationId = conversation.id
+        Task { @MainActor in
+            try? modelContext.save()
+            // Vault prep is independent of which directory won — a resident agent always
+            // gets its memory vault initialised wherever it works.
+            if let residentDir = agent.defaultWorkingDirectory, !residentDir.isEmpty {
+                ResidentAgentSupport.prepareVaultForSession(
+                    in: (residentDir as NSString).expandingTildeInPath,
+                    agentName: agent.name
+                )
+            }
+        }
     }
 
     private func createQuickChat(in project: Project) {
@@ -2287,11 +2286,11 @@ struct SidebarView: View {
         conversation.participants = (conversation.participants ?? []) + [userParticipant]
 
         modelContext.insert(conversation)
-        try? modelContext.save()
-
+        // Show the UI immediately — defer blocking SQLite save
         expandedProjectIds.insert(project.id)
         windowState.selectProject(project, preserveSelection: true)
         windowState.selectedConversationId = conversation.id
+        Task { @MainActor in try? modelContext.save() }
     }
 
     private func runProjectTemplate(_ template: PromptTemplate, in project: Project) {

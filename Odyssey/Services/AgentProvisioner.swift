@@ -187,13 +187,16 @@ final class AgentProvisioner {
         }
         let gitDir = (path as NSString).appendingPathComponent(".git")
         guard !fm.fileExists(atPath: gitDir) else { return }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["init", path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try? process.run()
-        process.waitUntilExit()
+        // Run git init off the main thread to avoid blocking UI
+        Task.detached(priority: .utility) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["init", path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try? process.run()
+            process.waitUntilExit()
+        }
     }
 
     private func resolveSkills(ids: [UUID]) -> [Skill] {
