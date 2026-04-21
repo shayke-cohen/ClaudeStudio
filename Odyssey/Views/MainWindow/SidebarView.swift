@@ -731,7 +731,15 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func projectRows(_ project: Project) -> some View {
-        projectHeaderRow(project)
+        HStack(spacing: 4) {
+            Image(systemName: expandedProjectIds.contains(project.id) ? "chevron.down" : "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+                .accessibilityHidden(true)
+                .onTapGesture { toggleProjectExpansion(project) }
+            projectHeaderRow(project)
+        }
 
         if expandedProjectIds.contains(project.id) {
             projectThreadRows(project)
@@ -749,12 +757,7 @@ struct SidebarView: View {
         let showsProjectActions = isSelectedProject || isHoveredProject
         let tint = projectTint(project)
 
-        return HStack(spacing: 6) {
-            Image(systemName: expandedProjectIds.contains(project.id) ? "chevron.down" : "chevron.right")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 12)
-                .accessibilityHidden(true)
+        return HStack(spacing: 8) {
             sidebarSymbolBadge(
                 symbol: project.icon,
                 tint: tint,
