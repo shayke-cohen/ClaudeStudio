@@ -903,21 +903,17 @@ struct SidebarView: View {
             )
 
             ForEach(displayedThreads) { convo in
-                projectIndentedRow {
-                    conversationTreeNode(convo, pinAction: "Pin")
-                }
+                conversationTreeNode(convo, pinAction: "Pin")
             }
 
             if unpinnedThreads.count > 10 && !showAll {
-                projectIndentedRow {
-                    Button("Show all \(unpinnedThreads.count) threads →") {
-                        projectsShowingAllThreads.insert(project.id)
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .buttonStyle(.plain)
-                    .xrayId("sidebar.projectShowAllThreads.\(project.id.uuidString)")
+                Button("Show all \(unpinnedThreads.count) threads →") {
+                    projectsShowingAllThreads.insert(project.id)
                 }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+                .xrayId("sidebar.projectShowAllThreads.\(project.id.uuidString)")
             }
 
             if !archivedThreads.isEmpty {
@@ -1022,7 +1018,7 @@ struct SidebarView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .padding(.leading, 18)
+            .padding(.leading, 4)
             .padding(.trailing, 4)
             .padding(.bottom, bottomPadding)
     }
