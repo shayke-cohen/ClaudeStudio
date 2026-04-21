@@ -255,6 +255,7 @@ struct ChatView: View {
     @State private var showSlashBranchPicker = false
     @State private var slashPlanModeActive = false
     @State private var streamingStateRestoreTask: Task<Void, Never>?
+    @State private var isHoldingMic: Bool = false
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
@@ -2138,6 +2139,24 @@ struct ChatView: View {
                 .xrayId("chat.mentionSuggestions")
             }
 
+            // Live waveform while recording
+            if appState.voiceInput.isRecording {
+                WaveformBarsView(audioLevel: appState.voiceInput.audioLevel)
+                    .frame(height: 20)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+            }
+
+            // Live partial transcript overlay (blue italic style)
+            if appState.voiceInput.isRecording, !appState.voiceInput.partialTranscript.isEmpty {
+                Text(appState.voiceInput.partialTranscript)
+                    .font(.system(size: 13))
+                    .italic()
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 2)
+            }
+
             PasteableTextField(
                 text: $inputText,
                 desiredHeight: $inputHeight,
@@ -2259,6 +2278,47 @@ struct ChatView: View {
                         .menuStyle(.borderlessButton)
                         .disabled(isProcessing)
                 }
+
+                // Mic button (push-to-talk)
+                Button {
+                    // tap does nothing — hold gesture handles it
+                } label: {
+                    Image(systemName: appState.voiceInput.isRecording ? "waveform" : "mic")
+                        .foregroundColor(appState.voiceInput.isRecording ? .red : .secondary)
+                        .symbolEffect(.variableColor, isActive: appState.voiceInput.isRecording)
+                }
+                .accessibilityIdentifier("chat.voiceMicButton")
+                .accessibilityLabel("Hold to record voice input")
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            if !appState.voiceInput.isRecording {
+                                Task {
+                                    await appState.voiceInput.startRecording()
+                                }
+                            }
+                        }
+                        .onEnded { _ in
+                            Task {
+                                let transcript = await appState.voiceInput.stopRecording()
+                                if !transcript.isEmpty {
+                                    inputText = transcript
+                                }
+                            }
+                        }
+                )
+                .buttonStyle(.plain)
+
+                // Voice mode toggle
+                Button {
+                    appState.isVoiceModeActive.toggle()
+                } label: {
+                    Image(systemName: appState.isVoiceModeActive ? "waveform.badge.mic.fill" : "waveform.badge.mic")
+                        .foregroundColor(appState.isVoiceModeActive ? .accentColor : .secondary)
+                }
+                .accessibilityIdentifier("chat.voiceModeButton")
+                .accessibilityLabel("Toggle voice conversation mode")
+                .buttonStyle(.plain)
 
                 Spacer()
 
@@ -5311,5 +5371,32 @@ struct StreamingBubbleView: View {
         }
         .background(Color.indigo.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+// MARK: - Voice UI Components
+
+private struct WaveformBarsView: View {
+    let audioLevel: Float
+    @State private var animationPhase: Double = 0
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0..<7, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.accentColor)
+                    .frame(width: 3, height: barHeight(for: index))
+                    .animation(.easeInOut(duration: 0.15), value: audioLevel)
+            }
+        }
+    }
+
+    private func barHeight(for index: Int) -> CGFloat {
+        let base: CGFloat = 4
+        let max: CGFloat = 18
+        let phases: [Double] = [0, 0.1, 0.2, 0.05, 0.15, 0.25, 0.1]
+        let wave = sin(animationPhase + phases[index]) * 0.5 + 0.5
+        let level = CGFloat(audioLevel)
+        return base + (max - base) * level * CGFloat(wave)
     }
 }
