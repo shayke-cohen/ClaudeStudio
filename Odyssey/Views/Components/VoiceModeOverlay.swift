@@ -76,24 +76,24 @@ struct VoiceModeOverlay: View {
                     .overlay(Circle().stroke(appState.voiceInput.isRecording ? Color.red.opacity(0.5) : Color.secondary.opacity(0.3), lineWidth: 1.5))
                     .contentShape(Circle())
                     .opacity(appState.tts.isSpeaking ? 0.4 : 1.0)
-                    .allowsHitTesting(!appState.tts.isSpeaking)
-                    .onLongPressGesture(minimumDuration: 0.0, maximumDistance: 200, pressing: { isPressing in
-                        guard !appState.tts.isSpeaking else { return }
-                        if isPressing && !appState.voiceInput.isRecording {
-                            Task { await appState.voiceInput.startRecording() }
-                        } else if !isPressing && appState.voiceInput.isRecording {
-                            Task {
-                                let transcript = await appState.voiceInput.stopRecording()
-                                if !transcript.isEmpty {
-                                    NotificationCenter.default.post(
-                                        name: .voiceModeAutoSend,
-                                        object: nil,
-                                        userInfo: ["transcript": transcript]
-                                    )
+                    .overlay(
+                        HoldDetector(
+                            isEnabled: !appState.tts.isSpeaking,
+                            onPress: { Task { await appState.voiceInput.startRecording() } },
+                            onRelease: {
+                                Task {
+                                    let transcript = await appState.voiceInput.stopRecording()
+                                    if !transcript.isEmpty {
+                                        NotificationCenter.default.post(
+                                            name: .voiceModeAutoSend,
+                                            object: nil,
+                                            userInfo: ["transcript": transcript]
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    }, perform: {})
+                        )
+                    )
                     .accessibilityIdentifier("voiceMode.micButton")
                     .accessibilityLabel("Hold to record, release to send")
                 Spacer()

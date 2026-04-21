@@ -2309,25 +2309,27 @@ struct ChatView: View {
                 }
 
                 // Mic button (push-to-talk) — hidden when voice features disabled
-                // Note: plain Image + contentShape avoids Button gesture conflict on macOS
+                // Uses HoldDetector (NSView mouseDown/mouseUp) since SwiftUI
+                // LongPressGesture doesn't fire for static holds on macOS.
                 if voiceFeaturesEnabled {
                 Image(systemName: appState.voiceInput.isRecording ? "waveform" : "mic")
                     .foregroundColor(appState.voiceInput.isRecording ? .red : .secondary)
                     .symbolEffect(.variableColor, isActive: appState.voiceInput.isRecording)
                     .frame(width: 20, height: 20)
                     .contentShape(Rectangle())
+                    .overlay(
+                        HoldDetector(
+                            onPress: { Task { await appState.voiceInput.startRecording() } },
+                            onRelease: {
+                                Task {
+                                    let transcript = await appState.voiceInput.stopRecording()
+                                    if !transcript.isEmpty { inputText = transcript }
+                                }
+                            }
+                        )
+                    )
                     .accessibilityIdentifier("chat.voiceMicButton")
                     .accessibilityLabel("Hold to record voice input")
-                    .onLongPressGesture(minimumDuration: 0.0, maximumDistance: 200, pressing: { isPressing in
-                        if isPressing && !appState.voiceInput.isRecording {
-                            Task { await appState.voiceInput.startRecording() }
-                        } else if !isPressing {
-                            Task {
-                                let transcript = await appState.voiceInput.stopRecording()
-                                if !transcript.isEmpty { inputText = transcript }
-                            }
-                        }
-                    }, perform: {})
 
                 // Voice mode toggle
                 Button {
