@@ -753,8 +753,8 @@ struct SidebarView: View {
             sidebarSymbolBadge(
                 symbol: project.icon,
                 tint: tint,
-                size: 32,
-                cornerRadius: 11,
+                size: 28,
+                cornerRadius: 9,
                 emphasize: isSelectedProject
             )
             HStack(spacing: 6) {
