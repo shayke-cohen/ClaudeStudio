@@ -63,6 +63,9 @@ final class Project {
     var pinnedAgentIds: [UUID] = []
     var pinnedGroupIds: [UUID] = []
     var browserSessionMode: String = "project"
+    var githubRepo: String?              // "owner/repo" shorthand, e.g. "shayke-cohen/my-app"
+    var githubDefaultAgentId: UUID?      // agent to use when issue has no routing label (project repos)
+    var githubTrustedUsers: [String] = []  // GitHub usernames allowed to trigger; default = []
 
     @Relationship(deleteRule: .nullify, inverse: \PromptTemplate.project)
     var promptTemplates: [PromptTemplate]? = nil
@@ -130,6 +133,9 @@ final class Conversation {
     var goal: String?
     var startedAt: Date = Date()
     var closedAt: Date?
+    var githubIssueUrl: String?          // link back to GH issue if this thread was created from/for one
+    var githubIssueNumber: Int?
+    var githubIssueRepo: String?         // "owner/repo"
 
     @Transient var pendingQuestionRouting: [String: String] = [:]
     @Transient var resolvedQuestions: [String: ResolvedQuestionInfo] = [:]

@@ -30,6 +30,12 @@ final class ChatNotificationManager {
         post(title: title, body: body, sound: "Basso")
     }
 
+    func notifyGHIssueTriggered(issueNumber: Int, repo: String, title: String, conversationId: String) {
+        let notifTitle = "GitHub Issue #\(issueNumber)"
+        let body = "[\(repo)] \(String(title.prefix(80)))"
+        post(title: notifTitle, body: body, sound: "Glass")
+    }
+
     // MARK: - Private
 
     private func post(title: String, body: String, sound: String) {

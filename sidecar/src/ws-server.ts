@@ -510,6 +510,16 @@ export class WsServer {
         this.broadcast({ type: "agents.list.result", agents: agentsList });
         break;
       }
+
+      case "gh.issue.create":
+        // TODO: handled by GHRouter in Phase 3
+        logger.info("github", "gh.issue.create received", { repo: command.repo, title: command.title });
+        break;
+
+      case "gh.poller.config":
+        // TODO: forwarded to GHPoller in Phase 2
+        logger.info("github", "gh.poller.config received", { inboxRepo: command.inboxRepo });
+        break;
     }
   }
 

@@ -46,6 +46,8 @@ enum SidecarCommand: Sendable {
     case browserUserSubmit(sessionId: String, data: String)
     case browserStateChange(sessionId: String, state: String)
     case pairingHello(iosNpub: String, displayName: String)
+    case ghIssueCreate(repo: String, title: String, body: String, labels: [String], conversationId: String?)
+    case ghPollerConfig(inboxRepo: String, projectRepos: [GHProjectRepoWire], trustedUsers: [String], intervalSeconds: Int)
 
     func encodeToJSON() throws -> Data {
         let encoder = JSONEncoder()
@@ -247,6 +249,14 @@ enum SidecarCommand: Sendable {
                 let type: String; let iosNpub: String; let displayName: String
             }
             return try encoder.encode(PairingHelloWire(type: "pairing.hello", iosNpub: iosNpub, displayName: displayName))
+        case .ghIssueCreate(let repo, let title, let body, let labels, let conversationId):
+            return try encoder.encode(
+                GHIssueCreateWire(type: "gh.issue.create", repo: repo, title: title, body: body, labels: labels, conversationId: conversationId)
+            )
+        case .ghPollerConfig(let inboxRepo, let projectRepos, let trustedUsers, let intervalSeconds):
+            return try encoder.encode(
+                GHPollerConfigWire(type: "gh.poller.config", inboxRepo: inboxRepo, projectRepos: projectRepos, trustedUsers: trustedUsers, intervalSeconds: intervalSeconds)
+            )
         }
     }
 }
@@ -603,6 +613,29 @@ private struct BrowserStateChangeWire: Encodable {
     let state: String
 }
 
+struct GHProjectRepoWire: Codable, Sendable {
+    let repo: String           // "owner/repo"
+    let defaultAgentName: String?
+    let trustedUsers: [String]
+}
+
+private struct GHIssueCreateWire: Codable {
+    let type: String  // "gh.issue.create"
+    let repo: String
+    let title: String
+    let body: String
+    let labels: [String]
+    let conversationId: String?
+}
+
+private struct GHPollerConfigWire: Codable {
+    let type: String  // "gh.poller.config"
+    let inboxRepo: String
+    let projectRepos: [GHProjectRepoWire]
+    let trustedUsers: [String]
+    let intervalSeconds: Int
+}
+
 struct ConnectorWire: Codable, Sendable, Identifiable {
     let id: String
     let provider: String
@@ -726,6 +759,9 @@ enum SidecarEvent: Sendable {
     case scheduleUpdate(scheduleId: String, payload: String)
     case scheduleDelete(scheduleId: String)
     case scheduleTrigger(scheduleId: String)
+    case ghIssueTriggered(issueUrl: String, issueNumber: Int, repo: String, title: String, conversationId: String)
+    case ghIssueComment(issueUrl: String, commentBody: String, author: String, conversationId: String)
+    case ghIssueCreated(issueUrl: String, issueNumber: Int, repo: String, conversationId: String?)
 }
 
 struct QuestionOption: Codable, Sendable, Identifiable {
@@ -771,6 +807,30 @@ struct PlanAllowedPrompt: Codable, Sendable, Identifiable {
     var id: String { "\(tool):\(prompt)" }
 }
 
+struct GHIssueTriggeredWire: Codable {
+    let type: String  // "gh.issue.triggered"
+    let issueUrl: String
+    let issueNumber: Int
+    let repo: String
+    let title: String
+    let conversationId: String
+}
+
+struct GHIssueCommentWire: Codable {
+    let type: String  // "gh.issue.comment"
+    let issueUrl: String
+    let commentBody: String
+    let author: String
+    let conversationId: String
+}
+
+struct GHIssueCreatedWire: Codable {
+    let type: String  // "gh.issue.created"
+    let issueUrl: String
+    let issueNumber: Int
+    let repo: String
+    let conversationId: String?
+}
 
 struct IncomingWireMessage: Codable, Sendable {
     let type: String
@@ -863,6 +923,12 @@ struct IncomingWireMessage: Codable, Sendable {
     let payload: String?
     let browserData: String?
     let scheduleId: String?
+    // GitHub Issue Bridge fields
+    let issueUrl: String?
+    let issueNumber: Int?
+    let issueRepo: String?
+    let commentBody: String?
+    let author: String?
 
     enum CodingKeys: String, CodingKey {
         case type, sessionId, conversationId, status, text, tool, input, output, result, cost
@@ -887,6 +953,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case commandType, payload
         case browserData = "data"
         case scheduleId
+        case issueUrl, issueNumber, issueRepo, commentBody, author
     }
 
     func toEvent() -> SidecarEvent? {
@@ -1081,6 +1148,17 @@ struct IncomingWireMessage: Codable, Sendable {
         case "schedule.trigger":
             guard let sid = scheduleId ?? sessionId else { return nil }
             return .scheduleTrigger(scheduleId: sid)
+        case "gh.issue.triggered":
+            guard let url = issueUrl, let num = issueNumber, let r = issueRepo,
+                  let t = title, let cid = conversationId else { return nil }
+            return .ghIssueTriggered(issueUrl: url, issueNumber: num, repo: r, title: t, conversationId: cid)
+        case "gh.issue.comment":
+            guard let url = issueUrl, let body = commentBody, let a = author,
+                  let cid = conversationId else { return nil }
+            return .ghIssueComment(issueUrl: url, commentBody: body, author: a, conversationId: cid)
+        case "gh.issue.created":
+            guard let url = issueUrl, let num = issueNumber, let r = issueRepo else { return nil }
+            return .ghIssueCreated(issueUrl: url, issueNumber: num, repo: r, conversationId: conversationId)
         default:
             return nil
         }

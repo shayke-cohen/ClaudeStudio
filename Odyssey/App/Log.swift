@@ -19,4 +19,5 @@ enum Log {
     static let chat        = Logger(subsystem: subsystem, category: "chat")
     static let p2p         = Logger(subsystem: subsystem, category: "p2p")
     static let general     = Logger(subsystem: subsystem, category: "general")
+    static let github      = Logger(subsystem: subsystem, category: "github")
 }

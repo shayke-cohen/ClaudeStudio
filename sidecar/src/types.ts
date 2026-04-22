@@ -54,7 +54,9 @@ export type SidecarCommand =
   | { type: "browser.resume";      sessionId: string }
   | { type: "browser.stateChange"; sessionId: string; state: "agentDriving" | "userDriving" | "yieldedToUser" }
   | { type: "pairing.hello"; iosNpub: string; displayName: string }
-  | { type: "conversations.list" };
+  | { type: "conversations.list" }
+  | { type: "gh.issue.create"; repo: string; title: string; body: string; labels: string[]; conversationId?: string }
+  | { type: "gh.poller.config"; inboxRepo: string; projectRepos: GHProjectRepo[]; trustedUsers: string[]; intervalSeconds: number };
 
 export interface PeerAgentWire {
   name: string;
@@ -244,6 +246,12 @@ export interface GeneratedTemplateSpec {
   prompt: string;
 }
 
+export interface GHProjectRepo {
+  repo: string;
+  defaultAgentName?: string;
+  trustedUsers: string[];
+}
+
 // Events from Sidecar -> Swift
 export type SidecarEvent =
   | { type: "stream.token"; sessionId: string; text: string }
@@ -302,7 +310,10 @@ export type SidecarEvent =
   | { type: "schedule.create";  payload: string }
   | { type: "schedule.update";  scheduleId: string; payload: string }
   | { type: "schedule.delete";  scheduleId: string }
-  | { type: "schedule.trigger"; scheduleId: string };
+  | { type: "schedule.trigger"; scheduleId: string }
+  | { type: "gh.issue.triggered"; issueUrl: string; issueNumber: number; repo: string; title: string; conversationId: string }
+  | { type: "gh.issue.comment"; issueUrl: string; commentBody: string; author: string; conversationId: string }
+  | { type: "gh.issue.created"; issueUrl: string; issueNumber: number; repo: string; conversationId?: string };
 
 export interface QuestionOption {
   label: string;
