@@ -11,7 +11,8 @@ struct AgentPickerPopover: View {
     @Environment(WindowState.self) private var windowState: WindowState
 
     @Query(sort: \Agent.name) private var allAgents: [Agent]
-    @Query(sort: \Session.lastActiveAt, order: .reverse) private var recentSessions: [Session]
+    // Loaded lazily on appear so the popover opens instantly.
+    @State private var recentAgents: [Agent] = []
 
     @State private var searchText = ""
     @State private var missionText = ""
@@ -30,20 +31,6 @@ struct AgentPickerPopover: View {
         }
     }
 
-    private var recentAgents: [Agent] {
-        var seen = Set<UUID>()
-        var result: [Agent] = []
-        for session in recentSessions {
-            guard let agent = session.agent,
-                  agent.isEnabled,
-                  !seen.contains(agent.id) else { continue }
-            seen.insert(agent.id)
-            result.append(agent)
-            if result.count == 3 { break }
-        }
-        return result
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             searchBar
@@ -58,6 +45,26 @@ struct AgentPickerPopover: View {
         .frame(width: 260)
         .background(.background)
         .onAppear { searchFocused = true }
+        .task { await loadRecentAgents() }
+    }
+
+    private func loadRecentAgents() async {
+        var descriptor = FetchDescriptor<Session>(
+            sortBy: [SortDescriptor(\Session.lastActiveAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 30
+        let sessions = (try? modelContext.fetch(descriptor)) ?? []
+        var seen = Set<UUID>()
+        var result: [Agent] = []
+        for session in sessions {
+            guard let agent = session.agent,
+                  agent.isEnabled,
+                  !seen.contains(agent.id) else { continue }
+            seen.insert(agent.id)
+            result.append(agent)
+            if result.count == 3 { break }
+        }
+        recentAgents = result
     }
 }
 

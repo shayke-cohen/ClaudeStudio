@@ -499,11 +499,16 @@ final class AppState {
             return nil
         }
 
-        // Resolve agents synchronously — needed for the guard before creating the conversation.
-        let allAgents = (try? modelContext.fetch(FetchDescriptor<Agent>())) ?? []
-        let agentById = Dictionary(uniqueKeysWithValues: allAgents.map { ($0.id, $0) })
-        let resolvedAgents = group.agentIds.compactMap { agentById[$0] }
-        guard !resolvedAgents.isEmpty else { return nil }
+        // Resolve only the agents that belong to this group — avoids a full-table scan.
+        let groupAgentIds = group.agentIds
+        let agentDescriptor = FetchDescriptor<Agent>(
+            predicate: #Predicate { groupAgentIds.contains($0.id) }
+        )
+        let fetchedAgents = (try? modelContext.fetch(agentDescriptor)) ?? []
+        guard !fetchedAgents.isEmpty else { return nil }
+        // Preserve the ordering defined in group.agentIds.
+        let agentById = Dictionary(uniqueKeysWithValues: fetchedAgents.map { ($0.id, $0) })
+        let resolvedAgents = groupAgentIds.compactMap { agentById[$0] }
 
         // Phase 1 — fast stub: create conversation and navigate immediately.
         let conversation = Conversation(
