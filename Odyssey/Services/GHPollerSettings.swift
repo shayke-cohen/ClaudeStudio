@@ -52,12 +52,5 @@ final class GHPollerSettings {
     }
 
     // MARK: - Persistence
-
-    func save() {
-        UserDefaults.standard.set(inboxRepo, forKey: Self.inboxRepoKey)
-        UserDefaults.standard.set(pollIntervalSeconds, forKey: Self.pollIntervalKey)
-        if let data = try? JSONEncoder().encode(trustedGitHubUsers) {
-            UserDefaults.standard.set(data, forKey: Self.trustedUsersKey)
-        }
-    }
+    // Note: All properties persist automatically via didSet; save() is kept for convenience but not required.
 }

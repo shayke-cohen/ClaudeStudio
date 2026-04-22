@@ -953,7 +953,7 @@ struct IncomingWireMessage: Codable, Sendable {
         case commandType, payload
         case browserData = "data"
         case scheduleId
-        case issueUrl, issueNumber, issueRepo, commentBody, author
+        case issueUrl, issueNumber, issueRepo = "repo", commentBody, author
     }
 
     func toEvent() -> SidecarEvent? {
