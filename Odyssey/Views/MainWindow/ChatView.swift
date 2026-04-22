@@ -180,6 +180,7 @@ struct ChatView: View {
     @Environment(WindowState.self) private var windowState: WindowState
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
     @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = false
     @ObservedObject private var quickActionStore = QuickActionStore.shared
 
     private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }
@@ -255,6 +256,7 @@ struct ChatView: View {
     @State private var showSlashBranchPicker = false
     @State private var slashPlanModeActive = false
     @State private var streamingStateRestoreTask: Task<Void, Never>?
+    @State private var isHoldingMic: Bool = false
     @FocusState private var topicFieldFocused: Bool
     @FocusState private var missionFieldFocused: Bool
 
@@ -540,8 +542,13 @@ struct ChatView: View {
         simplifiedChatHeader
     }
 
+    @ViewBuilder
     private var activeInputArea: some View {
-        simplifiedInputArea
+        if voiceFeaturesEnabled && appState.isVoiceModeActive {
+            VoiceModeOverlay()
+        } else {
+            simplifiedInputArea
+        }
     }
 
     private var currentMissionText: String? {
@@ -716,6 +723,12 @@ struct ChatView: View {
         .onAppear {
             consumeAutoSendText()
             consumePendingTemplatePrompt()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voiceModeAutoSend)) { notification in
+            if let transcript = notification.userInfo?["transcript"] as? String, !transcript.isEmpty {
+                inputText = transcript
+                sendMessage()
+            }
         }
         .onChange(of: isProcessing) { wasProcessing, nowProcessing in
             // Show "all done" banner when processing finishes
@@ -2138,6 +2151,48 @@ struct ChatView: View {
                 .xrayId("chat.mentionSuggestions")
             }
 
+            // Voice error banner
+            if voiceFeaturesEnabled, let voiceError = appState.voiceInput.error {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 11))
+                    Text(voiceError.localizedDescription)
+                        .font(.system(size: 11))
+                    Spacer()
+                    if case VoiceInputError.permissionDenied = voiceError {
+                        Button("Open Settings") {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!)
+                        }
+                        .font(.system(size: 11))
+                        .buttonStyle(.plain)
+                    }
+                    Button("Dismiss") { appState.voiceInput.error = nil }
+                        .font(.system(size: 11))
+                        .buttonStyle(.plain)
+                }
+                .foregroundStyle(Color.orange)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 4)
+            }
+
+            // Live waveform while recording
+            if voiceFeaturesEnabled && appState.voiceInput.isRecording {
+                WaveformBarsView(audioLevel: appState.voiceInput.audioLevel)
+                    .frame(height: 20)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+            }
+
+            // Live partial transcript overlay (blue italic style)
+            if voiceFeaturesEnabled && appState.voiceInput.isRecording, !appState.voiceInput.partialTranscript.isEmpty {
+                Text(appState.voiceInput.partialTranscript)
+                    .font(.system(size: 13))
+                    .italic()
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 2)
+            }
+
             PasteableTextField(
                 text: $inputText,
                 desiredHeight: $inputHeight,
@@ -2259,6 +2314,41 @@ struct ChatView: View {
                         .menuStyle(.borderlessButton)
                         .disabled(isProcessing)
                 }
+
+                // Mic button (push-to-talk) — hidden when voice features disabled
+                // Uses HoldDetector (NSView mouseDown/mouseUp) since SwiftUI
+                // LongPressGesture doesn't fire for static holds on macOS.
+                if voiceFeaturesEnabled {
+                Image(systemName: appState.voiceInput.isRecording ? "waveform" : "mic")
+                    .foregroundColor(appState.voiceInput.isRecording ? .red : .secondary)
+                    .symbolEffect(.variableColor, isActive: appState.voiceInput.isRecording)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+                    .overlay(
+                        HoldDetector(
+                            onPress: { Task { await appState.voiceInput.startRecording() } },
+                            onRelease: {
+                                Task {
+                                    let transcript = await appState.voiceInput.stopRecording()
+                                    if !transcript.isEmpty { inputText = transcript }
+                                }
+                            }
+                        )
+                    )
+                    .accessibilityIdentifier("chat.voiceMicButton")
+                    .accessibilityLabel("Hold to record voice input")
+
+                // Voice mode toggle
+                Button {
+                    appState.isVoiceModeActive.toggle()
+                } label: {
+                    Image(systemName: appState.isVoiceModeActive ? "waveform.badge.mic.fill" : "waveform.badge.mic")
+                        .foregroundColor(appState.isVoiceModeActive ? .accentColor : .secondary)
+                }
+                .accessibilityIdentifier("chat.voiceModeButton")
+                .accessibilityLabel("Toggle voice conversation mode")
+                .buttonStyle(.plain)
+                } // end voiceFeaturesEnabled
 
                 Spacer()
 
@@ -5311,5 +5401,29 @@ struct StreamingBubbleView: View {
         }
         .background(Color.indigo.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+// MARK: - Voice UI Components
+
+private struct WaveformBarsView: View {
+    let audioLevel: Float
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate * 3.0  // ~3 rad/sec sweep
+            HStack(alignment: .center, spacing: 2) {
+                ForEach(0..<7, id: \.self) { index in
+                    let offsets: [Double] = [0, 0.7, 1.4, 0.35, 1.05, 1.75, 0.7]
+                    let wave = sin(phase + offsets[index]) * 0.5 + 0.5
+                    let base: CGFloat = 4
+                    let maxH: CGFloat = 18
+                    let height = base + (maxH - base) * CGFloat(audioLevel) * CGFloat(wave)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.accentColor)
+                        .frame(width: 3, height: max(base, height))
+                }
+            }
+        }
     }
 }

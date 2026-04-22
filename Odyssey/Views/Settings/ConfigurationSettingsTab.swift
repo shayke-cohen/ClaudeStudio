@@ -1,10 +1,11 @@
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 // MARK: - Section enum
 
 enum ConfigSection: String, CaseIterable, Identifiable {
-    case agents, groups, skills, mcps, templates, permissions
+    case agents, groups, skills, mcps, templates, permissions, voice
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum ConfigSection: String, CaseIterable, Identifiable {
         case .mcps: "MCPs"
         case .templates: "Templates"
         case .permissions: "Permissions"
+        case .voice: "Voice"
         }
     }
 
@@ -27,6 +29,7 @@ enum ConfigSection: String, CaseIterable, Identifiable {
         case .mcps: "hammer"
         case .templates: "text.document"
         case .permissions: "lock.shield"
+        case .voice: "waveform"
         }
     }
 }
@@ -107,6 +110,10 @@ struct ConfigurationSettingsTab: View {
                 // Templates has its own full-featured view
                 TemplatesSettingsTab()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if selectedSection == .voice {
+                // Voice has its own settings pane
+                VoiceSettingsPane()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 // Middle pane: item list
                 itemListPane
@@ -175,7 +182,7 @@ struct ConfigurationSettingsTab: View {
                 if let match = mcps.first(where: { $0.configSlug == slug }) { selectedItem = .mcp(match) }
             case .permissions:
                 if let match = permissions.first(where: { $0.configSlug == slug }) { selectedItem = .permission(match) }
-            case .templates:
+            case .templates, .voice:
                 break
             }
         }
@@ -215,7 +222,7 @@ struct ConfigurationSettingsTab: View {
         VStack(alignment: .leading, spacing: 0) {
             configItemList
 
-            if selectedSection != .templates && selectedSection != .permissions {
+            if selectedSection != .templates && selectedSection != .permissions && selectedSection != .voice {
                 Divider()
                 Button { handleNewItem() } label: {
                     HStack(spacing: 7) {
@@ -349,6 +356,8 @@ struct ConfigurationSettingsTab: View {
             )
         case .templates:
             templatesRedirect
+        case .voice:
+            EmptyView()
         case .permissions:
             ConfigItemList(
                 items: filteredPermissions,
@@ -431,7 +440,7 @@ struct ConfigurationSettingsTab: View {
         case .groups: showingNewGroup = true
         case .skills: showingNewSkill = true
         case .mcps: showingNewMCP = true
-        case .templates, .permissions: break
+        case .templates, .permissions, .voice: break
         }
     }
 
@@ -504,6 +513,65 @@ struct ConfigurationSettingsTab: View {
         case .group(let g): return g.name
         default: return "Item"
         }
+    }
+}
+
+// MARK: - Voice Settings Pane
+
+private struct VoiceSettingsPane: View {
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = false
+    @AppStorage("voice.voiceIdentifier") private var ttsVoiceIdentifier: String = ""
+    @AppStorage("voice.autoSpeak") private var autoSpeak: Bool = false
+    @AppStorage("voice.speakingRate") private var speakingRate: Double = Double(AVSpeechUtteranceDefaultSpeechRate)
+    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = false
+
+    private var availableVoices: [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix(Locale.current.language.languageCode?.identifier ?? "en") }
+            .sorted { $0.name < $1.name }
+    }
+
+    var body: some View {
+        Form {
+            Section("Voice") {
+                Toggle("Voice Features", isOn: $voiceFeaturesEnabled)
+                    .help("Enable mic input, speaker buttons, and voice conversation mode")
+                    .accessibilityIdentifier("settings.voice.featuresEnabledToggle")
+            }
+
+            Section {
+                Picker("Voice", selection: $ttsVoiceIdentifier) {
+                    Text("System Default").tag("")
+                    ForEach(availableVoices, id: \.identifier) { voice in
+                        Text(voice.name).tag(voice.identifier)
+                    }
+                }
+                .help("Voice used for reading agent responses aloud")
+                .accessibilityIdentifier("settings.voice.voicePicker")
+
+                Toggle("Auto-speak responses in Voice Mode", isOn: $autoSpeak)
+                    .help("Automatically read agent responses aloud when Voice Mode is active")
+                    .accessibilityIdentifier("settings.voice.autoSpeakToggle")
+
+                LabeledContent("Speaking Rate") {
+                    HStack {
+                        Text("Slow").foregroundStyle(.secondary).font(.caption)
+                        Slider(value: $speakingRate,
+                               in: Double(AVSpeechUtteranceMinimumSpeechRate)...Double(AVSpeechUtteranceMaximumSpeechRate))
+                            .accessibilityIdentifier("settings.voice.speakingRateSlider")
+                        Text("Fast").foregroundStyle(.secondary).font(.caption)
+                    }
+                }
+                .help("How fast the agent speaks")
+
+                Toggle("Show speaker button on messages", isOn: $showSpeakerButton)
+                    .help("Show a speaker button under every agent message")
+                    .accessibilityIdentifier("settings.voice.showSpeakerButtonToggle")
+            }
+            .disabled(!voiceFeaturesEnabled)
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }
 

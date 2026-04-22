@@ -18,6 +18,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Odyssey uses your microphone for voice input. Speech recognition happens on-device and is never sent to external servers.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Odyssey uses on-device speech recognition to transcribe your voice into text.</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/shayke-cohen/Odyssey-releases/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
