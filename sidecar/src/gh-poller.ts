@@ -53,6 +53,7 @@ export class GHPoller {
   private state: PollerState;
   private statePath: string;
   private router?: IssueHandler;
+  private pollRunning = false;
 
   constructor() {
     const baseDir = process.env.ODYSSEY_DATA_DIR ?? join(homedir(), ".odyssey");
@@ -84,6 +85,14 @@ export class GHPoller {
     }
   }
 
+  /** Remove a completed/failed issue from activeIssues so it stops being polled */
+  closeIssue(repo: string, issueNumber: number): void {
+    this.state.activeIssues = this.state.activeIssues.filter(
+      a => !(a.repo === repo && a.number === issueNumber)
+    );
+    this.saveState();
+  }
+
   /** Register a newly-created Odyssey thread so incoming comments get relayed */
   trackIssue(repo: string, issueNumber: number, conversationId: string, issueUrl: string): void {
     const key = `${repo}#${issueNumber}`;
@@ -99,23 +108,32 @@ export class GHPoller {
   }
 
   private async poll(config: GHPollerConfig, ctx: ToolContext): Promise<void> {
-    logger.debug("github", "Polling", { inboxRepo: config.inboxRepo });
-
-    // 1. Fetch new issues from inbox repo
-    if (config.inboxRepo) {
-      await this.fetchNewInboxIssues(config.inboxRepo, config.trustedUsers, ctx);
+    if (this.pollRunning) {
+      logger.debug("github", "Poll skipped — previous still running");
+      return;
     }
+    this.pollRunning = true;
+    try {
+      logger.debug("github", "Polling", { inboxRepo: config.inboxRepo });
 
-    // 2. Fetch new issues from project repos
-    for (const projectRepo of config.projectRepos) {
-      await this.fetchNewProjectIssues(projectRepo, ctx);
+      // 1. Fetch new issues from inbox repo
+      if (config.inboxRepo) {
+        await this.fetchNewInboxIssues(config.inboxRepo, config.trustedUsers, ctx);
+      }
+
+      // 2. Fetch new issues from project repos
+      for (const projectRepo of config.projectRepos) {
+        await this.fetchNewProjectIssues(projectRepo, ctx);
+      }
+
+      // 3. Check for new comments on active issues
+      await this.pollActiveIssueComments(config.trustedUsers, ctx);
+
+      this.state.lastPollAt = new Date().toISOString();
+      this.saveState();
+    } finally {
+      this.pollRunning = false;
     }
-
-    // 3. Check for new comments on active issues
-    await this.pollActiveIssueComments(config.trustedUsers, ctx);
-
-    this.state.lastPollAt = new Date().toISOString();
-    this.saveState();
   }
 
   private async fetchNewInboxIssues(repo: string, trustedUsers: string[], ctx: ToolContext): Promise<void> {

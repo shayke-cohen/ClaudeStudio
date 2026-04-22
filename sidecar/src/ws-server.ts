@@ -527,6 +527,9 @@ export class WsServer {
           const issueUrl = output.trim();
           const issueMatch = issueUrl.match(/\/issues\/(\d+)$/);
           const issueNumber = issueMatch ? parseInt(issueMatch[1]) : 0;
+          if (!issueMatch) {
+            logger.warn("github", "Could not parse issue number from gh output", { output: issueUrl });
+          }
           // Broadcast created event so Swift can link the conversation to the issue
           this.ctx.broadcast({
             type: "gh.issue.created",

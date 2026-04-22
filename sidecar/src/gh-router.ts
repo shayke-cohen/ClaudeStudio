@@ -18,6 +18,7 @@ type RouteTarget =
 
 interface IssueTracker {
   trackIssue(repo: string, issueNumber: number, conversationId: string, issueUrl: string): void;
+  closeIssue(repo: string, issueNumber: number): void;
 }
 
 export class GHRouter {
@@ -57,6 +58,16 @@ export class GHRouter {
       return;
     }
 
+    // Groups aren't yet directly spawnable from the poller — needs Swift fan-out
+    if (target.kind === "group") {
+      logger.warn("github", "Group routing not yet supported in poller path", { groupName: target.name });
+      await this.setLabel(repo, issue.number, "odyssey:failed", "odyssey:queued");
+      await this.postStatusComment(repo, issue.number,
+        `⚠️ **Odyssey** cannot route to group \`${target.name}\` via the issue bridge yet — ` +
+        `use \`odyssey:agent:name\` to target a specific agent.`);
+      return;
+    }
+
     // Look up agent config from registered definitions
     const agentName = target.name;
     const agentConfig = ctx.agentDefinitions.get(agentName);
@@ -85,6 +96,8 @@ export class GHRouter {
       repo,
       title: issue.title,
       conversationId,
+      sessionId,
+      agentName,
     });
 
     // Track it in the poller so incoming comments get relayed
@@ -103,6 +116,7 @@ export class GHRouter {
       await this.setLabel(repo, issue.number, "odyssey:done", "odyssey:in-progress");
       await this.postStatusComment(repo, issue.number,
         `✅ **Odyssey** finished.\n\n${resultText}`);
+      this.poller?.closeIssue(repo, issue.number);
 
       logger.info("github", "Issue handled successfully", { repo, number: issue.number });
     } catch (err) {
@@ -110,6 +124,7 @@ export class GHRouter {
       await this.setLabel(repo, issue.number, "odyssey:failed", "odyssey:in-progress");
       await this.postStatusComment(repo, issue.number,
         `❌ **Odyssey** encountered an error:\n\n\`\`\`\n${String(err)}\n\`\`\``);
+      this.poller?.closeIssue(repo, issue.number);
     }
   }
 

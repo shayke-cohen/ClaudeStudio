@@ -311,7 +311,7 @@ export type SidecarEvent =
   | { type: "schedule.update";  scheduleId: string; payload: string }
   | { type: "schedule.delete";  scheduleId: string }
   | { type: "schedule.trigger"; scheduleId: string }
-  | { type: "gh.issue.triggered"; issueUrl: string; issueNumber: number; repo: string; title: string; conversationId: string }
+  | { type: "gh.issue.triggered"; issueUrl: string; issueNumber: number; repo: string; title: string; conversationId: string; sessionId: string; agentName: string }
   | { type: "gh.issue.comment"; issueUrl: string; commentBody: string; author: string; conversationId: string }
   | { type: "gh.issue.created"; issueUrl: string; issueNumber: number; repo: string; conversationId?: string };
 
