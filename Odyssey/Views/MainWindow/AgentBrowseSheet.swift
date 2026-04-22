@@ -165,9 +165,9 @@ struct AgentBrowseSheet: View {
         modelContext.insert(agentParticipant)
         modelContext.insert(session)
         modelContext.insert(conversation)
-        try? modelContext.save()
         windowState.selectedConversationId = conversation.id
         dismiss()
+        Task { @MainActor in try? modelContext.save() }
     }
 
     private func startGroupChat(group: AgentGroup) {

@@ -285,8 +285,8 @@ extension AgentPickerPopover {
         modelContext.insert(agentParticipant)
         modelContext.insert(session)
         modelContext.insert(conversation)
-        try? modelContext.save()
         windowState.selectedConversationId = conversation.id
         isPresented = false
+        Task { @MainActor in try? modelContext.save() }
     }
 }

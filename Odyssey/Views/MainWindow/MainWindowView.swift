@@ -63,6 +63,7 @@ struct MainWindowView: View {
     @AppStorage(AppSettings.fteShownKey, store: AppSettings.store) private var fteShown = false
     @AppStorage(AppSettings.defaultProviderKey, store: AppSettings.store) private var defaultProvider = AppSettings.defaultProvider
     @Query private var conversations: [Conversation]
+    @Query(filter: #Predicate<Agent> { $0.configSlug == "chat" }) private var chatAgents: [Agent]
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showStatusPopover = false
 
@@ -483,10 +484,7 @@ struct MainWindowView: View {
     // MARK: - Actions
 
     private func createQuickChat() {
-        let chatAgent = (try? modelContext.fetch(
-            FetchDescriptor<Agent>(predicate: #Predicate { $0.configSlug == "chat" })
-        ))?.first
-        if let agent = chatAgent {
+        if let agent = chatAgents.first {
             startSessionWithAgent(agent)
         } else {
             let conversation = Conversation(topic: "New Thread", projectId: nil, threadKind: .freeform)
@@ -494,8 +492,8 @@ struct MainWindowView: View {
             userParticipant.conversation = conversation
             conversation.participants = [userParticipant]
             modelContext.insert(conversation)
-            try? modelContext.save()
             windowState.selectedConversationId = conversation.id
+            Task { @MainActor in try? modelContext.save() }
         }
     }
 
@@ -523,8 +521,8 @@ struct MainWindowView: View {
 
         modelContext.insert(session)
         modelContext.insert(conversation)
-        try? modelContext.save()
         windowState.selectedConversationId = conversation.id
+        Task { @MainActor in try? modelContext.save() }
     }
 
     private func startGroupChat(_ group: AgentGroup) {

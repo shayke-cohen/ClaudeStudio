@@ -499,11 +499,13 @@ final class AppState {
             return nil
         }
 
+        // Resolve agents synchronously — needed for the guard before creating the conversation.
         let allAgents = (try? modelContext.fetch(FetchDescriptor<Agent>())) ?? []
         let agentById = Dictionary(uniqueKeysWithValues: allAgents.map { ($0.id, $0) })
         let resolvedAgents = group.agentIds.compactMap { agentById[$0] }
         guard !resolvedAgents.isEmpty else { return nil }
 
+        // Phase 1 — fast stub: create conversation and navigate immediately.
         let conversation = Conversation(
             topic: executionMode == .autonomous ? "\(group.name) — Autonomous" : nil,
             projectId: projectId,
@@ -529,50 +531,54 @@ final class AppState {
             conversation.messages = (conversation.messages ?? []) + [sysMsg]
         }
 
-        let provisioner = AgentProvisioner(modelContext: modelContext)
+        modelContext.insert(conversation)
+        let conversationId = conversation.id
+
+        // Phase 2 — deferred: provision agents, seed vault, save. Still @MainActor so no
+        // data races with SwiftData, but runs after the caller has navigated to the conversation.
         let trimmedMissionOverride = missionOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
         let mission = (trimmedMissionOverride?.isEmpty == false ? trimmedMissionOverride : nil) ?? group.defaultMission
+        let sharedGroupDir: String = {
+            if let groupHome = group.defaultWorkingDirectory, !groupHome.isEmpty {
+                return (groupHome as NSString).expandingTildeInPath
+            }
+            return projectDirectory
+        }()
+        let execMode = executionMode
 
-        // Seed the group's shared vault once, before creating any sessions.
-        let sharedGroupDir: String
-        if let groupHome = group.defaultWorkingDirectory, !groupHome.isEmpty {
-            sharedGroupDir = (groupHome as NSString).expandingTildeInPath
-        } else {
-            sharedGroupDir = projectDirectory
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if !sharedGroupDir.isEmpty {
+                ResidentAgentSupport.seedGroupVaultIfNeeded(
+                    in: sharedGroupDir,
+                    groupName: group.name,
+                    agentNames: resolvedAgents.map(\.name)
+                )
+            }
+            let provisioner = AgentProvisioner(modelContext: modelContext)
+            for agent in resolvedAgents {
+                let (_, session) = provisioner.provision(
+                    agent: agent,
+                    mission: mission,
+                    mode: sessionMode(for: execMode),
+                    workingDirOverride: sharedGroupDir.isEmpty ? nil : sharedGroupDir
+                )
+                session.conversations = [conversation]
+                conversation.sessions = (conversation.sessions ?? []) + [session]
+
+                let agentParticipant = Participant(
+                    type: .agentSession(sessionId: session.id),
+                    displayName: agent.name
+                )
+                agentParticipant.conversation = conversation
+                conversation.participants = (conversation.participants ?? []) + [agentParticipant]
+                modelContext.insert(session)
+            }
+            try? modelContext.save()
+            await sidecarManager?.pushConversationSync(modelContext: modelContext)
         }
-        if !sharedGroupDir.isEmpty {
-            ResidentAgentSupport.seedGroupVaultIfNeeded(
-                in: sharedGroupDir,
-                groupName: group.name,
-                agentNames: resolvedAgents.map(\.name)
-            )
-        }
 
-        for agent in resolvedAgents {
-            // Group's own home always wins when set; explicit project dir is the fallback
-            let groupDir = sharedGroupDir
-            let (_, session) = provisioner.provision(
-                agent: agent,
-                mission: mission,
-                mode: sessionMode(for: executionMode),
-                workingDirOverride: groupDir.isEmpty ? nil : groupDir
-            )
-            session.conversations = [conversation]
-            conversation.sessions = (conversation.sessions ?? []) + [session]
-
-            let agentParticipant = Participant(
-                type: .agentSession(sessionId: session.id),
-                displayName: agent.name
-            )
-            agentParticipant.conversation = conversation
-            conversation.participants = (conversation.participants ?? []) + [agentParticipant]
-            modelContext.insert(session)
-        }
-
-        modelContext.insert(conversation)
-        try? modelContext.save()
-        Task { await sidecarManager?.pushConversationSync(modelContext: modelContext) }
-        return conversation.id
+        return conversationId
     }
 
     @discardableResult
