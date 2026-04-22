@@ -498,7 +498,7 @@ private struct SpeakerButtonRow: View {
     let message: ConversationMessage
     @Environment(AppState.self) private var appState
     @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
-    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = true
+    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = false
 
     private var isSpeakingThis: Bool {
         appState.tts.isSpeaking && appState.tts.currentMessageId == message.id

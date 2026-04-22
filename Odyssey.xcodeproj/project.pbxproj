@@ -19,6 +19,7 @@
 		075EB530E4EC792BE5491F13 /* BrowserWebViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C46F59BAEAB2220DA42BB1 /* BrowserWebViewRepresentable.swift */; };
 		0889563F8D9E1A9732F16D0E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5820E047DE141BF872462B9B /* Sparkle */; };
 		09051C6758B5793FC83FE211 /* StreamingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD82750C21589B242699A02E /* StreamingIndicator.swift */; };
+		09800572394C987D241EE6A8 /* VoiceModeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8E75514A5D69D0835F8862 /* VoiceModeOverlay.swift */; };
 		09A27FA720C1D79DE5E1027C /* BlackboardEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B597F7491414D478622B1344 /* BlackboardEntry.swift */; };
 		09D5183EE00301EE7CF7791D /* MCPLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C78CCB9AC68FC2F620CBEFF2 /* MCPLibraryView.swift */; };
 		0AD27F3987DD841A4CCE037E /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226B39199F165D6EB3A78B0A /* AppSettings.swift */; };
@@ -250,6 +251,7 @@
 		D44BB61DBF73A94785AB7B9B /* BlackboardSnapshotClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A5CC3B8FB27A5C32C71FEA /* BlackboardSnapshotClient.swift */; };
 		D4895D020150B52E464F96B4 /* PromptTemplateCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274CB252A458C2690A798C76 /* PromptTemplateCreationSheet.swift */; };
 		D4BFCFF77E3FF58D002B8961 /* DefaultPromptTemplates in Resources */ = {isa = PBXBuildFile; fileRef = 09936B3E044A42B326D74F44 /* DefaultPromptTemplates */; };
+		D6599DF39AB7CA25CACD8C14 /* HoldDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23BA3AC52B65A07CF84ABF8 /* HoldDetector.swift */; };
 		D6D938734F775EA1B43C2B27 /* SlashCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8073D7EEC048D6D8CE8154F1 /* SlashCommandTests.swift */; };
 		D727B0495A0CA51047853613 /* RecentDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2182693FA416534F9E4EDFC2 /* RecentDirectories.swift */; };
 		D7D3F04C53A2105D7CAFF259 /* ConversationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4EB72AF160414D388FB1B8A /* ConversationMessage.swift */; };
@@ -346,6 +348,7 @@
 		08EDBC63A4F6D20039685D1F /* UserIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserIdentity.swift; sourceTree = "<group>"; };
 		09936B3E044A42B326D74F44 /* DefaultPromptTemplates */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DefaultPromptTemplates; path = Odyssey/Resources/DefaultPromptTemplates; sourceTree = SOURCE_ROOT; };
 		0A35177758E37FD646639BFB /* AgentActivityBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActivityBar.swift; sourceTree = "<group>"; };
+		0D8E75514A5D69D0835F8862 /* VoiceModeOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceModeOverlay.swift; sourceTree = "<group>"; };
 		0F1EAC857ED65AD9DEEC35C5 /* DelegationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegationTests.swift; sourceTree = "<group>"; };
 		10259A67B64D5CC275791AD4 /* AppStateIdleDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateIdleDetectionTests.swift; sourceTree = "<group>"; };
 		10E66DBCD1DC9CCFE067172E /* ScheduleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDetailView.swift; sourceTree = "<group>"; };
@@ -524,6 +527,7 @@
 		B05B1BA91E58FAB813F115C0 /* LocalFileReferenceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileReferenceSupport.swift; sourceTree = "<group>"; };
 		B0AF535FFB97A018FDF5CE70 /* DefaultMCPs.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultMCPs.json; sourceTree = "<group>"; };
 		B21AC8FA846AE8EF6D682887 /* ConfigurationDetailIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationDetailIntegrationTests.swift; sourceTree = "<group>"; };
+		B23BA3AC52B65A07CF84ABF8 /* HoldDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldDetector.swift; sourceTree = "<group>"; };
 		B28E92529E4209BE458AE21E /* P2PNetworkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PNetworkManager.swift; sourceTree = "<group>"; };
 		B3D0C567417516A60FC55FDF /* MultiModelGroupsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiModelGroupsTests.swift; sourceTree = "<group>"; };
 		B43333A90EBE67BB51B8FCEC /* AgentCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationSheet.swift; sourceTree = "<group>"; };
@@ -915,6 +919,7 @@
 				A6698C5C69EA73667D67F455 /* GroupIconView.swift */,
 				D0F51D3A20726B5110862E55 /* GroupSummaryCard.swift */,
 				15AB75D93E7D75212FA5FD16 /* HighlightedCodeView.swift */,
+				B23BA3AC52B65A07CF84ABF8 /* HoldDetector.swift */,
 				8E4CCB76BF694A1ABA074D5D /* ImagePreviewOverlay.swift */,
 				75B6D25343D34D77AC95F302 /* InlineDiffView.swift */,
 				FC0767BDA0E45E895D8CBC2D /* InlineHTMLView.swift */,
@@ -930,6 +935,7 @@
 				BD82750C21589B242699A02E /* StreamingIndicator.swift */,
 				72F25E50586F2AB1558EC46B /* TerminalOutputView.swift */,
 				8983F57EE0BBBE41EAA97B17 /* ToolCallView.swift */,
+				0D8E75514A5D69D0835F8862 /* VoiceModeOverlay.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1387,19 +1393,19 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					A4632D10A8A7F52AB86D5A1C = {
-						DevelopmentTeam = U6BSY4N9E3;
+						DevelopmentTeam = S3GLW74Y8N;
 						ProvisioningStyle = Automatic;
 					};
 					B1E664E5689947FB624DCB21 = {
-						DevelopmentTeam = U6BSY4N9E3;
+						DevelopmentTeam = S3GLW74Y8N;
 						ProvisioningStyle = Automatic;
 					};
 					CE69A1BAAA00E5ABC7D31592 = {
-						DevelopmentTeam = U6BSY4N9E3;
+						DevelopmentTeam = S3GLW74Y8N;
 						ProvisioningStyle = Automatic;
 					};
 					FF88E42E86B37D102EB4907D = {
-						DevelopmentTeam = U6BSY4N9E3;
+						DevelopmentTeam = S3GLW74Y8N;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1681,6 +1687,7 @@
 				FE6A5CABA4489986ADF66516 /* GroupSummaryCard.swift in Sources */,
 				FA0E0FDA5ACFC6FF2AED334C /* GroupWorkflowEngine.swift in Sources */,
 				D2A51AD90D429CCE94ADF570 /* HighlightedCodeView.swift in Sources */,
+				D6599DF39AB7CA25CACD8C14 /* HoldDetector.swift in Sources */,
 				4B02F3DFA7721C59DC9A2E44 /* IdentityManager.swift in Sources */,
 				8CD0BA90DD9D9BEFBD7EC392 /* ImagePreviewOverlay.swift in Sources */,
 				5A0E8F82F77771D147E98D59 /* InlineBrowserCard.swift in Sources */,
@@ -1779,6 +1786,7 @@
 				0BA8A404E682AF5BEF8D2C62 /* UserIdentity.swift in Sources */,
 				DB83A2142A011F0A770A4208 /* UserInviteSheet.swift in Sources */,
 				31D2A67B3046B1C305C18993 /* VoiceInputService.swift in Sources */,
+				09800572394C987D241EE6A8 /* VoiceModeOverlay.swift in Sources */,
 				8FCF0C44A4BA6305328FCD65 /* WKWebViewBrowserController.swift in Sources */,
 				B92233E3D31EC1E45A0A6200 /* WelcomeView.swift in Sources */,
 				4CDE0E9F3B4D1982E5A1B9B0 /* WindowState.swift in Sources */,
@@ -1838,7 +1846,7 @@
 				CODE_SIGN_ENTITLEMENTS = OdysseyiOS/Resources/OdysseyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OdysseyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1860,7 +1868,7 @@
 				CODE_SIGN_ENTITLEMENTS = OdysseyiOS/Resources/OdysseyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OdysseyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1880,7 +1888,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1902,7 +1910,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2042,7 +2050,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 35;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odyssey/Resources/Info.plist;
@@ -2067,7 +2075,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2085,7 +2093,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2109,7 +2117,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 35;
-				DEVELOPMENT_TEAM = U6BSY4N9E3;
+				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odyssey/Resources/Info.plist;

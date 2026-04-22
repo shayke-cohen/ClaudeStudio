@@ -180,7 +180,7 @@ struct ChatView: View {
     @Environment(WindowState.self) private var windowState: WindowState
     @AppStorage(FeatureFlags.showAdvancedKey, store: AppSettings.store) private var masterFlag = false
     @AppStorage(FeatureFlags.federationKey, store: AppSettings.store) private var federationFlag = false
-    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = false
     @ObservedObject private var quickActionStore = QuickActionStore.shared
 
     private var federationEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.federationKey) || (masterFlag && federationFlag) }

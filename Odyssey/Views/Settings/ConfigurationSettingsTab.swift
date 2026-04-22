@@ -519,11 +519,11 @@ struct ConfigurationSettingsTab: View {
 // MARK: - Voice Settings Pane
 
 private struct VoiceSettingsPane: View {
-    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = true
+    @AppStorage("voice.featuresEnabled") private var voiceFeaturesEnabled: Bool = false
     @AppStorage("voice.voiceIdentifier") private var ttsVoiceIdentifier: String = ""
-    @AppStorage("voice.autoSpeak") private var autoSpeak: Bool = true
+    @AppStorage("voice.autoSpeak") private var autoSpeak: Bool = false
     @AppStorage("voice.speakingRate") private var speakingRate: Double = Double(AVSpeechUtteranceDefaultSpeechRate)
-    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = true
+    @AppStorage("voice.showSpeakerButton") private var showSpeakerButton: Bool = false
 
     private var availableVoices: [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
