@@ -1461,6 +1461,9 @@ export class CodexRuntime implements ProviderRuntime {
       "mcp_servers={}",
     ];
     for (const [index, mcp] of config.mcpServers.entries()) {
+      // Skip builtin in-process MCP servers (no command, no url) — Codex can't use them
+      if (!mcp.command && !mcp.url) continue;
+
       const alias = `session_mcp_${index}`;
       mcpAliases.set(alias, mcp.name);
 

@@ -8,13 +8,27 @@ import { fileURLToPath } from "url";
 // Resolve the bundled Claude Code CLI path at module load time.
 // In production, build-sidecar-binary.sh copies cli.js next to odyssey-sidecar.js.
 // In dev, it sits in node_modules/@anthropic-ai/claude-agent-sdk/cli.js.
+const sidecarRootDir = dirname(fileURLToPath(import.meta.url));
 const claudeCodeCliPath = (() => {
-  const sidecarDir = dirname(fileURLToPath(import.meta.url));
-  const bundled = resolve(sidecarDir, "claude-code-cli.js");
+  const bundled = resolve(sidecarRootDir, "claude-code-cli.js");
   if (existsSync(bundled)) return bundled;
-  const devPath = resolve(sidecarDir, "../../node_modules/@anthropic-ai/claude-agent-sdk/cli.js");
+  const devPath = resolve(sidecarRootDir, "../../node_modules/@anthropic-ai/claude-agent-sdk/cli.js");
   if (existsSync(devPath)) return devPath;
   return undefined;
+})();
+
+// Stdio MCP config for odyssey-control (spawns this same bundle with --odyssey-control-mcp).
+const odysseyControlStdioConfig = (() => {
+  const bunExe = process.argv[0];      // bun or odyssey-bun
+  const scriptArg = process.argv[1];   // odyssey-sidecar.js or index.ts
+  return {
+    type: "stdio" as const,
+    command: bunExe,
+    args: [scriptArg, "--odyssey-control-mcp"],
+    env: Object.fromEntries(
+      Object.entries(process.env).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>,
+  };
 })();
 import type { AgentConfig, FileAttachment } from "../types.js";
 import { PLAN_MODE_APPEND } from "../prompts/plan-mode.js";
@@ -27,7 +41,6 @@ import {
 import { buildSkillsSection } from "../utils/prompt-builder.js";
 import { createPeerBusServer } from "../tools/peerbus-server.js";
 import { createBrowserServer } from "../tools/browser-server.js";
-import { createOdysseyControlServer } from "../tools/odyssey-control-server.js";
 import type {
   ProviderRuntime,
   RuntimeDependencies,
@@ -357,7 +370,7 @@ export class ClaudeRuntime implements ProviderRuntime {
     mcpServers.peerbus = createPeerBusServer(this.deps.toolCtx, sessionId, isInteractive);
     mcpServers.browser = createBrowserServer(this.deps.toolCtx);
     if (config.mcpServers?.some((m) => m.name === "odyssey-control" && !m.command && !m.url)) {
-      mcpServers["odyssey-control"] = createOdysseyControlServer();
+      mcpServers["odyssey_control"] = odysseyControlStdioConfig;
     }
 
     options.mcpServers = mcpServers;

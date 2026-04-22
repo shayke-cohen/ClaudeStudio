@@ -22,6 +22,13 @@ import type { AgentConfig, ApiContext, SidecarEvent } from "./types.js";
 
 setLogLevel((process.env.ODYSSEY_LOG_LEVEL ?? process.env.CLAUDESTUDIO_LOG_LEVEL ?? "info") as any);
 
+// ── Stdio MCP mode ─────────────────────────────────────────────────────────
+if (process.argv.includes("--odyssey-control-mcp")) {
+  const { runOdysseyControlStdio } = await import("./tools/odyssey-control-stdio.js");
+  await runOdysseyControlStdio();
+  process.exit(0);
+}
+
 const WS_PORT = parseInt(process.env.ODYSSEY_WS_PORT ?? process.env.CLAUDESTUDIO_WS_PORT ?? "9849", 10);
 const HTTP_PORT = parseInt(process.env.ODYSSEY_HTTP_PORT ?? process.env.CLAUDESTUDIO_HTTP_PORT ?? "9850", 10);
 const DATA_DIR = process.env.ODYSSEY_DATA_DIR ?? process.env.CLAUDESTUDIO_DATA_DIR ?? "~/.odyssey";

@@ -1,4 +1,4 @@
-import { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { execFileSync } from "child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
@@ -6,6 +6,10 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../logger.js";
 import { defineSharedTool, createTextResult, toClaudeTool } from "./shared-tool.js";
+
+function toAlwaysLoadTool(def: ReturnType<typeof defineSharedTool>) {
+  return tool(def.name, def.description, def.inputSchema, async (args: any, extra: any) => def.execute(args, extra), { alwaysLoad: true });
+}
 
 const HOME = homedir();
 const DATA_DIR = process.env.ODYSSEY_DATA_DIR ?? process.env.CLAUDESTUDIO_DATA_DIR ?? join(HOME, ".odyssey");
@@ -83,7 +87,7 @@ const createOrUpdateAgentTool = defineSharedTool(
   "Create or update an agent config. Merges fields into the existing config (or creates fresh). Commits to git — the app auto-reloads.",
   {
     name: z.string().describe("Agent display name"),
-    fields: z.record(z.unknown()).describe("Fields to set, e.g. { model, agentDescription, icon, color, skillNames, mcpServerNames }"),
+    fields: z.record(z.string(), z.unknown()).describe("Fields to set, e.g. { model, agentDescription, icon, color, skillNames, mcpServerNames }"),
   },
   async ({ name, fields }) => {
     const dir = join(CONFIG_DIR, "agents");
@@ -162,7 +166,7 @@ const createOrUpdateGroupTool = defineSharedTool(
   "Create or update a group config. Merges fields into existing config. Commits to git — app auto-reloads.",
   {
     name: z.string(),
-    fields: z.record(z.unknown()).describe("Fields to set, e.g. { groupDescription, agentNames, coordinatorName, icon }"),
+    fields: z.record(z.string(), z.unknown()).describe("Fields to set, e.g. { groupDescription, agentNames, coordinatorName, icon }"),
   },
   async ({ name, fields }) => {
     const dir = join(CONFIG_DIR, "groups");
@@ -354,17 +358,18 @@ const getAppStatusTool = defineSharedTool(
 
 // ─── Server factory ────────────────────────────────────────────────────────────
 
+export const odysseyControlToolDefinitions = [
+  listAgentsTool, getAgentTool, createOrUpdateAgentTool, deleteAgentTool,
+  listGroupsTool, getGroupTool, createOrUpdateGroupTool, deleteGroupTool,
+  listSkillsTool, getSkillTool, updateSkillTool,
+  openChatTool, openGroupChatTool,
+  listProjectsTool, openProjectTool,
+  getWhatsNewTool, getAppStatusTool,
+];
+
 export function createOdysseyControlServer() {
-  const definitions = [
-    listAgentsTool, getAgentTool, createOrUpdateAgentTool, deleteAgentTool,
-    listGroupsTool, getGroupTool, createOrUpdateGroupTool, deleteGroupTool,
-    listSkillsTool, getSkillTool, updateSkillTool,
-    openChatTool, openGroupChatTool,
-    listProjectsTool, openProjectTool,
-    getWhatsNewTool, getAppStatusTool,
-  ];
-  const tools = definitions.map(toClaudeTool);
+  const tools = odysseyControlToolDefinitions.map(toAlwaysLoadTool);
   const names = tools.map((t: any) => t.name).join(", ");
-  logger.debug("odyssey-control", `Creating server with ${tools.length} tools: [${names}]`);
-  return createSdkMcpServer({ name: "odyssey-control", tools });
+  logger.info("odyssey-control", `Creating server with ${tools.length} tools: [${names}]`);
+  return createSdkMcpServer({ name: "odyssey_control", tools });
 }
