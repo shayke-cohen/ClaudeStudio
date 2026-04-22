@@ -17,6 +17,8 @@ import { SessionManager } from "./session-manager.js";
 import { SseManager } from "./sse-manager.js";
 import { WebhookManager } from "./webhook-manager.js";
 import { logger, setLogLevel } from "./logger.js";
+import { GHPoller } from "./gh-poller.js";
+import { GHRouter } from "./gh-router.js";
 import type { ToolContext } from "./tools/tool-context.js";
 import type { AgentConfig, ApiContext, SidecarEvent } from "./types.js";
 
@@ -102,6 +104,13 @@ const wsServer = new WsServer(WS_PORT, sessionManager, toolContext, {
   ...(TLS_KEY ? { tlsKey: TLS_KEY } : {}),
 });
 
+// ── GitHub Issue Bridge ────────────────────────────────────────────────────
+const ghPoller = new GHPoller();
+const ghRouter = new GHRouter();
+ghPoller.setRouter(ghRouter);
+ghRouter.setPoller(ghPoller);
+wsServer.setGHBridge(ghPoller, ghRouter);
+
 // Multi-target broadcast: WS clients + SSE subscribers + Webhooks
 broadcastFn = (event) => {
   // Mirror session results into the conversation store so iOS can read messages via REST.
@@ -142,6 +151,7 @@ logger.info("sidecar", "Ready", {
 
 process.on("SIGINT", () => {
   logger.info("sidecar", "Shutting down (SIGINT)");
+  ghPoller.stop();
   sseManager.close();
   wsServer.close();
   httpServer.close();
@@ -149,6 +159,7 @@ process.on("SIGINT", () => {
 });
 
 process.on("SIGTERM", () => {
+  ghPoller.stop();
   sseManager.close();
   wsServer.close();
   httpServer.close();

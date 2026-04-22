@@ -7,6 +7,8 @@ import { logger } from "./logger.js";
 import { probeConnector } from "./connectors/provider-runtime.js";
 import { ConversationEvaluator } from "./conversation-evaluator.js";
 import { GenerationService } from "./generation-service.js";
+import type { GHPoller } from "./gh-poller.js";
+import type { GHRouter } from "./gh-router.js";
 
 
 export interface WsServerOptions {
@@ -24,6 +26,8 @@ export class WsServer {
   private options: WsServerOptions = {};
   private readonly conversationEvaluator: ConversationEvaluator;
   private readonly generationService: GenerationService;
+  private ghPoller?: GHPoller;
+  private ghRouter?: GHRouter;
 
   constructor(port: number, sessionManager: SessionManager, ctx: ToolContext, options: WsServerOptions = {}) {
     this.sessionManager = sessionManager;
@@ -512,13 +516,51 @@ export class WsServer {
       }
 
       case "gh.issue.create":
-        // TODO: handled by GHRouter in Phase 3
-        logger.info("github", "gh.issue.create received", { repo: command.repo, title: command.title });
+        if (this.ghRouter) {
+          import("./gh-cli.js").then(async ({ runGh }) => {
+            try {
+              const args = ["issue", "create", "--repo", command.repo,
+                "--title", command.title, "--body", command.body];
+              for (const label of (command.labels ?? [])) {
+                args.push("--label", label);
+              }
+              const output = await runGh(args);
+              // output is the issue URL
+              const issueUrl = output.trim();
+              const issueMatch = issueUrl.match(/\/issues\/(\d+)$/);
+              const issueNumber = issueMatch ? parseInt(issueMatch[1]) : 0;
+              this.ctx.broadcast({
+                type: "gh.issue.created",
+                issueUrl,
+                issueNumber,
+                repo: command.repo,
+                conversationId: command.conversationId,
+              });
+            } catch (err) {
+              logger.error("github", "gh.issue.create failed", { error: String(err) });
+            }
+          }).catch(err => {
+            logger.error("github", "gh.issue.create import failed", { error: String(err) });
+          });
+        } else {
+          logger.warn("github", "gh.issue.create received but GHRouter not initialised");
+        }
         break;
 
       case "gh.poller.config":
-        // TODO: forwarded to GHPoller in Phase 2
-        logger.info("github", "gh.poller.config received", { inboxRepo: command.inboxRepo });
+        if (this.ghPoller && this.ghRouter) {
+          this.ghPoller.start(
+            {
+              inboxRepo: command.inboxRepo,
+              projectRepos: command.projectRepos,
+              trustedUsers: command.trustedUsers,
+              intervalSeconds: command.intervalSeconds,
+            },
+            this.ctx,
+          );
+        } else {
+          logger.warn("github", "gh.poller.config received but GHPoller/GHRouter not initialised");
+        }
         break;
     }
   }
@@ -949,6 +991,11 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact schema:
         prompt: spec.prompt,
       },
     });
+  }
+
+  setGHBridge(poller: GHPoller, router: GHRouter): void {
+    this.ghPoller = poller;
+    this.ghRouter = router;
   }
 
   broadcast(event: SidecarEvent): void {
