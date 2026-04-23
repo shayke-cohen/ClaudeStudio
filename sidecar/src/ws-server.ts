@@ -545,8 +545,16 @@ export class WsServer {
 
       case "gh.issue.create": {
         try {
+          // Ensure routing labels exist in the repo before creating the issue
+          for (const label of (command.labels ?? [])) {
+            const color = label.startsWith("odyssey:agent:") ? "0052cc"
+              : label.startsWith("odyssey:group:") ? "5319e7"
+              : "ededed";
+            await runGh(["label", "create", label, "--repo", command.repo,
+              "--color", color, "--force"]).catch(() => {});
+          }
           const args = ["issue", "create", "--repo", command.repo,
-            "--title", command.title, "--body", command.body];
+            "--title", command.title, "--body", command.body || " "];
           for (const label of (command.labels ?? [])) {
             args.push("--label", label);
           }
@@ -557,7 +565,6 @@ export class WsServer {
           if (!issueMatch) {
             logger.warn("github", "Could not parse issue number from gh output", { output: issueUrl });
           }
-          // Broadcast created event so Swift can link the conversation to the issue
           this.ctx.broadcast({
             type: "gh.issue.created",
             issueUrl,
@@ -567,6 +574,11 @@ export class WsServer {
           });
         } catch (err) {
           logger.error("github", "gh.issue.create failed", { error: String(err) });
+          this.ctx.broadcast({
+            type: "gh.issue.create.error",
+            error: String(err),
+            conversationId: command.conversationId,
+          });
         }
         break;
       }

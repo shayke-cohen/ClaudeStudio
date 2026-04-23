@@ -81,6 +81,11 @@ struct CreateGHIssueSheet: View {
             footerBar
         }
         .frame(minWidth: 520, minHeight: 460)
+        .onChange(of: appState.lastCreatedIssueUrl) { _, url in
+            guard url != nil, isSubmitting else { return }
+            isSubmitting = false
+            dismiss()
+        }
         .onAppear {
             title = conversation?.topic ?? ""
             selectedRepo = availableRepos.first ?? ""
@@ -264,6 +269,15 @@ struct CreateGHIssueSheet: View {
             conversationId: conversation?.id.uuidString
         ))
 
-        dismiss()
+        // Wait briefly for gh.issue.created event; dismiss or surface error
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            await MainActor.run {
+                if isSubmitting {
+                    isSubmitting = false
+                    submitError = "Timed out — check that the sidecar is running and gh is authenticated."
+                }
+            }
+        }
     }
 }

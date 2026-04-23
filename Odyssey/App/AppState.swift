@@ -39,6 +39,8 @@ final class AppState {
     var sessionActivity: [String: SessionActivityState] = [:]
     var commsEvents: [CommsEvent] = []
     var fileTreeRefreshTrigger: Int = 0
+    /// Set when gh.issue.created fires — sheet observes this to dismiss on success
+    var lastCreatedIssueUrl: String? = nil
     var generatedAgentSpec: GeneratedAgentSpec?
     var isGeneratingAgent: Bool = false
     var generateAgentError: String?
@@ -1950,6 +1952,7 @@ final class AppState {
     }
 
     private func handleGHIssueCreated(issueUrl: String, issueNumber: Int, repo: String, conversationId: String?) {
+        lastCreatedIssueUrl = issueUrl
         guard let ctx = modelContext,
               let cidStr = conversationId,
               let uuid = UUID(uuidString: cidStr) else { return }
