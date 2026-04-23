@@ -2001,6 +2001,12 @@ final class AppState {
 
         let existingSession = conv.primarySession
 
+        // Already running — nothing to do
+        if existingSession?.status == .active {
+            Log.github.info("ghIssueRunNow: session already active for conv \(conv.id)")
+            return
+        }
+
         // Resume if a pausable session with a claudeSessionId exists
         if let session = existingSession,
            let claudeSessionId = session.claudeSessionId,
@@ -2030,9 +2036,9 @@ final class AppState {
     private func handleGHIssueClosed(repo: String, number: Int) {
         guard let ctx = modelContext else { return }
         let descriptor = FetchDescriptor<Conversation>(
-            predicate: #Predicate { $0.githubIssueNumber == number }
+            predicate: #Predicate { $0.githubIssueNumber == number && $0.githubIssueRepo == repo }
         )
-        guard let conv = (try? ctx.fetch(descriptor))?.first(where: { $0.githubIssueRepo == repo }) else {
+        guard let conv = (try? ctx.fetch(descriptor))?.first else {
             Log.github.warning("gh.issue.closed: no conversation for #\(number) in \(repo)")
             return
         }
