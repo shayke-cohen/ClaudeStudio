@@ -1029,6 +1029,34 @@ final class AppState {
         }
     }
 
+    func sendGHPollerConfig() {
+        let settings = GHPollerSettings.shared
+        guard !settings.inboxRepo.isEmpty || !settings.trustedGitHubUsers.isEmpty else { return }
+
+        var projectRepos: [GHProjectRepoWire] = []
+        if let ctx = modelContext,
+           let projects = try? ctx.fetch(FetchDescriptor<Project>()) {
+            for project in projects {
+                guard let repo = project.githubRepo, !repo.isEmpty else { continue }
+                var agentName: String? = nil
+                if let agentId = project.githubDefaultAgentId,
+                   let agent = try? ctx.fetch(FetchDescriptor<Agent>(predicate: #Predicate { $0.id == agentId })).first {
+                    agentName = agent.name
+                }
+                let trusted = project.githubTrustedUsers.isEmpty ? settings.trustedGitHubUsers : project.githubTrustedUsers
+                projectRepos.append(GHProjectRepoWire(repo: repo, defaultAgentName: agentName, trustedUsers: trusted))
+            }
+        }
+
+        sendToSidecar(.ghPollerConfig(
+            inboxRepo: settings.inboxRepo,
+            projectRepos: projectRepos,
+            trustedUsers: settings.trustedGitHubUsers,
+            intervalSeconds: settings.pollIntervalSeconds
+        ))
+        Log.appState.info("Sent GH poller config: inbox=\(settings.inboxRepo), projects=\(projectRepos.count)")
+    }
+
     private func registerAgentDefinitionsAwait() async {
         guard let ctx = modelContext else { return }
         let descriptor = FetchDescriptor<Agent>()
@@ -1552,6 +1580,7 @@ final class AppState {
             Task { await recoverSessions() }
             registerAgentDefinitions()
             registerConnections()
+            sendGHPollerConfig()
             if let ctx = modelContext {
                 Task { await sidecarManager?.pushConversationSync(modelContext: ctx, pushMessages: true) }
             }

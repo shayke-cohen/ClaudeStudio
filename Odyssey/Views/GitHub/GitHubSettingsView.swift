@@ -7,6 +7,7 @@ struct GitHubSettingsView: View {
     @State private var settings = GHPollerSettings.shared
     @Query(sort: [SortDescriptor(\Project.name)]) private var projects: [Project]
     @Query(sort: [SortDescriptor(\Agent.name)]) private var agents: [Agent]
+    @Environment(AppState.self) private var appState
 
     @State private var newTrustedUser = ""
     @State private var isSettingUpInbox = false
@@ -26,6 +27,12 @@ struct GitHubSettingsView: View {
         .formStyle(.grouped)
         .settingsDetailLayout()
         .stableXrayId("settings.github.form")
+        .onChange(of: settings.inboxRepo) { _, _ in appState.sendGHPollerConfig() }
+        .onChange(of: settings.pollIntervalSeconds) { _, _ in appState.sendGHPollerConfig() }
+        .onChange(of: settings.trustedGitHubUsers) { _, _ in appState.sendGHPollerConfig() }
+        .onChange(of: projects.map { "\($0.githubRepo ?? ""):\($0.githubDefaultAgentId?.uuidString ?? "")" }) { _, _ in
+            appState.sendGHPollerConfig()
+        }
     }
 
     // MARK: - Inbox Setup
@@ -238,6 +245,7 @@ struct GitHubSettingsView: View {
                     settings.inboxRepo = repoName
                     isSettingUpInbox = false
                     inboxSetupSuccess = true
+                    appState.sendGHPollerConfig()
                 }
             } catch {
                 await MainActor.run {
