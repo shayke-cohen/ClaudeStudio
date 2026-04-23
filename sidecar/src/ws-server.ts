@@ -9,6 +9,7 @@ import { ConversationEvaluator } from "./conversation-evaluator.js";
 import { GenerationService } from "./generation-service.js";
 import type { GHPoller } from "./gh-poller.js";
 import type { GHRouter } from "./gh-router.js";
+// runGh is still used inline for gh.issue.create; new gh.* commands go through gh-command-handler.ts
 import { runGh } from "./gh-cli.js";
 import { dispatchGHCommand } from "./gh-command-handler.js";
 

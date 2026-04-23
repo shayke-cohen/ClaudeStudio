@@ -1,8 +1,9 @@
 import { runGh } from "./gh-cli.js";
 import { logger } from "./logger.js";
+import type { SidecarEvent } from "./types.js";
 
 export interface GHCommandContext {
-  broadcast: (event: object) => void;
+  broadcast: (event: SidecarEvent) => void;
 }
 
 export async function dispatchGHCommand(
