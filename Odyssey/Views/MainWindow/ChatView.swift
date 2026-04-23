@@ -1292,7 +1292,7 @@ struct ChatView: View {
                     Button {
                         showCreateGHIssueSheet = true
                     } label: {
-                        Label("Issue", systemImage: "logo.github")
+                        Label("Issue", systemImage: "exclamationmark.circle")
                             .font(captionFont.weight(.medium))
                     }
                     .buttonStyle(.borderless)
@@ -1453,7 +1453,7 @@ struct ChatView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "logo.github")
+                    Image(systemName: "exclamationmark.circle")
                         .font(.caption2)
                     Text("#\(issueNumber) · \(repo)")
                         .font(.caption2)

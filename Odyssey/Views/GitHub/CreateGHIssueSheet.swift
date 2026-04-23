@@ -106,7 +106,7 @@ struct CreateGHIssueSheet: View {
 
     private var headerBar: some View {
         HStack {
-            Image(systemName: "logo.github")
+            Image(systemName: "exclamationmark.circle")
                 .foregroundStyle(.secondary)
             Text("Create GitHub Issue")
                 .font(.headline)
