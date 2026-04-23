@@ -251,6 +251,12 @@ struct SidebarView: View {
     @Query(sort: \NostrPeer.pairedAt, order: .reverse) private var nostrPeers: [NostrPeer]
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
     @Query(sort: \PromptTemplate.sortOrder) private var allTemplates: [PromptTemplate]
+    @Query(
+        filter: #Predicate<Conversation> { $0.githubIssueNumber != nil && $0.isArchived == false },
+        sort: \Conversation.startedAt,
+        order: .reverse
+    )
+    private var ghIssues: [Conversation]
     @State private var expandedAgentIds: Set<UUID> = []
     @State private var expandedGroupIds: Set<UUID> = []
     @State private var expandedArchivedAgentIds: Set<UUID> = []
@@ -285,6 +291,8 @@ struct SidebarView: View {
     @State private var projectToArchiveThreads: Project?
     @State private var projectToRemove: Project?
     @State private var scheduleToDelete: ScheduledMission?
+    @State private var issueToDelete: Conversation?
+    @State private var showingGHIssueSheet = false
     @State private var scheduleForHistory: ScheduledMission?
     @State private var isPinnedExpanded = true
     @State private var isArchivedExpanded = false
@@ -299,6 +307,7 @@ struct SidebarView: View {
     @AppStorage("sidebar.schedulesExpanded") private var isSchedulesSectionExpanded: Bool = true
     @AppStorage("sidebar.projectsExpanded") private var isProjectsSectionExpanded: Bool = true
     @AppStorage("sidebar.allSchedulesExpanded") private var isAllSchedulesExpanded: Bool = false
+    @AppStorage("sidebar.ghInboxExpanded") private var isGHInboxExpanded: Bool = true
     @AppStorage("sidebar.organizeMode") private var organizeMode: String = SidebarOrganizeMode.byProject.rawValue
     @AppStorage("sidebar.sortField") private var sortField: String = SidebarSortField.updated.rawValue
     @AppStorage("sidebar.showFilter") private var showFilter: String = SidebarShowFilter.allChats.rawValue
@@ -428,6 +437,23 @@ struct SidebarView: View {
                     Text("\"\(schedule.name)\" will be permanently deleted.")
                 }
             }
+            .alert("Delete Issue Conversation?", isPresented: Binding(
+                get: { issueToDelete != nil },
+                set: { if !$0 { issueToDelete = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    if let conv = issueToDelete {
+                        modelContext.delete(conv)
+                        try? modelContext.save()
+                    }
+                    issueToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { issueToDelete = nil }
+            } message: {
+                if let conv = issueToDelete {
+                    Text("Remove the local conversation for \"\(conv.topic ?? "this issue")\"? The GitHub issue will not be affected.")
+                }
+            }
             .focusedSceneValue(\.addProjectAction, AddProjectAction { addProjectFolder() })
     }
 
@@ -485,6 +511,9 @@ struct SidebarView: View {
             .sheet(item: $scheduleForHistory) { schedule in
                 ScheduleHistorySheet(schedule: schedule).environment(appState).environment(windowState)
             }
+            .sheet(isPresented: $showingGHIssueSheet) {
+                CreateGHIssueSheet(conversation: nil, project: nil).environment(appState)
+            }
     }
 
     private var sidebarWithObservers1: some View {
@@ -526,6 +555,10 @@ struct SidebarView: View {
         @Bindable var as_ = appState
         return List {
             globalUtilitiesSection
+
+            if !ghIssues.isEmpty {
+                ghInboxSection
+            }
 
             pinnedSection
 
@@ -1751,6 +1784,162 @@ struct SidebarView: View {
         }
         .stableXrayId("sidebar.globalUtilitiesSection")
         .walkthroughAnchor(.sidebarSchedules)
+    }
+
+    @ViewBuilder
+    private var ghInboxSection: some View {
+        Section {
+            if isGHInboxExpanded {
+                ForEach(ghIssues) { conv in
+                    ghInboxIssueRow(conv)
+                }
+            }
+        } header: {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isGHInboxExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isGHInboxExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("GH Inbox")
+                            .font(.headline.weight(.semibold))
+                        let unhandledCount = ghIssues.filter {
+                            ($0.primarySession?.status ?? .completed) != .active
+                        }.count
+                        if unhandledCount > 0 {
+                            Text("\(unhandledCount)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.ghInboxSection.header")
+                Spacer()
+                Button {
+                    showingGHIssueSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Create GitHub issue")
+                .accessibilityIdentifier("sidebar.ghInboxSection.createButton")
+                .help("Create GitHub issue")
+            }
+        }
+        .stableXrayId("sidebar.ghInboxSection")
+    }
+
+    @ViewBuilder
+    private func ghInboxIssueRow(_ conv: Conversation) -> some View {
+        let session = conv.primarySession
+        let isRunning = session?.status == .active
+        let isPaused = session?.status == .paused || session?.status == .interrupted
+        let dotColor: Color = isRunning ? .blue : isPaused ? .orange : .green
+
+        Button {
+            if let urlString = conv.githubIssueUrl, let url = URL(string: urlString) {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(dotColor)
+                    .frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(issueRowTitle(conv))
+                        .font(.callout)
+                        .lineLimit(1)
+                    if let agentName = session?.agent?.name {
+                        Text(agentName)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 4)
+            }
+            .padding(.leading, 18)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar.ghInboxRow.\(conv.id.uuidString)")
+        .contextMenu {
+            // 1. Open in GitHub
+            Button {
+                if let urlString = conv.githubIssueUrl, let url = URL(string: urlString) {
+                    NSWorkspace.shared.open(url)
+                }
+            } label: {
+                Label("Open in GitHub", systemImage: "arrow.up.right.square")
+            }
+            .disabled(conv.githubIssueUrl == nil)
+
+            // 2. Run Now
+            Button {
+                appState.ghIssueRunNow(conv)
+            } label: {
+                Label("Run Now", systemImage: "play.fill")
+            }
+            .disabled(isRunning)
+
+            // 3. Open Conversation
+            Button {
+                windowState.selectedConversationId = conv.id
+            } label: {
+                Label("Open Conversation", systemImage: "bubble.left")
+            }
+            .disabled((conv.messages ?? []).isEmpty)
+
+            Divider()
+
+            // 4. Assign & Run submenu (agents only)
+            Menu {
+                ForEach(agents.filter { $0.isEnabled }) { agent in
+                    Button(agent.name) {
+                        appState.ghIssueRunNow(conv, agentOverride: agent)
+                    }
+                }
+            } label: {
+                Label("Assign & Run…", systemImage: "cpu")
+            }
+
+            Divider()
+
+            // 5. Close Issue
+            Button {
+                if let repo = conv.githubIssueRepo, let number = conv.githubIssueNumber {
+                    appState.sendToSidecar(.ghIssueClose(repo: repo, number: number))
+                }
+            } label: {
+                Label("Close Issue", systemImage: "checkmark.circle")
+            }
+            .disabled(conv.githubIssueRepo == nil || conv.githubIssueNumber == nil)
+
+            // 6. Delete
+            Button(role: .destructive) {
+                issueToDelete = conv
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func issueRowTitle(_ conv: Conversation) -> String {
+        if let number = conv.githubIssueNumber {
+            let title = conv.topic ?? "Issue"
+            let prefix = "GH #\(number): "
+            return "#\(number) \(title.hasPrefix(prefix) ? String(title.dropFirst(prefix.count)) : title)"
+        }
+        return conv.topic ?? "GitHub Issue"
     }
 
     @ViewBuilder
