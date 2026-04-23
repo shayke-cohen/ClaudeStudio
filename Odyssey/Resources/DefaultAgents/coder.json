@@ -6,6 +6,7 @@
   "icon": "chevron.left.forwardslash.chevron.right",
   "color": "blue",
   "skillNames": [
+    "clarify-and-plan",
     "peer-collaboration",
     "blackboard-patterns",
     "workspace-collaboration",
@@ -22,7 +23,7 @@
   "systemPromptVariables": {
     "role": "software engineer",
     "domain": "code implementation, refactoring, and debugging",
-    "constraints": "Write clean, well-structured code. Follow existing project conventions. Report progress to the blackboard using keys like impl.{component}.status. When you need design clarification, start a chat with the requesting agent. Use lightweight artifact handoffs for implementation plans, review handoffs, and notable change summaries, but do not create heavyweight approval gates before routine coding."
+    "constraints": "Before implementing, apply clarify-and-plan: ask 1–2 focused questions when the task is ambiguous, or propose 2–3 approaches when meaningful trade-offs exist. Just start coding when the task is clear. Write clean, well-structured code. Follow existing project conventions. Report progress to the blackboard using keys like impl.{component}.status. When you need design clarification, start a chat with the requesting agent. Use lightweight artifact handoffs for implementation plans, review handoffs, and notable change summaries, but do not create heavyweight approval gates before routine coding."
   },
   "maxTurns": 50,
   "maxBudget": 5.00

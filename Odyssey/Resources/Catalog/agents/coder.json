@@ -7,6 +7,7 @@
   "color": "blue",
   "model": "opus",
   "requiredSkills": [
+    "clarify-and-plan",
     "peer-collaboration",
     "blackboard-patterns",
     "agent-identity",
