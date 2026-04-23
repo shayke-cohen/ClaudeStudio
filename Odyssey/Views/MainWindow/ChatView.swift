@@ -850,7 +850,8 @@ struct ChatView: View {
             if let convo = conversation {
                 CreateGHIssueSheet(
                     conversation: convo,
-                    project: conversationProject
+                    project: conversationProject,
+                    sourceGroup: sourceGroup
                 )
                 .environment(appState)
             }
@@ -1311,6 +1312,7 @@ struct ChatView: View {
             }
 
             headerChips
+                .walkthroughAnchor(.chatChips)
 
             githubIssueBadge
 
@@ -1323,6 +1325,7 @@ struct ChatView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(.bar)
+        .walkthroughAnchor(.chatHeader)
         .task(id: resolvedChatTitle) {
             windowState.chatTitle = resolvedChatTitle
         }
@@ -1730,6 +1733,7 @@ struct ChatView: View {
         .fixedSize()
         .help("Session settings — model, cost, fork, export, and more")
         .xrayId("chat.sessionMenu")
+        .walkthroughAnchor(.chatMoreOptions)
         .accessibilityLabel("Session menu")
     }
 
@@ -2306,6 +2310,7 @@ struct ChatView: View {
                     onAction: { sendQuickAction($0) }
                 )
                 .xrayId("chat.quickActions")
+                .walkthroughAnchor(.chatQuickActions)
             }
 
             HStack(spacing: 8) {
@@ -2372,6 +2377,7 @@ struct ChatView: View {
                 }
                 .buttonStyle(.borderless)
                 .xrayId("chat.planModeToggle")
+                .walkthroughAnchor(.chatPlanMode)
                 .accessibilityLabel("Toggle plan mode")
                 .help(planModeEnabled ? "Plan mode on — agent will read and plan only" : "Plan mode off — agent can make changes")
                 .disabled(isProcessing)

@@ -6,6 +6,7 @@ import SwiftData
 struct CreateGHIssueSheet: View {
     let conversation: Conversation?
     let project: Project?
+    var sourceGroup: AgentGroup? = nil
 
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
@@ -96,12 +97,10 @@ struct CreateGHIssueSheet: View {
                 selectedRepo = availableRepos.first ?? ""
             }
 
-            // Default routing: detect group chat, then single agent, then first enabled agent
-            let sessionAgentIds = Set((conversation?.sessions ?? []).compactMap { $0.agent?.id })
-            if sessionAgentIds.count > 1,
-               let matchingGroup = groups.first(where: { Set($0.agentIds).isSuperset(of: sessionAgentIds) }) {
+            // Default routing: explicit group > single agent > first enabled agent
+            if let group = sourceGroup {
                 routingType = .group
-                selectedGroupName = matchingGroup.name
+                selectedGroupName = group.name
             } else if let agent = conversation?.sessions?.first?.agent {
                 routingType = .agent
                 selectedAgentName = agent.name
