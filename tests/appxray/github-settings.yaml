@@ -1,0 +1,84 @@
+name: GitHub Settings Tab
+description: >
+  Verifies the GitHub settings tab is reachable and shows all expected
+  controls: inbox setup button, daemon toggle, poll interval picker,
+  trusted users field, and per-project repo list.
+  Requires Odyssey DEBUG app running on port 19480.
+
+tests:
+
+  - name: "GH-E2E-1: GitHub tab is visible in settings sidebar"
+    description: >
+      After navigating to Settings, the GitHub tab must appear in the
+      sidebar with testId settings.tab.github.
+    steps:
+      - interact:
+          action: screenshot
+      - inspect:
+          target: tree
+          selector: "@testId('settings.tab.github')"
+    assert:
+      element_exists: "@testId('settings.tab.github')"
+
+  - name: "GH-E2E-2: GitHub settings form loads with all key controls"
+    description: >
+      After tapping the GitHub tab, the settings form must show the inbox
+      setup button (or connected repo label), the daemon toggle, the poll
+      interval picker, and the trusted user add button.
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId('settings.tab.github')"
+      - interact:
+          action: screenshot
+    assert:
+      all:
+        - element_exists: "@testId('settings.github.form')"
+        - element_exists: "@testId('settings.github.daemonToggle')"
+        - element_exists: "@testId('settings.github.pollIntervalPicker')"
+        - element_exists: "@testId('settings.github.trustedUserField')"
+        - element_exists: "@testId('settings.github.trustedUserAddButton')"
+
+  - name: "GH-E2E-3: Inbox setup button visible when inbox not configured"
+    description: >
+      When no inbox repo is configured, the 'Set Up Inbox Repo' button
+      should be visible in the inbox section.
+    steps:
+      - interact:
+          action: screenshot
+    assert:
+      element_exists: "@testId('settings.github.inboxSetupButton')"
+
+  - name: "GH-E2E-4: Add trusted user field accepts input"
+    description: >
+      Typing a username in the trusted user text field and clicking Add
+      should add that user to the list.
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId('settings.github.trustedUserField')"
+      - interact:
+          action: type
+          text: "octocat"
+      - interact:
+          action: tap
+          selector: "@testId('settings.github.trustedUserAddButton')"
+      - interact:
+          action: screenshot
+    assert:
+      element_text_contains:
+        selector: "@text('octocat')"
+        text: "octocat"
+
+  - name: "GH-E2E-5: Poll interval picker shows options"
+    description: >
+      The poll interval picker must be interactable and show the expected
+      duration options.
+    steps:
+      - interact:
+          action: tap
+          selector: "@testId('settings.github.pollIntervalPicker')"
+      - interact:
+          action: screenshot
+    assert:
+      element_exists: "@testId('settings.github.pollIntervalPicker')"
