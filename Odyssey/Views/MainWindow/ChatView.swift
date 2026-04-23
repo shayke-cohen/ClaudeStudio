@@ -1292,9 +1292,10 @@ struct ChatView: View {
                     Button {
                         showCreateGHIssueSheet = true
                     } label: {
-                        Image(systemName: "logo.github")
+                        Label("Issue", systemImage: "logo.github")
+                            .font(captionFont.weight(.medium))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .help("Create GitHub issue from this thread")
                     .xrayId("chat.createGHIssueButton")
                     .accessibilityLabel("Create GitHub Issue")
