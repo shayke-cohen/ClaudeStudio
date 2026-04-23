@@ -88,14 +88,28 @@ struct CreateGHIssueSheet: View {
         }
         .onAppear {
             title = conversation?.topic ?? ""
-            selectedRepo = availableRepos.first ?? ""
-            if let agent = conversation?.sessions?.first?.agent {
+
+            // Default repo: project repo first, then inbox
+            if let projectRepo = project?.githubRepo, !projectRepo.isEmpty {
+                selectedRepo = projectRepo
+            } else {
+                selectedRepo = availableRepos.first ?? ""
+            }
+
+            // Default routing: detect group chat, then single agent, then first enabled agent
+            let sessionAgentIds = Set((conversation?.sessions ?? []).compactMap { $0.agent?.id })
+            if sessionAgentIds.count > 1,
+               let matchingGroup = groups.first(where: { Set($0.agentIds).isSuperset(of: sessionAgentIds) }) {
+                routingType = .group
+                selectedGroupName = matchingGroup.name
+            } else if let agent = conversation?.sessions?.first?.agent {
                 routingType = .agent
                 selectedAgentName = agent.name
             } else if let first = agents.filter(\.isEnabled).first {
                 routingType = .agent
                 selectedAgentName = first.name
             }
+
             if selectedGroupName.isEmpty, let first = groups.first {
                 selectedGroupName = first.name
             }
