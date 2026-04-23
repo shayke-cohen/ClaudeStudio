@@ -55,6 +55,8 @@ targets:
         type: folder
       - path: Odyssey/Browser/Resources/browser-inspector.js
         type: file
+      - path: Odyssey/Resources/install-daemon.sh
+        type: file
     dependencies:
       - package: AppXray
       - package: MarkdownUI

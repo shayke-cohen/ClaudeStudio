@@ -2,6 +2,7 @@ import Foundation
 
 /// Persists GitHub poller configuration in UserDefaults.
 /// Not a SwiftData model — poller config is machine-global, not per-project.
+@MainActor
 @Observable
 final class GHPollerSettings {
     static let shared = GHPollerSettings()

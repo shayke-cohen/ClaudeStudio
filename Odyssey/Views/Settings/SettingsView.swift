@@ -5,6 +5,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case models
     case connectors
+    case github
     case chatDisplay
     case quickActions
     case configuration
@@ -21,6 +22,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "General"
         case .models: "Models"
         case .connectors: "Connectors"
+        case .github: "GitHub"
         case .chatDisplay: "Chat Display"
         case .quickActions: "Quick Actions"
         case .configuration: "Configuration"
@@ -37,6 +39,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "Appearance, reading comfort, and quick actions"
         case .models: "Cloud defaults and local model setup"
         case .connectors: "OAuth setup, broker config, and tokens"
+        case .github: "Remote access via GitHub Issues"
         case .chatDisplay: "Rendering and conversation chrome"
         case .quickActions: "Customize the shortcut chips in the chat bar"
         case .configuration: "Manage agents, groups, skills, MCPs, templates, and permissions"
@@ -53,6 +56,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .models: "cpu"
         case .connectors: "link.badge.plus"
+        case .github: "arrow.triangle.2.circlepath"
         case .chatDisplay: "bubble.left.and.text.bubble.right"
         case .quickActions: "rectangle.grid.1x2"
         case .configuration: "gearshape.2"
@@ -69,6 +73,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "settings.tab.general"
         case .models: "settings.tab.models"
         case .connectors: "settings.tab.connectors"
+        case .github: "settings.tab.github"
         case .chatDisplay: "settings.tab.chatDisplay"
         case .quickActions: "settings.tab.quickActions"
         case .configuration: "settings.tab.configuration"
@@ -217,6 +222,8 @@ struct SettingsView: View {
                 ModelsSettingsTab(state: modelsState)
             case .connectors:
                 ConnectorsSettingsTab()
+            case .github:
+                GitHubSettingsView()
             case .chatDisplay:
                 ChatDisplaySettingsTab()
             case .quickActions:
