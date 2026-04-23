@@ -3026,7 +3026,7 @@ private struct ActiveSessionObserver: View {
     private func rebuild() {
         var agentIds = Set<UUID>()
         var groupIds = Set<UUID>()
-        let groupAgentSets = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, Set($0.agentIds)) })
+        let groupAgentSets = Dictionary(groups.map { ($0.id, Set($0.agentIds)) }, uniquingKeysWith: { a, _ in a })
         for session in allSessions {
             let key = session.id.uuidString
             guard appState.sessionActivity[key]?.isActive == true else { continue }
