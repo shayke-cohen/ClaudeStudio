@@ -1,3 +1,4 @@
+import { runGh } from "../gh-cli.js";
 import { z } from "zod";
 import type { ToolContext } from "./tool-context.js";
 import { createTextResult, defineSharedTool } from "./shared-tool.js";
@@ -17,7 +18,7 @@ export function createGitHubTools(ctx: ToolContext) {
       },
       async (args, extra: any) => {
         const sessionId = extra?.sessionId ?? "unknown";
-        const { runGh } = await import("../gh-cli.js");
+        
 
         // Determine target repo
         const targetRepo = args.repo ?? ctx.ghPollerConfig?.inboxRepo ?? "";
