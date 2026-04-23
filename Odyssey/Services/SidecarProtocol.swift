@@ -282,9 +282,6 @@ enum SidecarCommand: Sendable {
                 GHPollerConfigWire(type: "gh.poller.config", inboxRepo: inboxRepo, projectRepos: projectRepos, trustedUsers: trustedUsers, intervalSeconds: intervalSeconds)
             )
         case .ghIssueClose(let repo, let number):
-            struct GHIssueCloseWire: Encodable {
-                let type: String; let repo: String; let number: Int
-            }
             return try encoder.encode(GHIssueCloseWire(type: "gh.issue.close", repo: repo, number: number))
         }
     }
@@ -669,6 +666,12 @@ private struct GHPollerConfigWire: Codable {
     let projectRepos: [GHProjectRepoWire]
     let trustedUsers: [String]
     let intervalSeconds: Int
+}
+
+private struct GHIssueCloseWire: Encodable {
+    let type: String  // "gh.issue.close"
+    let repo: String
+    let number: Int
 }
 
 struct ConnectorWire: Codable, Sendable, Identifiable {

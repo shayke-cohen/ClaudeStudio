@@ -1899,6 +1899,7 @@ final class AppState {
             handleGHIssueCreated(issueUrl: issueUrl, issueNumber: issueNumber, repo: repo, conversationId: conversationId)
 
         case .ghIssueClosed(let repo, let number):
+            // TODO: Task 4 — replace with handleGHIssueClosed(repo: repo, number: number)
             Log.github.info("gh.issue.closed #\(number, privacy: .public) \(repo, privacy: .public)")
         }
     }
