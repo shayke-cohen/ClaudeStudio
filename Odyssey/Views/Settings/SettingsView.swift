@@ -3,9 +3,9 @@ import SwiftData
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
+    case github
     case models
     case connectors
-    case github
     case chatDisplay
     case quickActions
     case configuration
