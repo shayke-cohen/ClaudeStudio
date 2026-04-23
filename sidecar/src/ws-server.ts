@@ -10,6 +10,7 @@ import { GenerationService } from "./generation-service.js";
 import type { GHPoller } from "./gh-poller.js";
 import type { GHRouter } from "./gh-router.js";
 import { runGh } from "./gh-cli.js";
+import { dispatchGHCommand } from "./gh-command-handler.js";
 
 
 export interface WsServerOptions {
@@ -598,6 +599,10 @@ export class WsServer {
         } else {
           logger.warn("github", "gh.poller.config received but GHPoller/GHRouter not initialised");
         }
+        break;
+
+      case "gh.issue.close":
+        await dispatchGHCommand(command, this.ctx);
         break;
     }
   }
