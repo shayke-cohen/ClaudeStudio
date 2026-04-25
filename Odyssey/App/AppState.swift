@@ -106,6 +106,9 @@ final class AppState {
     /// AppState auto-persists agent messages for sessions in this set on `sessionResult`.
     var sharedRoomAutoFinalizeSessionIds: Set<String> = []
 
+    /// Session IDs spawned by the GH issue bridge. Auto-persists response on completion.
+    var ghAutoFinalizeSessionIds: Set<String> = []
+
     // MARK: - Voice
     let voiceInput = VoiceInputService()
     let tts = TextToSpeechService()
@@ -1378,6 +1381,10 @@ final class AppState {
                 sharedRoomAutoFinalizeSessionIds.remove(sessionId)
                 finalizeSharedRoomAgentMessage(sessionId: sessionId)
             }
+            if ghAutoFinalizeSessionIds.contains(sessionId) {
+                ghAutoFinalizeSessionIds.remove(sessionId)
+                flushStreamingContent(sessionId: sessionId)
+            }
             if let ctx = modelContext {
                 Task { await sidecarManager?.pushConversationSync(modelContext: ctx) }
             }
@@ -1935,9 +1942,21 @@ final class AppState {
         conversation.githubIssueNumber = issueNumber
         conversation.githubIssueRepo = repo
 
+        // Seed a user-visible message so the chat shows what was sent to the agent
+        let issueMsg = ConversationMessage(
+            text: "GitHub Issue #\(issueNumber): \(title)\n\n[\(issueUrl)](\(issueUrl))",
+            type: .chat,
+            conversation: conversation
+        )
+        conversation.messages = [issueMsg]
+
         ctx.insert(session)
         ctx.insert(conversation)
+        ctx.insert(issueMsg)
         try? ctx.save()
+
+        // Track for auto-persist so the agent response is saved when the session completes
+        ghAutoFinalizeSessionIds.insert(sessionId)
 
         ChatNotificationManager.shared.notifyGHIssueTriggered(issueNumber: issueNumber, repo: repo, title: title)
         Log.github.info("gh.issue.triggered: created conv=\(conversationId, privacy: .public) sess=\(sessionId, privacy: .public)")

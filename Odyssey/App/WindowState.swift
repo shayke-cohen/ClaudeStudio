@@ -270,7 +270,7 @@ final class WindowState {
     /// without the sidebar consuming and clearing it first, the second onChange won't fire.
     var sidebarRevealConversationId: UUID? = nil
 
-    var inspectorVisible = true
+    var inspectorVisible = false
     var selectedInspectorTab: WindowInspectorTab = .info
     var inspectorFileSelectionRequest: InspectorFileSelectionRequest?
 

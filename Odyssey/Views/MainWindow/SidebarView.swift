@@ -1847,25 +1847,15 @@ struct SidebarView: View {
         let dotColor: Color = isRunning ? .blue : isPaused ? .orange : .green
 
         Button {
-            if let urlString = conv.githubIssueUrl, let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-            }
+            windowState.selectedConversationId = conv.id
         } label: {
             HStack(spacing: 8) {
                 Circle()
                     .fill(dotColor)
                     .frame(width: 7, height: 7)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(issueRowTitle(conv))
-                        .font(.callout)
-                        .lineLimit(1)
-                    if let agentName = session?.agent?.name {
-                        Text(agentName)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                }
+                Text(issueRowTitle(conv))
+                    .font(.callout)
+                    .lineLimit(1)
                 Spacer(minLength: 4)
             }
             .padding(.leading, 18)
@@ -1897,7 +1887,6 @@ struct SidebarView: View {
             } label: {
                 Label("Open Conversation", systemImage: "bubble.left")
             }
-            .disabled((conv.messages ?? []).isEmpty)
 
             Divider()
 
