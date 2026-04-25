@@ -1942,10 +1942,10 @@ final class AppState {
         conversation.githubIssueNumber = issueNumber
         conversation.githubIssueRepo = repo
 
-        // Seed a user-visible message so the chat shows what was sent to the agent
+        // Seed a system message so the chat shows what was sent to the agent
         let issueMsg = ConversationMessage(
-            text: "GitHub Issue #\(issueNumber): \(title)\n\n[\(issueUrl)](\(issueUrl))",
-            type: .chat,
+            text: "GitHub Issue #\(issueNumber): \(title)\n\(issueUrl)",
+            type: .system,
             conversation: conversation
         )
         conversation.messages = [issueMsg]
@@ -1998,8 +1998,8 @@ final class AppState {
             conversation.githubIssueNumber = issueNumber
             conversation.githubIssueRepo = repo
             let issueMsg = ConversationMessage(
-                text: "GitHub Issue #\(issueNumber): \(title)\n\n[\(issueUrl)](\(issueUrl))",
-                type: .chat,
+                text: "GitHub Issue #\(issueNumber): \(title)\n\(issueUrl)",
+                type: .system,
                 conversation: conversation
             )
             conversation.messages = [issueMsg]
