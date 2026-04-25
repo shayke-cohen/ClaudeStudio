@@ -11,6 +11,9 @@ struct AdapterContext: Sendable {
     var mcpServers: [LocalAgentMCPServer]
     var localPermissionRules: [String]
     var allowedBuiltInTools: Set<String>
+    var tokenReporter: (@Sendable (String, String) -> Void)?
+
+    var isStreaming: Bool { tokenReporter != nil }
 }
 
 struct AdapterTurnResult: Sendable {
@@ -127,9 +130,15 @@ struct MLXModelAdapter: LocalModelAdapter {
         transcript: [TranscriptItem],
         context: AdapterContext
     ) async throws -> AdapterTurnResult {
+        let reporter = context.tokenReporter
+        let sid = sessionId
         let generator: any LocalAgentTextGenerating = {
             if let command = ManagedMLXModels.resolveRunner() {
-                return MLXCommandGenerator(command: command, sessionId: sessionId)
+                return MLXCommandGenerator(
+                    command: command,
+                    sessionId: sid,
+                    onToken: reporter.map { r in { chunk in r(sid, chunk) } }
+                )
             }
             return FallbackGenerator(prefix: "[mlx-fallback]")
         }()
@@ -160,6 +169,7 @@ private struct FallbackGenerator: LocalAgentTextGenerating {
 private struct MLXCommandGenerator: LocalAgentTextGenerating {
     let command: String?
     let sessionId: String
+    let onToken: (@Sendable (String) -> Void)?
 
     func generate(prompt: String, config: LocalAgentConfig) async throws -> String {
         guard let command else {
@@ -172,7 +182,9 @@ private struct MLXCommandGenerator: LocalAgentTextGenerating {
             command: command,
             model: config.model,
             prompt: prompt,
-            sessionId: sessionId
+            config: config,
+            sessionId: sessionId,
+            onToken: onToken
         )
     }
 }
@@ -221,7 +233,9 @@ private func executePromptLoop(
             toolCall: directToolCall,
             toolResult: toolResult
         ))
-        events.append(contentsOf: tokenEvents(for: resultText, sessionId: sessionId))
+        if !context.isStreaming {
+            events.append(contentsOf: tokenEvents(for: resultText, sessionId: sessionId))
+        }
         return AdapterTurnResult(resultText: resultText, events: events)
     }
 
@@ -240,7 +254,9 @@ private func executePromptLoop(
             finalAnswer = generated
         }
         let normalized = normalizeAssistantResponse(finalAnswer, modePrefix: modePrefix)
-        events.append(contentsOf: tokenEvents(for: normalized, sessionId: sessionId))
+        if !context.isStreaming {
+            events.append(contentsOf: tokenEvents(for: normalized, sessionId: sessionId))
+        }
         return AdapterTurnResult(resultText: normalized, events: events)
     }
 
@@ -279,12 +295,16 @@ private func executePromptLoop(
         }
 
         let resultText = generated.hasPrefix(modePrefix) ? generated : "\(modePrefix) \(generated)"
-        events.append(contentsOf: tokenEvents(for: resultText, sessionId: sessionId))
+        if !context.isStreaming {
+            events.append(contentsOf: tokenEvents(for: resultText, sessionId: sessionId))
+        }
         return AdapterTurnResult(resultText: resultText, events: events)
     }
 
     let exhausted = "\(modePrefix) Reached the tool loop limit without a final response."
-    events.append(contentsOf: tokenEvents(for: exhausted, sessionId: sessionId))
+    if !context.isStreaming {
+        events.append(contentsOf: tokenEvents(for: exhausted, sessionId: sessionId))
+    }
     return AdapterTurnResult(resultText: exhausted, events: events)
 }
 
@@ -362,10 +382,18 @@ private func buildAgentLoopPrompt(config: LocalAgentConfig, transcript: [Transcr
     Conversation:
     \(history)
 
-    If you need a tool, reply ONLY with a JSON object:
+    TOOL USE:
+    If you need a tool, output ONLY a tool call — nothing else. Use one of:
+
+    Format A (preferred — XML):
+    <tool_call>
+    {"tool":"tool_name","arguments":{"key":"value"}}
+    </tool_call>
+
+    Format B (fallback — bare JSON):
     {"tool":"tool_name","arguments":{"key":"value"}}
 
-    Otherwise reply with the final answer only.
+    Otherwise reply with your final answer in plain text. Do not combine a tool call with prose.
     """
 }
 
@@ -782,20 +810,69 @@ private func sanitizedPathCandidate(_ path: String) -> String {
     path.trimmingCharacters(in: CharacterSet(charactersIn: ".,:;!?()[]{}"))
 }
 
-private func extractToolCall(from text: String) -> ParsedToolCall? {
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard trimmed.hasPrefix("{"),
-          let data = trimmed.data(using: .utf8),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let toolName = json["tool"] as? String else {
-        return nil
+func extractToolCall(from text: String) -> ParsedToolCall? {
+    // Strategy 1: <tool_call>...</tool_call> XML block (Qwen3 native format)
+    if let body = firstCapture(
+        pattern: #"<tool_call>\s*([\s\S]*?)\s*</tool_call>"#,
+        in: text,
+        options: [.dotMatchesLineSeparators]
+    ), let call = parseToolCallJSON(body) {
+        return call
     }
 
+    // Strategy 2: fenced code block ```json {...} ``` or ``` {...} ```
+    if let body = firstCapture(
+        pattern: #"```(?:json)?\s*(\{[\s\S]*?\})\s*```"#,
+        in: text,
+        options: [.dotMatchesLineSeparators]
+    ), let call = parseToolCallJSON(body) {
+        return call
+    }
+
+    // Strategy 3: scan for first '{' — handles preamble text before bare JSON
+    if let braceRange = text.range(of: "{") {
+        let candidate = longestLeadingObject(from: String(text[braceRange.lowerBound...]))
+        if let call = parseToolCallJSON(candidate) {
+            return call
+        }
+    }
+
+    return nil
+}
+
+private func parseToolCallJSON(_ raw: String) -> ParsedToolCall? {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty,
+          let data = trimmed.data(using: .utf8),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let toolName = json["tool"] as? String,
+          !toolName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        return nil
+    }
     let rawArguments = json["arguments"] as? [String: Any] ?? [:]
     return ParsedToolCall(
         name: toolName,
         arguments: rawArguments.mapValues(DynamicValue.from(any:))
     )
+}
+
+// Walk forward to find the first complete top-level JSON object starting at text[0]
+private func longestLeadingObject(from text: String) -> String {
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for (i, c) in text.enumerated() {
+        if escaped { escaped = false; continue }
+        if c == "\\" && inString { escaped = true; continue }
+        if c == "\"" { inString.toggle(); continue }
+        if inString { continue }
+        if c == "{" { depth += 1 }
+        if c == "}" {
+            depth -= 1
+            if depth == 0 { return String(text.prefix(i + 1)) }
+        }
+    }
+    return text
 }
 
 private func tokenEvents(for text: String, sessionId: String) -> [LocalAgentEvent] {
@@ -804,26 +881,45 @@ private func tokenEvents(for text: String, sessionId: String) -> [LocalAgentEven
     }
 }
 
-private func runMLXCommand(command: String, model: String, prompt: String, sessionId: String) async throws -> String {
+private func runMLXCommand(
+    command: String,
+    model: String,
+    prompt: String,
+    config: LocalAgentConfig,
+    sessionId: String,
+    onToken: (@Sendable (String) -> Void)? = nil
+) async throws -> String {
+    let resolvedModel = ManagedMLXModels.resolveModelPath(model)
+    let maxTokens = config.maxTokensPerStep ?? 2048
     var arguments = [
         "eval",
-        "--model", model,
+        "--model", resolvedModel,
         "--prompt", prompt,
-        "--max-tokens", "256",
+        "--max-tokens", "\(maxTokens)",
         "--quiet",
     ]
-    if !ManagedMLXModels.looksLikeLocalModelPath(model) {
+    if !ManagedMLXModels.looksLikeLocalModelPath(resolvedModel) {
         arguments.append(contentsOf: ["--download", ManagedMLXModels.resolveDownloadDirectory()])
     }
-    let output = try await ManagedMLXModels.runProcessForSession(
-        executable: command,
-        arguments: arguments,
-        sessionId: sessionId,
-        extraEnvironment: [
-            ManagedMLXModels.downloadDirectoryEnvironmentKey: ManagedMLXModels.resolveDownloadDirectory()
-        ]
-    )
-    return sanitizeMLXOutput(output)
+    let extraEnv = [ManagedMLXModels.downloadDirectoryEnvironmentKey: ManagedMLXModels.resolveDownloadDirectory()]
+    if let onToken {
+        let raw = try await ManagedMLXModels.runProcessForSessionStreaming(
+            executable: command,
+            arguments: arguments,
+            sessionId: sessionId,
+            extraEnvironment: extraEnv,
+            onChunk: onToken
+        )
+        return sanitizeMLXOutput(raw)
+    } else {
+        let output = try await ManagedMLXModels.runProcessForSession(
+            executable: command,
+            arguments: arguments,
+            sessionId: sessionId,
+            extraEnvironment: extraEnv
+        )
+        return sanitizeMLXOutput(output)
+    }
 }
 
 func sanitizeMLXOutput(_ rawOutput: String) -> String {

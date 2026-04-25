@@ -69,7 +69,10 @@ public actor LocalAgentCore {
         return SessionOperationResult(backendSessionId: backendSessionId)
     }
 
-    public func sendMessage(_ params: MessageSessionParams) async throws -> TurnResponse {
+    public func sendMessage(
+        _ params: MessageSessionParams,
+        tokenReporter: (@Sendable (String, String) -> Void)? = nil
+    ) async throws -> TurnResponse {
         guard var session = sessions[params.sessionId] else {
             throw NSError(domain: "OdysseyLocalAgentCore", code: 404, userInfo: [
                 NSLocalizedDescriptionKey: "Session not found: \(params.sessionId)",
@@ -94,7 +97,8 @@ public actor LocalAgentCore {
                 remoteToolNames: session.remoteToolNames,
                 mcpServers: session.config.mcpServers,
                 localPermissionRules: session.config.allowedTools,
-                allowedBuiltInTools: session.allowedBuiltInTools
+                allowedBuiltInTools: session.allowedBuiltInTools,
+                tokenReporter: tokenReporter
             )
         )
         session.transcript.append(contentsOf: transcriptEntries(from: result.events))

@@ -782,9 +782,8 @@ enum LocalProviderInstaller {
         process.standardError = outputPipe
 
         try process.run()
-        process.waitUntilExit()
-
         let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         let output = String(data: outputData, encoding: .utf8) ?? ""
 
         guard process.terminationStatus == 0 else {

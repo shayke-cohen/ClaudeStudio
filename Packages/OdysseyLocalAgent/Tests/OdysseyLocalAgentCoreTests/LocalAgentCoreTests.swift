@@ -68,6 +68,10 @@ final class LocalAgentCoreTests: XCTestCase {
                 "mlx-community/Qwen3-8B-4bit",
                 "mlx-community/Qwen2.5-7B-Instruct-4bit",
                 "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+                "mlx-community/gemma-4-e2b-it-4bit",
+                "mlx-community/gemma-4-e4b-it-4bit",
+                "mlx-community/gemma-4-26b-a4b-it-4bit",
+                "mlx-community/gemma-4-31b-it-4bit",
             ]
         )
     }
@@ -701,6 +705,98 @@ final class LocalAgentCoreTests: XCTestCase {
         """.write(to: scriptURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
         return scriptURL.path
+    }
+
+    // MARK: - Token budget tests
+
+    func testMLXUsesConfiguredTokenBudget() async throws {
+        let echoBin = tempDirectory.appendingPathComponent("echo-runner.sh")
+        try """
+        #!/bin/sh
+        echo "$@"
+        """.write(to: echoBin, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: echoBin.path)
+        setenv("ODYSSEY_MLX_RUNNER", echoBin.path, 1)
+        defer { unsetenv("ODYSSEY_MLX_RUNNER") }
+
+        let core = LocalAgentCore()
+        _ = await core.createSession(.init(
+            sessionId: "budget-session",
+            config: .init(
+                name: "Budget", provider: .mlx, model: "test-model",
+                systemPrompt: "sys", workingDirectory: "/tmp",
+                maxTokensPerStep: 4096
+            )
+        ))
+
+        let response = try await core.sendMessage(.init(sessionId: "budget-session", text: "hi"))
+        let eventTexts = response.events.compactMap(\.text).joined()
+        XCTAssertTrue(
+            response.resultText.contains("4096") || eventTexts.contains("4096"),
+            "Expected --max-tokens 4096 in args: \(response.resultText)"
+        )
+    }
+
+    func testMLXDefaultTokenBudgetIs2048() async throws {
+        let echoBin = tempDirectory.appendingPathComponent("echo-runner-default.sh")
+        try """
+        #!/bin/sh
+        echo "$@"
+        """.write(to: echoBin, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: echoBin.path)
+        setenv("ODYSSEY_MLX_RUNNER", echoBin.path, 1)
+        defer { unsetenv("ODYSSEY_MLX_RUNNER") }
+
+        let core = LocalAgentCore()
+        _ = await core.createSession(.init(
+            sessionId: "default-budget-session",
+            config: .init(
+                name: "DefaultBudget", provider: .mlx, model: "test-model",
+                systemPrompt: "sys", workingDirectory: "/tmp"
+            )
+        ))
+
+        let response = try await core.sendMessage(.init(sessionId: "default-budget-session", text: "hi"))
+        XCTAssertTrue(response.resultText.contains("2048"),
+                      "Expected --max-tokens 2048 in args: \(response.resultText)")
+    }
+
+    // MARK: - Tool-call extraction tests
+
+    func testExtractToolCallFromXMLBlock() {
+        let text = """
+        Sure, let me look that up.
+        <tool_call>
+        {"tool":"read_file","arguments":{"path":"README.md"}}
+        </tool_call>
+        """
+        let result = extractToolCall(from: text)
+        XCTAssertEqual(result?.name, "read_file")
+        XCTAssertEqual(result?.arguments["path"]?.stringValue, "README.md")
+    }
+
+    func testExtractToolCallFromEmbeddedJSON() {
+        let text = #"Let me call the tool: {"tool":"write_file","arguments":{"path":"out.txt","content":"hello"}}"#
+        let result = extractToolCall(from: text)
+        XCTAssertEqual(result?.name, "write_file")
+        XCTAssertEqual(result?.arguments["path"]?.stringValue, "out.txt")
+    }
+
+    func testExtractToolCallFromFencedCodeBlock() {
+        let text = """
+        I'll use this:
+        ```json
+        {"tool":"run_command","arguments":{"command":"ls"}}
+        ```
+        """
+        let result = extractToolCall(from: text)
+        XCTAssertEqual(result?.name, "run_command")
+        XCTAssertEqual(result?.arguments["command"]?.stringValue, "ls")
+    }
+
+    func testExtractToolCallIgnoresPureProse() {
+        let text = "Tel Aviv is on Israel's Mediterranean coast, about 60 km from Jerusalem."
+        XCTAssertNil(extractToolCall(from: text))
     }
 
     private func makeModelArchive(named directoryName: String) throws -> URL {

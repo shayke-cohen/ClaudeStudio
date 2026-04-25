@@ -156,6 +156,7 @@ public struct LocalAgentConfig: Codable, Sendable, Equatable {
     public var workingDirectory: String
     public var maxTurns: Int?
     public var maxThinkingTokens: Int?
+    public var maxTokensPerStep: Int?
     public var allowedTools: [String]
     public var mcpServers: [LocalAgentMCPServer]
     public var skills: [LocalAgentSkill]
@@ -169,6 +170,7 @@ public struct LocalAgentConfig: Codable, Sendable, Equatable {
         workingDirectory: String,
         maxTurns: Int? = nil,
         maxThinkingTokens: Int? = nil,
+        maxTokensPerStep: Int? = nil,
         allowedTools: [String] = [],
         mcpServers: [LocalAgentMCPServer] = [],
         skills: [LocalAgentSkill] = [],
@@ -181,6 +183,7 @@ public struct LocalAgentConfig: Codable, Sendable, Equatable {
         self.workingDirectory = workingDirectory
         self.maxTurns = maxTurns
         self.maxThinkingTokens = maxThinkingTokens
+        self.maxTokensPerStep = maxTokensPerStep
         self.allowedTools = allowedTools
         self.mcpServers = mcpServers
         self.skills = skills

@@ -572,6 +572,35 @@ public enum ManagedMLXModels {
         return FileManager.default.fileExists(atPath: standardizedPath(trimmed))
     }
 
+    /// Resolves a model path to the directory the MLX runner expects (one containing `config.json`).
+    /// HuggingFace cache directories store model files under `snapshots/{commit}/` rather than at
+    /// the root; this function walks that structure when needed.
+    public static func resolveModelPath(_ value: String) -> String {
+        let path = standardizedPath(value)
+        let fileManager = FileManager.default
+
+        // Already a proper model directory.
+        if fileManager.fileExists(atPath: URL(fileURLWithPath: path).appendingPathComponent("config.json").path) {
+            return path
+        }
+
+        // HuggingFace cache layout: refs/main contains the commit hash.
+        let refsMain = URL(fileURLWithPath: path).appendingPathComponent("refs/main").path
+        if let commit = try? String(contentsOfFile: refsMain, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !commit.isEmpty {
+            let snapshotPath = URL(fileURLWithPath: path)
+                .appendingPathComponent("snapshots")
+                .appendingPathComponent(commit)
+                .path
+            if fileManager.fileExists(atPath: URL(fileURLWithPath: snapshotPath).appendingPathComponent("config.json").path) {
+                return snapshotPath
+            }
+        }
+
+        return path
+    }
+
     public static func normalizeModelIdentifier(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !looksLikeLocalModelPath(trimmed) else {
@@ -778,6 +807,90 @@ public enum ManagedMLXModels {
             throw ManagedMLXModelsError.installFailed(output)
         }
         return output
+    }
+
+    @discardableResult
+    public static func runProcessForSessionStreaming(
+        executable: String,
+        arguments: [String],
+        sessionId: String,
+        currentDirectory: String? = nil,
+        extraEnvironment: [String: String] = [:],
+        timeout: TimeInterval? = 60,
+        onChunk: @escaping @Sendable (String) -> Void
+    ) async throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        if let currentDirectory {
+            process.currentDirectoryURL = URL(fileURLWithPath: currentDirectory)
+        }
+
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = environment["PATH"]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? environment["PATH"]
+            : "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        for (key, value) in extraEnvironment {
+            environment[key] = value
+        }
+        process.environment = environment
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        final class OutputBox: @unchecked Sendable {
+            var chunks: [String] = []
+        }
+        let outputBox = OutputBox()
+
+        stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            outputBox.chunks.append(text)
+            let filtered = text.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && !$0.lowercased().hasPrefix("loading ") }
+                .joined(separator: "\n")
+            if !filtered.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                onChunk(filtered)
+            }
+        }
+        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
+            _ = handle.availableData
+        }
+
+        try process.run()
+        await ManagedMLXProcessRegistry.shared.register(sessionId: sessionId, process: process)
+        defer {
+            stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            Task {
+                await ManagedMLXProcessRegistry.shared.unregister(sessionId: sessionId, process: process)
+            }
+        }
+
+        let startedAt = Date()
+        while process.isRunning {
+            try Task.checkCancellation()
+            if let timeout, Date().timeIntervalSince(startedAt) >= timeout {
+                process.terminate()
+                throw ManagedMLXModelsError.installFailed(
+                    "Process timed out after \(Int(timeout))s: \(URL(fileURLWithPath: executable).lastPathComponent) \(arguments.joined(separator: " "))"
+                )
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        if Task.isCancelled {
+            throw ManagedMLXModelsError.cancelled
+        }
+        let fullOutput = outputBox.chunks.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard process.terminationStatus == 0 else {
+            throw ManagedMLXModelsError.installFailed(fullOutput)
+        }
+        return fullOutput
     }
 
     public static func cancelSessionProcess(sessionId: String) async {

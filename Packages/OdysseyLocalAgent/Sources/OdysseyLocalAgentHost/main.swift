@@ -22,7 +22,11 @@ actor HostService {
         encoder.outputFormatting = [.sortedKeys]
     }
 
-    func handle(method: String, params: Any?) async throws -> Any {
+    func handle(
+        method: String,
+        params: Any?,
+        tokenReporter: (@Sendable (String, String) -> Void)? = nil
+    ) async throws -> Any {
         let paramsData = try data(for: params)
         switch method {
         case LocalAgentHostMethod.initialize.rawValue:
@@ -57,7 +61,7 @@ actor HostService {
         case LocalAgentHostMethod.sessionMessage.rawValue,
              LocalAgentHostMethod.agentSendMessage.rawValue:
             let decoded = try decoder.decode(MessageSessionParams.self, from: paramsData)
-            return try jsonObject(from: try await core.sendMessage(decoded))
+            return try jsonObject(from: try await core.sendMessage(decoded, tokenReporter: tokenReporter))
         case LocalAgentHostMethod.sessionResume.rawValue,
              LocalAgentHostMethod.agentResumeSession.rawValue:
             let decoded = try decoder.decode(ResumeSessionParams.self, from: paramsData)
@@ -195,7 +199,20 @@ private final class StdioServer {
             requestID = id
 
             if let method = root["method"] as? String {
-                let result = try await service.handle(method: method, params: root["params"])
+                let isMessageMethod = method == LocalAgentHostMethod.sessionMessage.rawValue
+                    || method == LocalAgentHostMethod.agentSendMessage.rawValue
+                var tokenReporter: (@Sendable (String, String) -> Void)?
+                if isMessageMethod {
+                    tokenReporter = { [writer] sessionId, text in
+                        Task<Void, Never> {
+                            try? await writer.write([
+                                "method": "stream.token",
+                                "params": ["sessionId": sessionId, "text": text],
+                            ])
+                        }
+                    }
+                }
+                let result = try await service.handle(method: method, params: root["params"], tokenReporter: tokenReporter)
                 try await writer.write(["id": id, "result": result])
                 return
             }

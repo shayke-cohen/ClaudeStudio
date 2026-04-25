@@ -31,6 +31,14 @@ export class LocalAgentRuntime implements ProviderRuntime {
   ) {
     this.provider = provider;
     this.client = new LocalAgentHostClient();
+    this.client.registerHandler("stream.token", async (params) => {
+      const { sessionId, text } = params as { sessionId: string; text: string };
+      if (sessionId && text) {
+        this.deps.emit({ type: "stream.token", sessionId, text });
+      }
+      return { ok: true };
+    });
+
     this.client.registerHandler("tool.call", async (params) => {
       const handlers = this.toolHandlers(params.sessionId);
       const handler = handlers.get(params.toolName);
@@ -172,6 +180,7 @@ export class LocalAgentRuntime implements ProviderRuntime {
       workingDirectory: config.workingDirectory,
       maxTurns: config.maxTurns,
       maxThinkingTokens: config.maxThinkingTokens,
+      maxTokensPerStep: config.maxTokensPerStep,
       allowedTools: config.allowedTools,
       mcpServers: config.mcpServers,
       skills: config.skills,

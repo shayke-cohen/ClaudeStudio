@@ -88,6 +88,7 @@ export interface AgentConfig {
   maxTurns?: number;
   maxBudget?: number;
   maxThinkingTokens?: number;
+  maxTokensPerStep?: number;
   workingDirectory: string;
   skills: SkillContent[];
   interactive?: boolean;

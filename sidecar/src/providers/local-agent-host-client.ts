@@ -206,32 +206,36 @@ export class LocalAgentHostClient {
   }
 
   private async handleRequest(payload: JsonRpcResponse) {
+    const isNotification = payload.id == null;
     const handler = this.handlers.get(payload.method ?? "");
     if (!handler) {
-      this.write({
-        id: payload.id,
-        error: {
-          code: -32601,
-          message: `Unknown host callback method: ${payload.method ?? "unknown"}`,
-        },
-      });
+      if (!isNotification) {
+        this.write({
+          id: payload.id,
+          error: {
+            code: -32601,
+            message: `Unknown host callback method: ${payload.method ?? "unknown"}`,
+          },
+        });
+      }
       return;
     }
 
     try {
       const result = await handler(payload.params ?? {});
-      this.write({
-        id: payload.id,
-        result,
-      });
+      if (!isNotification) {
+        this.write({ id: payload.id, result });
+      }
     } catch (error: any) {
-      this.write({
-        id: payload.id,
-        error: {
-          code: -32000,
-          message: error?.message ?? "Local agent callback failed",
-        },
-      });
+      if (!isNotification) {
+        this.write({
+          id: payload.id,
+          error: {
+            code: -32000,
+            message: error?.message ?? "Local agent callback failed",
+          },
+        });
+      }
     }
   }
 
