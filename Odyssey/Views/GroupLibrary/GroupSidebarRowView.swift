@@ -126,22 +126,20 @@ struct GroupSidebarRowView: View {
                             onSelectConversation(conv)
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: "archivebox")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
                                 Text(conv.topic ?? "Untitled")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(isConvSelected ? .primary : .tertiary)
                                     .lineLimit(1)
-                                Spacer()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 Text(conv.startedAt, style: .relative)
                                     .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.quaternary)
+                                    .fixedSize()
                             }
                             .padding(.vertical, 3)
-                            .padding(.horizontal, 6)
-                            .background(isConvSelected ? Color.accentColor.opacity(0.15) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .padding(.horizontal, 8)
+                            .background(isConvSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("sidebar.groupArchivedThreadRow.\(conv.id.uuidString)")
@@ -378,75 +376,29 @@ struct GroupSidebarRowView: View {
         _ conv: Conversation,
         isConvSelected: Bool
     ) -> some View {
-        let tint = Color.fromAgentColor(group.color)
-        HStack(spacing: 7) {
+        HStack(spacing: 6) {
             if conv.isUnread {
                 Circle()
                     .fill(Color.blue)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 6, height: 6)
             }
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [tint.opacity(0.18), tint.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(tint.opacity(0.14), lineWidth: 1)
-                Text(group.icon)
-                    .font(.system(size: 13))
-            }
-            .frame(width: 24, height: 24)
 
-            HStack(spacing: 4) {
-                Text(conv.topic ?? "Untitled")
-                    .font(conv.isUnread ? .callout.bold() : .callout)
-                    .lineLimit(1)
-                    .layoutPriority(1)
-
-                Text("·")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-
-                Text(conv.startedAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize()
-
-                if let preview = SidebarConversationMetadata.lastMessagePreview(conv) {
-                    Text("·")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                    if let icon = preview.attachmentIcon {
-                        Image(systemName: icon)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(preview.text)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(conv.topic ?? "Untitled")
+                .font(conv.isUnread ? .callout.bold() : .callout)
+                .foregroundStyle(isConvSelected ? .primary : .secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             ThreadActivityIndicator(conversation: conv)
+
+            Text(conv.startedAt, style: .relative)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isConvSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isConvSelected ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05), lineWidth: 1)
-        )
+        .background(isConvSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
