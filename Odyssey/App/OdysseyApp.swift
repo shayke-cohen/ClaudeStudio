@@ -122,7 +122,6 @@ struct OdysseyApp: App {
                 launchIntent: launchIntent,
                 autoConnectSidecar: autoConnectSidecar,
                 resolvedColorScheme: resolvedColorScheme,
-                lastProjectDirectory: lastProjectDirectory,
                 sharedRoomService: sharedRoomService,
                 sharedRoomTestAPIService: sharedRoomTestAPIService
             )
@@ -345,7 +344,6 @@ private struct ProjectWindowContent: View {
     let launchIntent: LaunchIntent?
     let autoConnectSidecar: Bool
     let resolvedColorScheme: ColorScheme?
-    let lastProjectDirectory: String?
     let sharedRoomService: SharedRoomService
     let sharedRoomTestAPIService: SharedRoomTestAPIService
 
@@ -357,7 +355,7 @@ private struct ProjectWindowContent: View {
         // Empty string means "show picker" (from Cmd+O)
         if let chosen = chosenDirectory, !chosen.isEmpty { return chosen }
         if let initial = initialProjectDirectory, !initial.isEmpty { return initial }
-        return lastProjectDirectory
+        return nil
     }
 
     var body: some View {
@@ -365,7 +363,7 @@ private struct ProjectWindowContent: View {
             if let ws = windowState {
                 MainWindowView()
                     .environment(ws)
-            } else if effectiveDirectory != nil || hasExistingProjects {
+            } else if effectiveDirectory != nil {
                 ProgressView("Opening project\u{2026}")
             } else {
                 ProjectPickerView { path in
@@ -435,11 +433,9 @@ private struct ProjectWindowContent: View {
             ])
             #endif
 
-            // If we already have a directory, initialize immediately
+            // If we already have an explicit directory (CLI arg or Cmd+O), initialize immediately
             if let dir = effectiveDirectory {
                 initializeWindow(projectDirectory: dir)
-            } else if let project = preferredProject() {
-                initializeWindow(project: project)
             }
         }
         .onOpenURL { url in
