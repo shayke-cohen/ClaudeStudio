@@ -1087,7 +1087,8 @@ final class AppState {
                     agentName = agent.name
                 }
                 let trusted = project.githubTrustedUsers.isEmpty ? settings.trustedGitHubUsers : project.githubTrustedUsers
-                projectRepos.append(GHProjectRepoWire(repo: repo, defaultAgentName: agentName, trustedUsers: trusted))
+                let workingDir = project.rootPath.isEmpty ? nil : project.rootPath
+                projectRepos.append(GHProjectRepoWire(repo: repo, defaultAgentName: agentName, trustedUsers: trusted, workingDirectory: workingDir))
             }
         }
 
@@ -1931,8 +1932,17 @@ final class AppState {
             return
         }
 
+        // Look up project by GitHub repo — used for projectId and working directory
+        let projectDescriptor = FetchDescriptor<Project>(predicate: #Predicate { $0.githubRepo == repo })
+        let linkedProject = (try? ctx.fetch(projectDescriptor))?.first
+
+        // Working dir: project rootPath > agent default
+        let workingDir = linkedProject.map { $0.rootPath }.flatMap { $0.isEmpty ? nil : $0 }
+            ?? agent.defaultWorkingDirectory
+            ?? ""
+
         // Create Session record matching the sidecar's running session
-        let session = Session(agent: agent, mission: "GitHub Issue #\(issueNumber): \(title)", mode: .autonomous, workingDirectory: agent.defaultWorkingDirectory ?? "")
+        let session = Session(agent: agent, mission: "GitHub Issue #\(issueNumber): \(title)", mode: .autonomous, workingDirectory: workingDir)
         session.id = sessUUID
 
         // Check if a conversation was already created for this issue (e.g. by the UI + button)
@@ -1943,6 +1953,7 @@ final class AppState {
         if let existing = (try? ctx.fetch(existingByIssueDescriptor))?.first {
             existing.sessions = (existing.sessions ?? []) + [session]
             existing.githubIssueUrl = issueUrl
+            if existing.projectId == nil, let project = linkedProject { existing.projectId = project.id }
             let agentParticipant = Participant(type: .agentSession(sessionId: sessUUID), displayName: agentName)
             existing.participants = (existing.participants ?? []) + [agentParticipant]
             ctx.insert(session)
@@ -1953,8 +1964,8 @@ final class AppState {
             return
         }
 
-        // Create Conversation
-        let conversation = Conversation(topic: "GH #\(issueNumber): \(title)", sessions: [session], projectId: nil, threadKind: .autonomous)
+        // Create Conversation — associate with project if this came from a project repo
+        let conversation = Conversation(topic: "GH #\(issueNumber): \(title)", sessions: [session], projectId: linkedProject?.id, threadKind: .autonomous)
         conversation.id = convUUID
         conversation.githubIssueUrl = issueUrl
         conversation.githubIssueNumber = issueNumber

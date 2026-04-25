@@ -39,6 +39,7 @@ export class GHRouter {
     repo: string,
     defaultAgentName: string | null,
     ctx: ToolContext,
+    workingDirectory?: string,
   ): Promise<void> {
     logger.info("github", "Handling new issue", { repo, number: issue.number, title: issue.title });
 
@@ -107,7 +108,7 @@ export class GHRouter {
     try {
       const result = await ctx.spawnSession(
         sessionId,
-        { ...agentConfig, workingDirectory: agentConfig.workingDirectory || process.env.HOME || "/" },
+        { ...agentConfig, workingDirectory: workingDirectory || agentConfig.workingDirectory || process.env.HOME || "/" },
         `${issue.title}\n\n${issue.body}`,
         true,
       );

@@ -45,7 +45,7 @@ interface PollerState {
 }
 
 interface IssueHandler {
-  handleNewIssue(issue: any, repo: string, defaultAgentName: string | null, ctx: any): Promise<void>;
+  handleNewIssue(issue: any, repo: string, defaultAgentName: string | null, ctx: any, workingDirectory?: string): Promise<void>;
 }
 
 export class GHPoller {
@@ -195,7 +195,7 @@ export class GHPoller {
       this.saveState();
 
       if (this.router) {
-        await this.router.handleNewIssue(issue, projectRepo.repo, projectRepo.defaultAgentName ?? null, ctx);
+        await this.router.handleNewIssue(issue, projectRepo.repo, projectRepo.defaultAgentName ?? null, ctx, projectRepo.workingDirectory);
       }
     }
   }

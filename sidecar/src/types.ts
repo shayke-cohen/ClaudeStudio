@@ -253,6 +253,7 @@ export interface GHProjectRepo {
   repo: string;
   defaultAgentName?: string;
   trustedUsers: string[];
+  workingDirectory?: string;
 }
 
 // Events from Sidecar -> Swift

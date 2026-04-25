@@ -649,6 +649,7 @@ struct GHProjectRepoWire: Codable, Sendable {
     let repo: String           // "owner/repo"
     let defaultAgentName: String?
     let trustedUsers: [String]
+    let workingDirectory: String?
 }
 
 private struct GHIssueCreateWire: Codable {
