@@ -1920,9 +1920,9 @@ final class AppState {
               let convUUID = UUID(uuidString: conversationId),
               let sessUUID = UUID(uuidString: sessionId) else { return }
 
-        // Don't create duplicate if already exists
-        let existingDescriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == convUUID })
-        if (try? ctx.fetch(existingDescriptor).first) != nil { return }
+        // Don't create duplicate if already exists by sidecar-assigned conversationId
+        let existingByIdDescriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == convUUID })
+        if (try? ctx.fetch(existingByIdDescriptor).first) != nil { return }
 
         // Look up agent by name
         let agentDescriptor = FetchDescriptor<Agent>(predicate: #Predicate { $0.name == agentName })
@@ -1934,6 +1934,21 @@ final class AppState {
         // Create Session record matching the sidecar's running session
         let session = Session(agent: agent, mission: "GitHub Issue #\(issueNumber): \(title)", mode: .autonomous, workingDirectory: agent.defaultWorkingDirectory ?? "")
         session.id = sessUUID
+
+        // Check if a conversation was already created for this issue (e.g. by the UI + button)
+        // If so, attach the new session to it rather than creating a duplicate entry
+        let existingByIssueDescriptor = FetchDescriptor<Conversation>(
+            predicate: #Predicate { $0.githubIssueNumber == issueNumber && $0.githubIssueRepo == repo }
+        )
+        if let existing = (try? ctx.fetch(existingByIssueDescriptor))?.first {
+            existing.sessions = (existing.sessions ?? []) + [session]
+            existing.githubIssueUrl = issueUrl
+            ctx.insert(session)
+            try? ctx.save()
+            ghAutoFinalizeSessionIds.insert(sessionId)
+            Log.github.info("gh.issue.triggered: attached session to existing conv \(existing.id) for issue #\(issueNumber, privacy: .public)")
+            return
+        }
 
         // Create Conversation
         let conversation = Conversation(topic: "GH #\(issueNumber): \(title)", sessions: [session], projectId: nil, threadKind: .autonomous)
