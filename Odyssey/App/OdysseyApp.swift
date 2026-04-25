@@ -350,6 +350,7 @@ private struct ProjectWindowContent: View {
     @State private var windowState: WindowState?
     @State private var chosenDirectory: String?
     @State private var hasInitialized = false
+    @State private var hasProjectInitialized = false
 
     private var effectiveDirectory: String? {
         if let chosen = chosenDirectory, !chosen.isEmpty { return chosen }
@@ -459,7 +460,7 @@ private struct ProjectWindowContent: View {
             }
         }
         .navigationTitle({
-            if let ws = windowState, !ws.projectName.isEmpty, ws.projectName != "No Project" {
+            if let ws = windowState, !ws.isDefaultProject {
                 return "Odyssey \u{2014} \(ws.projectName)"
             }
             return InstanceConfig.isDefault ? "Odyssey" : "Odyssey \u{2014} \(InstanceConfig.name)"
@@ -474,7 +475,8 @@ private struct ProjectWindowContent: View {
     }
 
     private func initializeWindow(project: Project) {
-        guard let ws = windowState else { return }
+        guard let ws = windowState, !hasProjectInitialized else { return }
+        hasProjectInitialized = true
         ws.selectProject(project)
 
         InstanceConfig.userDefaults.set(project.rootPath, forKey: AppSettings.instanceWorkingDirectoryKey)
