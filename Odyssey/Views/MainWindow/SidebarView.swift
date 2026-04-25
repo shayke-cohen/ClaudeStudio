@@ -832,7 +832,9 @@ struct SidebarView: View {
                 showingSortPopover.toggle()
             } label: {
                 Image(systemName: "line.3.horizontal.decrease")
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.medium))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Sort and filter")
@@ -849,9 +851,12 @@ struct SidebarView: View {
                 addProjectFolder()
             } label: {
                 Image(systemName: "folder.badge.plus")
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.medium))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 4)
             .help("Add project folder")
             .xrayId("sidebar.projectsHeader.addProject")
             .accessibilityLabel("Add project folder")
@@ -1096,50 +1101,36 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func projectThreadRows(_ project: Project) -> some View {
-        let liveThreads = rootConversations(in: project)
-            .filter { !$0.isArchived }
-            .sorted { lhs, rhs in
-                if lhs.isPinned != rhs.isPinned {
-                    return lhs.isPinned && !rhs.isPinned
+        let allLive = filteredConversations(
+            rootConversations(in: project)
+                .filter { !$0.isArchived }
+                .sorted { lhs, rhs in
+                    if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+                    return lhs.startedAt > rhs.startedAt
                 }
-                return lhs.startedAt > rhs.startedAt
-            }
-        let pinnedThreads = filteredConversations(liveThreads.filter(\.isPinned))
-        let unpinnedThreads = filteredConversations(liveThreads.filter { !$0.isPinned })
+        )
         let archivedThreads = filteredConversations(rootConversations(in: project).filter(\.isArchived))
         let showAll = projectsShowingAllThreads.contains(project.id)
-        let displayedThreads = showAll ? unpinnedThreads : Array(unpinnedThreads.prefix(10))
+        let displayed = showAll ? allLive : Array(allLive.prefix(10))
 
-        if liveThreads.isEmpty && archivedThreads.isEmpty {
-            projectIndentedRow {
-                Text("No threads")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+        if allLive.isEmpty && archivedThreads.isEmpty {
+            Text("No threads")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 8)
         } else {
-            projectThreadBucket(
-                title: "Pinned (\(pinnedThreads.count))",
-                symbol: "pin.fill",
-                isExpanded: Binding(
-                    get: { isPinnedExpanded || !searchText.isEmpty },
-                    set: { isPinnedExpanded = $0 }
-                ),
-                conversations: pinnedThreads,
-                pinAction: "Unpin",
-                xrayId: "sidebar.pinnedSection"
-            )
-
-            ForEach(displayedThreads) { convo in
-                conversationTreeNode(convo, pinAction: "Pin")
+            ForEach(displayed) { convo in
+                conversationTreeNode(convo, pinAction: convo.isPinned ? "Unpin" : "Pin")
             }
 
-            if unpinnedThreads.count > 10 && !showAll {
-                Button("Show all \(unpinnedThreads.count) threads →") {
+            if allLive.count > 10 && !showAll {
+                Button("Show all \(allLive.count) threads →") {
                     projectsShowingAllThreads.insert(project.id)
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
+                .padding(.leading, 8)
                 .xrayId("sidebar.projectShowAllThreads.\(project.id.uuidString)")
             }
 
@@ -1610,11 +1601,12 @@ struct SidebarView: View {
                     showGroupCreation = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.semibold))
-                        .padding(6)
+                        .font(.body.weight(.medium))
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 4)
                 .appXrayTapProxy(id: "sidebar.groupsAddButton") { appState.showGroupCreationSheet = true }
                 .stableXrayId("sidebar.groupsAddButton")
                 .accessibilityLabel("Add group")
@@ -1727,11 +1719,12 @@ struct SidebarView: View {
                 showAgentCreation = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.caption.weight(.semibold))
-                    .padding(6)
+                    .font(.body.weight(.medium))
+                    .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 4)
             .appXrayTapProxy(id: "sidebar.agentsSection.addButton") { appState.showAgentCreationSheet = true }
             .stableXrayId("sidebar.agentsSection.addButton")
             .accessibilityLabel("Add agent")
@@ -1772,9 +1765,12 @@ struct SidebarView: View {
                     createNewGlobalSchedule()
                 } label: {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.semibold))
+                        .font(.body.weight(.medium))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 4)
                 .accessibilityLabel("New schedule")
                 .help("New schedule")
             }
@@ -1820,9 +1816,12 @@ struct SidebarView: View {
                     showingGHIssueSheet = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.semibold))
+                        .font(.body.weight(.medium))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 4)
                 .accessibilityLabel("Create GitHub issue")
                 .accessibilityIdentifier("sidebar.ghInboxSection.createButton")
                 .help("Create GitHub issue")
