@@ -281,6 +281,46 @@ public enum ManagedMLXModels {
                 agentSuitability: "Strong for coding agents",
                 recommended: false
             ),
+            ManagedMLXModelPreset(
+                modelIdentifier: "mlx-community/gemma-4-e2b-it-4bit",
+                label: "Gemma 4 E2B Instruct",
+                summary: "Google's lightweight edge model with vision capability, fits comfortably on any Apple Silicon Mac.",
+                parameterSize: "2B params",
+                downloadSize: "~3.6 GB",
+                bestFor: "Quick local tasks, image understanding, and low-memory setups.",
+                agentSuitability: "Basic agent tool use",
+                recommended: false
+            ),
+            ManagedMLXModelPreset(
+                modelIdentifier: "mlx-community/gemma-4-e4b-it-4bit",
+                label: "Gemma 4 E4B Instruct",
+                summary: "Google's any-to-any edge model — handles text and images with stronger reasoning than E2B.",
+                parameterSize: "4B params",
+                downloadSize: "~5.2 GB",
+                bestFor: "Multimodal local tasks, image analysis, and general assistant work.",
+                agentSuitability: "Moderate agent tool use",
+                recommended: false
+            ),
+            ManagedMLXModelPreset(
+                modelIdentifier: "mlx-community/gemma-4-26b-a4b-it-4bit",
+                label: "Gemma 4 26B MoE Instruct",
+                summary: "Google's sparse mixture-of-experts model — large capacity with only 4B active params per token.",
+                parameterSize: "26B total / 4B active",
+                downloadSize: "~15.6 GB",
+                bestFor: "High-quality reasoning with the memory footprint of a 4B model.",
+                agentSuitability: "Strong for agents",
+                recommended: false
+            ),
+            ManagedMLXModelPreset(
+                modelIdentifier: "mlx-community/gemma-4-31b-it-4bit",
+                label: "Gemma 4 31B Instruct",
+                summary: "Google's dense 31B flagship — best local quality for complex reasoning and long context on M2 Ultra / M3 Max+.",
+                parameterSize: "31B params",
+                downloadSize: "~18.4 GB",
+                bestFor: "Complex reasoning, long-form tasks, and Macs with 32GB+ unified memory.",
+                agentSuitability: "Very strong for agents",
+                recommended: false
+            ),
         ]
     }
 
