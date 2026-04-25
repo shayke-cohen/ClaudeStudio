@@ -572,6 +572,7 @@ export class WsServer {
             issueUrl,
             issueNumber,
             repo: command.repo,
+            title: command.title,
             conversationId: command.conversationId,
           });
         } catch (err) {

@@ -801,7 +801,7 @@ enum SidecarEvent: Sendable {
     case scheduleTrigger(scheduleId: String)
     case ghIssueTriggered(issueUrl: String, issueNumber: Int, repo: String, title: String, conversationId: String, sessionId: String, agentName: String)
     case ghIssueComment(issueUrl: String, commentBody: String, author: String, conversationId: String)
-    case ghIssueCreated(issueUrl: String, issueNumber: Int, repo: String, conversationId: String?)
+    case ghIssueCreated(issueUrl: String, issueNumber: Int, repo: String, title: String, conversationId: String?)
     case ghIssueClosed(repo: String, number: Int)
 }
 
@@ -1188,7 +1188,7 @@ struct IncomingWireMessage: Codable, Sendable {
             return .ghIssueComment(issueUrl: url, commentBody: body, author: a, conversationId: cid)
         case "gh.issue.created":
             guard let url = issueUrl, let num = issueNumber, let r = issueRepo else { return nil }
-            return .ghIssueCreated(issueUrl: url, issueNumber: num, repo: r, conversationId: conversationId)
+            return .ghIssueCreated(issueUrl: url, issueNumber: num, repo: r, title: title ?? "Issue #\(num)", conversationId: conversationId)
         case "gh.issue.closed":
             guard let r = issueRepo, let num = issueNumber else { return nil }
             return .ghIssueClosed(repo: r, number: num)

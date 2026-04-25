@@ -1902,9 +1902,9 @@ final class AppState {
             Log.github.info("gh.issue.comment from \(author, privacy: .public) conv=\(conversationId, privacy: .public)")
             handleGHIssueComment(commentBody: commentBody, author: author, conversationId: conversationId)
 
-        case .ghIssueCreated(let issueUrl, let issueNumber, let repo, let conversationId):
+        case .ghIssueCreated(let issueUrl, let issueNumber, let repo, let title, let conversationId):
             Log.github.info("gh.issue.created #\(issueNumber, privacy: .public) \(repo, privacy: .public)")
-            handleGHIssueCreated(issueUrl: issueUrl, issueNumber: issueNumber, repo: repo, conversationId: conversationId)
+            handleGHIssueCreated(issueUrl: issueUrl, issueNumber: issueNumber, repo: repo, title: title, conversationId: conversationId)
 
         case .ghIssueClosed(let repo, let number):
             Log.github.info("gh.issue.closed #\(number, privacy: .public) \(repo, privacy: .public)")
@@ -1975,21 +1975,39 @@ final class AppState {
         sendToSidecar(.sessionMessage(sessionId: session.id.uuidString, text: messageText))
     }
 
-    private func handleGHIssueCreated(issueUrl: String, issueNumber: Int, repo: String, conversationId: String?) {
+    private func handleGHIssueCreated(issueUrl: String, issueNumber: Int, repo: String, title: String, conversationId: String?) {
         lastCreatedIssueUrl = issueUrl
-        guard let ctx = modelContext,
-              let cidStr = conversationId,
-              let uuid = UUID(uuidString: cidStr) else { return }
-        let descriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == uuid })
-        guard let convo = try? ctx.fetch(descriptor).first else {
-            Log.github.warning("gh.issue.created: conversation not found for id=\(cidStr, privacy: .public)")
-            return
+        guard let ctx = modelContext else { return }
+
+        if let cidStr = conversationId, let uuid = UUID(uuidString: cidStr) {
+            // Update existing conversation created before the issue was filed
+            let descriptor = FetchDescriptor<Conversation>(predicate: #Predicate { $0.id == uuid })
+            guard let convo = try? ctx.fetch(descriptor).first else {
+                Log.github.warning("gh.issue.created: conversation not found for id=\(cidStr, privacy: .public)")
+                return
+            }
+            convo.githubIssueUrl = issueUrl
+            convo.githubIssueNumber = issueNumber
+            convo.githubIssueRepo = repo
+            try? ctx.save()
+            Log.github.info("gh.issue.created: linked conv=\(cidStr, privacy: .public) to issue #\(issueNumber, privacy: .public) in \(repo, privacy: .public)")
+        } else {
+            // Issue created from the + button with no pre-existing conversation — create one now
+            let conversation = Conversation(topic: "GH #\(issueNumber): \(title)", sessions: [], projectId: nil, threadKind: .autonomous)
+            conversation.githubIssueUrl = issueUrl
+            conversation.githubIssueNumber = issueNumber
+            conversation.githubIssueRepo = repo
+            let issueMsg = ConversationMessage(
+                text: "GitHub Issue #\(issueNumber): \(title)\n\n[\(issueUrl)](\(issueUrl))",
+                type: .chat,
+                conversation: conversation
+            )
+            conversation.messages = [issueMsg]
+            ctx.insert(conversation)
+            ctx.insert(issueMsg)
+            try? ctx.save()
+            Log.github.info("gh.issue.created: created conv for new issue #\(issueNumber, privacy: .public) in \(repo, privacy: .public)")
         }
-        convo.githubIssueUrl = issueUrl
-        convo.githubIssueNumber = issueNumber
-        convo.githubIssueRepo = repo
-        try? ctx.save()
-        Log.github.info("gh.issue.created: linked conv=\(cidStr, privacy: .public) to issue #\(issueNumber, privacy: .public) in \(repo, privacy: .public)")
     }
 
     // MARK: - GH Inbox Actions
