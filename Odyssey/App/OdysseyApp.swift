@@ -352,22 +352,27 @@ private struct ProjectWindowContent: View {
     @State private var hasInitialized = false
 
     private var effectiveDirectory: String? {
-        // Empty string means "show picker" (from Cmd+O)
         if let chosen = chosenDirectory, !chosen.isEmpty { return chosen }
         if let initial = initialProjectDirectory, !initial.isEmpty { return initial }
         return nil
     }
 
+    // Show the picker only for Cmd+O windows (sentinel = empty string) until a dir is chosen
+    private var showPicker: Bool {
+        initialProjectDirectory == "" && chosenDirectory == nil
+    }
+
     var body: some View {
         Group {
             if let ws = windowState {
-                MainWindowView()
+                if showPicker {
+                    ProjectPickerView { path in
+                        chosenDirectory = path
+                    }
                     .environment(ws)
-            } else if effectiveDirectory != nil {
-                ProgressView("Opening project\u{2026}")
-            } else {
-                ProjectPickerView { path in
-                    chosenDirectory = path
+                } else {
+                    MainWindowView()
+                        .environment(ws)
                 }
             }
         }
@@ -376,7 +381,7 @@ private struct ProjectWindowContent: View {
         .environmentObject(sharedRoomService)
         .preferredColorScheme(resolvedColorScheme)
         .onChange(of: effectiveDirectory) { _, newDir in
-            if let dir = newDir, windowState == nil {
+            if let dir = newDir {
                 initializeWindow(projectDirectory: dir)
             }
         }
@@ -433,7 +438,13 @@ private struct ProjectWindowContent: View {
             ])
             #endif
 
-            // If we already have an explicit directory (CLI arg or Cmd+O), initialize immediately
+            // Create WindowState immediately — no project required.
+            // MainWindowView renders right away; project is selected via sidebar click.
+            let ws = WindowState()
+            ws.appState = appState
+            windowState = ws
+
+            // If an explicit directory was provided (CLI arg), open it straight away.
             if let dir = effectiveDirectory {
                 initializeWindow(projectDirectory: dir)
             }
@@ -447,28 +458,28 @@ private struct ProjectWindowContent: View {
                 appState.executeLaunchIntent(intent, modelContext: modelContainer.mainContext, windowState: ws)
             }
         }
-        .navigationTitle(windowState.map { "Odyssey — \($0.projectName)" } ?? (InstanceConfig.isDefault ? "Odyssey" : "Odyssey — \(InstanceConfig.name)"))
+        .navigationTitle({
+            if let ws = windowState, !ws.projectName.isEmpty, ws.projectName != "No Project" {
+                return "Odyssey \u{2014} \(ws.projectName)"
+            }
+            return InstanceConfig.isDefault ? "Odyssey" : "Odyssey \u{2014} \(InstanceConfig.name)"
+        }())
     }
 
     private func initializeWindow(projectDirectory: String) {
-        guard windowState == nil else { return }
+        guard windowState != nil else { return }
 
         let project = ProjectRecords.upsertProject(at: projectDirectory, in: modelContainer.mainContext)
         initializeWindow(project: project)
     }
 
     private func initializeWindow(project: Project) {
-        guard windowState == nil else { return }
+        guard let ws = windowState else { return }
+        ws.selectProject(project)
 
-        let ws = WindowState(project: project)
-        ws.appState = appState
-        windowState = ws
-
-        // Save as last-used
         InstanceConfig.userDefaults.set(project.rootPath, forKey: AppSettings.instanceWorkingDirectoryKey)
         RecentDirectories.add(project.rootPath)
 
-        // Execute launch intent if present
         if let intent = launchIntent {
             let ctx = modelContainer.mainContext
             Task { @MainActor in
