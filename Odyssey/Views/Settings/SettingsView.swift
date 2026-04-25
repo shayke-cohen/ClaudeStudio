@@ -862,15 +862,37 @@ private struct ModelsSettingsTab: View {
                 .truncationMode(.middle)
                 .frame(minWidth: 120, alignment: .trailing)
         } else {
-            Picker("MLX model", selection: mlxRowBinding()) {
-                ForEach(installedModelDescriptors) { descriptor in
-                    Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
+            HStack(spacing: 4) {
+                Picker("MLX model", selection: mlxRowBinding()) {
+                    ForEach(installedModelDescriptors) { descriptor in
+                        Text(pickerLabel(for: descriptor)).tag(descriptor.defaultSelectionValue)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityIdentifier("settings.models.mlxModelRowPicker")
+
+                Menu {
+                    ForEach(installedModelDescriptors) { descriptor in
+                        Button(role: .destructive) {
+                            if let installedModel = installedModelLookup[descriptor.modelIdentifier] {
+                                state.deleteConfirmationModel = installedModel
+                            }
+                        } label: {
+                            Label("Delete \(descriptor.title)", systemImage: "trash")
+                        }
+                        .accessibilityIdentifier("settings.models.deleteFromRow.\(descriptor.modelIdentifier.replacingOccurrences(of: "/", with: "-"))")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityIdentifier("settings.models.mlxManageMenu")
+                .accessibilityLabel("Manage downloaded MLX models")
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize()
-            .accessibilityIdentifier("settings.models.mlxModelRowPicker")
         }
     }
 
