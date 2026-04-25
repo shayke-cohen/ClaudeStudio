@@ -83,6 +83,7 @@ final class ConfigSyncService {
     private let debounceQueue = DispatchQueue(label: "com.odyssey.config-sync.debounce")
     private var debounceWorkItem: DispatchWorkItem?
     private var isWritingBack = false // prevents feedback loop during UI write-back
+    private var isSyncing = false // prevents concurrent sync runs from creating duplicate entities
 
     private var modelContainer: ModelContainer?
     var builtInOverridePolicyOverride: BuiltInConfigOverridePolicy?
@@ -120,6 +121,33 @@ final class ConfigSyncService {
         // Full sync to pick up any offline edits or new factory defaults
         // Note: performFullSync() also calls syncFeaturesFromDisk() for features.json support.
         performFullSync()
+
+        // One-time migration: deduplicate groups that were created by concurrent sync runs.
+        // Keeps the entity with a configSlug (file-backed) when duplicates exist, otherwise
+        // keeps the first by creation date. Safe to run even when no duplicates are present.
+        let dedupeGroupsKey = "odyssey.migration.dedupeGroups.v1"
+        if !InstanceConfig.userDefaults.bool(forKey: dedupeGroupsKey) {
+            let ctx = ModelContext(container)
+            if let allGroups = try? ctx.fetch(FetchDescriptor<AgentGroup>()) {
+                var byName: [String: [AgentGroup]] = [:]
+                for group in allGroups {
+                    byName[group.name, default: []].append(group)
+                }
+                var didChange = false
+                for (_, dupes) in byName where dupes.count > 1 {
+                    // Prefer entity with a configSlug; otherwise keep earliest createdAt.
+                    let keeper = dupes.first { $0.configSlug != nil }
+                        ?? dupes.min(by: { $0.createdAt < $1.createdAt })!
+                    for dupe in dupes where dupe.id != keeper.id {
+                        ctx.delete(dupe)
+                        didChange = true
+                    }
+                    Log.configSync.info("Deduped group '\(keeper.name, privacy: .public)': kept 1 of \(dupes.count, privacy: .public)")
+                }
+                if didChange { try? ctx.save() }
+            }
+            InstanceConfig.userDefaults.set(true, forKey: dedupeGroupsKey)
+        }
 
         // One-time migration: pin Friday by default
         let fridayPinnedKey = "odyssey.migration.fridayPinned"
@@ -208,10 +236,19 @@ final class ConfigSyncService {
 
     func performFullSync() {
         guard let container = modelContainer else { return }
+        // Guard against concurrent sync runs: if a sync Task is already in flight,
+        // the incoming call is dropped. The in-flight Task will process the latest
+        // file state by the time it runs its sync methods, so no data is lost.
+        guard !isSyncing else {
+            Log.configSync.info("Full sync skipped — sync already in progress")
+            return
+        }
+        isSyncing = true
         // Run as an async Task so each yield point lets the run loop process UI events,
         // preventing the 200-500ms main-thread stall from 254+ file reads.
         Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.isSyncing = false }
             let context = ModelContext(container)
 
             Log.configSync.info("Starting full sync")
