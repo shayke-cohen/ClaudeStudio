@@ -122,6 +122,7 @@ private let settingsSidebarGroups: [SettingsSidebarGroup] = [
 struct SettingsView: View {
     @State private var selectedSection: SettingsSection
     @StateObject private var modelsState = ModelsSettingsState()
+    @AppStorage(FeatureFlags.connectorsKey, store: AppSettings.store) private var connectorsEnabled = false
 
     private let pendingConfigSection: ConfigSection?
     private let pendingConfigSlug: String?
@@ -152,6 +153,11 @@ struct SettingsView: View {
             .background(settingsBackground.ignoresSafeArea())
         }
         .xrayId("settings.tabView")
+        .onChange(of: connectorsEnabled) { _, enabled in
+            if !enabled && selectedSection == .connectors {
+                selectedSection = .github
+            }
+        }
     }
 
     private var sidebar: some View {
@@ -171,39 +177,42 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(settingsSidebarGroups, id: \.label) { group in
-                    Text(group.label.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 2)
+                    let visibleSections = group.sections.filter { $0 != .connectors || connectorsEnabled }
+                    if !visibleSections.isEmpty {
+                        Text(group.label.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 2)
 
-                    ForEach(group.sections) { section in
-                        Button {
-                            selectedSection = section
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: section.systemImage)
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 20)
-                                Text(section.title)
-                                    .font(.body.weight(.medium))
-                                    .lineLimit(1)
-                                Spacer(minLength: 0)
+                        ForEach(visibleSections) { section in
+                            Button {
+                                selectedSection = section
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: section.systemImage)
+                                        .font(.body.weight(.semibold))
+                                        .frame(width: 20)
+                                    Text(section.title)
+                                        .font(.body.weight(.medium))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                                .foregroundStyle(selectedSection == section ? Color.primary : Color.secondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    selectedSection == section ? Color.primary.opacity(0.08) : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 10)
+                                )
                             }
-                            .foregroundStyle(selectedSection == section ? Color.primary : Color.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                selectedSection == section ? Color.primary.opacity(0.08) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 10)
-                            )
+                            .buttonStyle(.plain)
+                            .xrayId(section.xrayId)
+                            .stableXrayId("settings.section.\(section.rawValue)")
+                            .accessibilityLabel(section.title)
                         }
-                        .buttonStyle(.plain)
-                        .xrayId(section.xrayId)
-                        .stableXrayId("settings.section.\(section.rawValue)")
-                        .accessibilityLabel(section.title)
                     }
                 }
             }

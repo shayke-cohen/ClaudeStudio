@@ -49,6 +49,9 @@ enum FeatureFlags {
     /// Agent Comms — unified agent-to-agent messaging timeline.
     static let agentCommsKey = "odyssey.features.agentComms"
 
+    /// Connectors — OAuth apps, broker config, and integration tokens.
+    static let connectorsKey = "odyssey.features.connectors"
+
     // MARK: - Collections
 
     /// All flag keys in a stable order (master + per-feature).
@@ -64,6 +67,7 @@ enum FeatureFlags {
         advancedAgentConfigKey,
         devModeKey,
         agentCommsKey,
+        connectorsKey,
     ]
 
     /// Default values — all `false` for a focused V1 experience.
@@ -78,6 +82,7 @@ enum FeatureFlags {
         advancedAgentConfigKey: false,
         devModeKey: false,
         agentCommsKey: false,
+        connectorsKey: false,
     ]
 
     // MARK: - Accessor

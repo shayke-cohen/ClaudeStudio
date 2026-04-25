@@ -31,6 +31,9 @@ struct DeveloperLabsSettingsTab: View {
                 LabsRow(key: FeatureFlags.agentCommsKey,
                         title: "Agent Comms",
                         description: "Unified timeline of agent-to-agent messages and delegations.")
+                LabsRow(key: FeatureFlags.connectorsKey,
+                        title: "Connectors",
+                        description: "OAuth apps, broker config, and integration tokens for Slack, LinkedIn, X, and more.")
             }
 
             Section("Developer") {
