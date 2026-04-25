@@ -137,7 +137,8 @@ struct GroupSidebarRowView: View {
                                     .fixedSize()
                             }
                             .padding(.vertical, 3)
-                            .padding(.horizontal, 8)
+                            .padding(.leading, 2)
+                            .padding(.trailing, 8)
                             .background(isConvSelected ? Color.accentColor.opacity(0.12) : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
@@ -397,7 +398,8 @@ struct GroupSidebarRowView: View {
                 .fixedSize()
         }
         .padding(.vertical, 4)
-        .padding(.horizontal, 8)
+        .padding(.leading, 2)
+        .padding(.trailing, 8)
         .background(isConvSelected ? Color.accentColor.opacity(0.12) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }

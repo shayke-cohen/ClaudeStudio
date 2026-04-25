@@ -2031,7 +2031,7 @@ struct SidebarView: View {
                     }
                     Spacer(minLength: 4)
                 }
-                .padding(.leading, 18)
+                .padding(.leading, 6)
                 .opacity(hasConvo ? 1.0 : 0.6)
             }
             .buttonStyle(.plain)
