@@ -303,6 +303,12 @@ final class WindowState {
         self.currentProjectDisplayName = project.name
     }
 
+    init() {
+        self.selectedProjectId = nil
+        self.currentProjectDirectory = ""
+        self.currentProjectDisplayName = "No Project"
+    }
+
     var projectName: String {
         currentProjectDisplayName
     }
