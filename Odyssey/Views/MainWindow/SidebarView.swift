@@ -1798,12 +1798,10 @@ struct SidebarView: View {
                         isGHInboxExpanded.toggle()
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isGHInboxExpanded ? "chevron.down" : "chevron.right")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                    HStack(spacing: 5) {
                         Text("GH Inbox")
-                            .font(.headline.weight(.semibold))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
                         if ghUnhandledCount > 0 {
                             Text("\(ghUnhandledCount)")
                                 .font(.caption2.weight(.bold))
