@@ -250,6 +250,7 @@ struct SidebarView: View {
     @Query(sort: \AgentGroup.sortOrder) private var groups: [AgentGroup]
     @Query(sort: \NostrPeer.pairedAt, order: .reverse) private var nostrPeers: [NostrPeer]
     @Query(sort: \ScheduledMission.updatedAt, order: .reverse) private var schedules: [ScheduledMission]
+    @Query(sort: \ScheduledMissionRun.startedAt, order: .reverse) private var allScheduleRuns: [ScheduledMissionRun]
     @Query(sort: \PromptTemplate.sortOrder) private var allTemplates: [PromptTemplate]
     @Query(
         filter: #Predicate<Conversation> { $0.githubIssueNumber != nil && $0.isArchived == false },
@@ -1737,6 +1738,7 @@ struct SidebarView: View {
             if isSchedulesSectionExpanded {
                 ForEach(schedules) { schedule in
                     globalScheduleRow(schedule)
+                    scheduleRunRows(schedule)
                 }
             }
         } header: {
@@ -1989,6 +1991,51 @@ struct SidebarView: View {
             Button(role: .destructive) { scheduleToDelete = schedule } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func scheduleRunRows(_ schedule: ScheduledMission) -> some View {
+        let runs = allScheduleRuns.filter { $0.scheduleId == schedule.id }.prefix(5)
+        ForEach(Array(runs)) { run in
+            let hasConvo = run.conversationId != nil
+            Button {
+                if let convoId = run.conversationId {
+                    let convo = conversations.first { $0.id == convoId }
+                    windowState.navigateToConversation(convoId, projectId: convo?.projectId)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(scheduleRunStatusColor(run.status))
+                        .frame(width: 7, height: 7)
+                    Text(run.startedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if let text = run.summary ?? run.errorMessage ?? run.skipReason, !text.isEmpty {
+                        Text(text)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                }
+                .padding(.leading, 32)
+                .opacity(hasConvo ? 1.0 : 0.6)
+            }
+            .buttonStyle(.plain)
+            .disabled(!hasConvo)
+            .stableXrayId("sidebar.scheduleRunRow.\(run.id.uuidString)")
+        }
+    }
+
+    private func scheduleRunStatusColor(_ status: ScheduledMissionRunStatus) -> Color {
+        switch status {
+        case .running: return .blue
+        case .succeeded: return .green
+        case .failed: return .red
+        case .skipped: return .orange
         }
     }
 
