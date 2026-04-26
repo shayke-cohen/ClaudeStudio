@@ -35,16 +35,20 @@ struct AgentCommsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        // Compute the filtered events once per body run instead of three times
+        // (header count, empty check, list source). With the cap at 1000 the
+        // per-call cost is small but the dedupe is free.
+        let events = filteredEvents
+        return VStack(spacing: 0) {
+            header(eventCount: events.count)
             Divider()
 
-            if filteredEvents.isEmpty {
+            if events.isEmpty {
                 emptyState
                     .xrayId("agentComms.emptyState")
             } else {
                 ScrollViewReader { proxy in
-                    List(filteredEvents.reversed()) { event in
+                    List(events.reversed()) { event in
                         CommsTimelineEntry(event: event)
                             .listRowSeparator(.visible)
                             .xrayId("agentComms.event.\(event.id.uuidString)")
@@ -57,14 +61,14 @@ struct AgentCommsView: View {
         .frame(minWidth: 400, minHeight: 300)
     }
 
-    private var header: some View {
+    private func header(eventCount: Int) -> some View {
         VStack(spacing: 8) {
             HStack {
                 Label("Agent Comms", systemImage: "antenna.radiowaves.left.and.right")
                     .font(.headline)
                     .xrayId("agentComms.title")
                 Spacer()
-                Text("\(filteredEvents.count) events")
+                Text("\(eventCount) events")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .xrayId("agentComms.eventCount")
