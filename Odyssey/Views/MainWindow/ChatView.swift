@@ -266,7 +266,7 @@ struct ChatView: View {
     /// agent names on every keystroke (the body re-evaluates the autocomplete +
     /// routing-preview properties multiple times per redraw).
     @State private var cachedMentionCandidates: [String] = []
-    @State private var lastAutoScrollTime: Date = .distantPast
+    // lastAutoScrollTime moved into StreamingScrollController (isolated view)
     private var planModeEnabled: Bool {
         conversation?.planModeEnabled ?? false
     }
@@ -416,7 +416,7 @@ struct ChatView: View {
 
     // Now a @State incremented by StreamingObserver instead of a computed property
     // that read appState.streamingText (which subscribed the entire ChatView to every token).
-    @State private var streamingContentVersion: Int = 0
+    // streamingContentVersion removed — scroll trigger moved to StreamingScrollController
 
     private var mentionAutocompleteAgents: [Agent] {
         guard let r = inputText.range(of: #"@([^@\n]*)$"#, options: .regularExpression) else { return [] }
@@ -696,7 +696,6 @@ struct ChatView: View {
                 processingStartTimes: $processingStartTimes,
                 expandedStreamingThinkingSessionKeys: $expandedStreamingThinkingSessionKeys,
                 isProcessing: $isProcessing,
-                streamingContentVersion: $streamingContentVersion,
                 conversation: conversation,
                 onCheckCompletion: { events in checkForCompletion(events: events) }
             )
@@ -2056,12 +2055,14 @@ struct ChatView: View {
                         guard shouldAutoScroll else { return }
                         scrollToBottom(proxy, animated: true)
                     }
-                    .onChange(of: streamingContentVersion) { _, _ in
-                        guard isProcessing, shouldAutoScroll else { return }
-                        let now = Date()
-                        guard now.timeIntervalSince(lastAutoScrollTime) >= 0.25 else { return }
-                        lastAutoScrollTime = now
-                        scrollToBottom(proxy, animated: false)
+                    .background {
+                        // Subscribes to streamingText/thinkingText in its own scope so
+                        // ChatView.body does NOT re-render per token (only this tiny view does).
+                        StreamingScrollController(
+                            isProcessing: isProcessing,
+                            shouldAutoScroll: shouldAutoScroll,
+                            scrollAction: { scrollToBottom(proxy, animated: false) }
+                        )
                     }
                     .onChange(of: isProcessing) { _, processing in
                         if processing {
@@ -5282,7 +5283,6 @@ private struct ChatStreamingObserver: View {
     @Binding var processingStartTimes: [String: Date]
     @Binding var expandedStreamingThinkingSessionKeys: Set<String>
     @Binding var isProcessing: Bool
-    @Binding var streamingContentVersion: Int
     let conversation: Conversation?
     var onCheckCompletion: (([String: AppState.SessionEventKind]) -> Void)?
 
@@ -5299,11 +5299,9 @@ private struct ChatStreamingObserver: View {
                     }
                     lastStreamingTextLengths[key] = newCount
                 }
-                streamingContentVersion += 1
                 scheduleRestore()
             }
             .onChange(of: appState.thinkingText) { _, _ in
-                streamingContentVersion += 1
                 scheduleRestore()
             }
             .onChange(of: appState.lastSessionEvent) { _, events in
@@ -5368,6 +5366,33 @@ private struct ChatStreamingObserver: View {
         activeStreamingSessionKeys = restoredKeys
         activeStreamingDisplayNames = restoredDisplayNames
         isProcessing = !restoredKeys.isEmpty
+    }
+}
+
+// MARK: - Isolated Scroll Controller
+
+/// Subscribes to `appState.streamingText` and `appState.thinkingText` in its own
+/// observation scope. Only this tiny view re-renders when streaming content changes —
+/// ChatView.body is NOT invalidated per token, eliminating the main performance bottleneck.
+private struct StreamingScrollController: View {
+    @Environment(AppState.self) private var appState
+    let isProcessing: Bool
+    let shouldAutoScroll: Bool
+    @State private var lastScrollTime: Date = .distantPast
+    let scrollAction: () -> Void
+
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0)
+            .onChange(of: appState.streamingText) { _, _ in scrollIfNeeded() }
+            .onChange(of: appState.thinkingText) { _, _ in scrollIfNeeded() }
+    }
+
+    private func scrollIfNeeded() {
+        guard isProcessing, shouldAutoScroll else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastScrollTime) >= 0.25 else { return }
+        lastScrollTime = now
+        scrollAction()
     }
 }
 
