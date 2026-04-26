@@ -161,6 +161,92 @@ final class AppStateStreamingTests: XCTestCase {
         )
     }
 
+    // MARK: - Tool call accumulation
+
+    func testToolCalls_appendInOrderAcrossSessions() {
+        let s1 = makeSessionId()
+        let s2 = makeSessionId()
+
+        appState.handleEventForTesting(.streamToolCall(sessionId: s1, tool: "Read", input: "/a.txt"))
+        appState.handleEventForTesting(.streamToolCall(sessionId: s2, tool: "Bash", input: "ls"))
+        appState.handleEventForTesting(.streamToolCall(sessionId: s1, tool: "Edit", input: "/a.txt"))
+
+        XCTAssertEqual(appState.toolCalls[s1]?.map(\.tool), ["Read", "Edit"])
+        XCTAssertEqual(appState.toolCalls[s2]?.map(\.tool), ["Bash"])
+    }
+
+    func testToolResult_attachesToLatestMatchingPendingCall() {
+        let sid = makeSessionId()
+        appState.handleEventForTesting(.streamToolCall(sessionId: sid, tool: "Read", input: "/a.txt"))
+        appState.handleEventForTesting(.streamToolCall(sessionId: sid, tool: "Read", input: "/b.txt"))
+        // Result should attach to the *latest* unfilled Read call (b.txt).
+        appState.handleEventForTesting(.streamToolResult(sessionId: sid, tool: "Read", output: "B-CONTENT"))
+
+        let calls = appState.toolCalls[sid] ?? []
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertNil(calls[0].output, "First Read should remain pending; result attaches to most recent unfilled match")
+        XCTAssertEqual(calls[1].output, "B-CONTENT")
+    }
+
+    func testToolResult_unmatchedToolIsIgnored() {
+        let sid = makeSessionId()
+        appState.handleEventForTesting(.streamToolCall(sessionId: sid, tool: "Read", input: "x"))
+        // A result for a tool that was never called should not crash or attach.
+        appState.handleEventForTesting(.streamToolResult(sessionId: sid, tool: "Bash", output: "y"))
+
+        XCTAssertEqual(appState.toolCalls[sid]?.count, 1)
+        XCTAssertNil(appState.toolCalls[sid]?.first?.output)
+    }
+
+    /// Regression guard for the dict-of-arrays COW pattern on appends.
+    func testToolCalls_largeAccumulation_isLinear() {
+        let sid = makeSessionId()
+        let count = 5000
+
+        let start = ContinuousClock().now
+        for i in 0..<count {
+            appState.handleEventForTesting(.streamToolCall(
+                sessionId: sid, tool: "Tool\(i)", input: "x"
+            ))
+        }
+        let elapsed = ContinuousClock().now - start
+
+        XCTAssertEqual(appState.toolCalls[sid]?.count, count)
+        XCTAssertLessThan(
+            elapsed,
+            .milliseconds(500),
+            "Appending \(count) tool calls took \(elapsed); >500ms suggests dict-of-arrays COW regression"
+        )
+    }
+
+    /// Stress test for interleaved call+result. The old `streamToolResult` did
+    /// `var calls = toolCalls[sid]; calls[idx].output = ...; dict = calls`,
+    /// which triggers COW on every single result because the dict still holds
+    /// a reference. With N=2000 pairs that's O(N²) ≈ 4M element copies.
+    /// In-place subscript mutation through the dict keeps it linear.
+    func testToolCallResultInterleaved_isLinear() {
+        let sid = makeSessionId()
+        let pairs = 2000
+
+        let start = ContinuousClock().now
+        for i in 0..<pairs {
+            let toolName = "Tool\(i)"
+            appState.handleEventForTesting(.streamToolCall(sessionId: sid, tool: toolName, input: "in"))
+            appState.handleEventForTesting(.streamToolResult(sessionId: sid, tool: toolName, output: "out"))
+        }
+        let elapsed = ContinuousClock().now - start
+
+        let calls = appState.toolCalls[sid] ?? []
+        XCTAssertEqual(calls.count, pairs)
+        XCTAssertEqual(calls.filter { $0.output == "out" }.count, pairs,
+                       "Every result should attach to its matching pending call")
+        XCTAssertLessThan(
+            elapsed,
+            .milliseconds(1500),
+            "Interleaved call+result for \(pairs) pairs took \(elapsed); >1.5s suggests COW on each result"
+        )
+    }
+
     // MARK: - Cleanup on result
 
     func testStreamingBuffer_clearedAfterSessionResult() {

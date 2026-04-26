@@ -231,6 +231,10 @@ struct ChatView: View {
     @State private var cachedSortedMessages: [ConversationMessage] = []
     @State private var cachedDisplayMessages: [ConversationMessage] = []
     @State private var cachedParticipantAppearanceMap: [UUID: AgentAppearance]? = nil
+    /// Pre-sorted candidate names for @-mention matching. Avoids re-sorting all
+    /// agent names on every keystroke (the body re-evaluates the autocomplete +
+    /// routing-preview properties multiple times per redraw).
+    @State private var cachedMentionCandidates: [String] = []
     @State private var lastAutoScrollTime: Date = .distantPast
     private var planModeEnabled: Bool {
         conversation?.planModeEnabled ?? false
@@ -453,7 +457,7 @@ struct ChatView: View {
 
     private var routingPreviewPlan: GroupRoutingPlanner.UserWavePlan? {
         guard let convo = conversation, (convo.sessions ?? []).count > 1 else { return nil }
-        let mentionNames = ChatSendRouting.mentionedAgentNames(in: inputText, agents: allAgents)
+        let mentionNames = ChatSendRouting.mentionedAgentNames(in: inputText, preparedCandidates: cachedMentionCandidates)
         let mentionedAll = ChatSendRouting.containsMentionAll(in: inputText)
         let (resolvedMentionAgents, _) = ChatSendRouting.resolveMentionedAgents(
             names: mentionNames,
@@ -826,6 +830,10 @@ struct ChatView: View {
             cachedSortedMessages = (conversation?.messages ?? []).sorted { $0.timestamp < $1.timestamp }
             rebuildDisplayMessages()
             rebuildParticipantAppearanceMap()
+            cachedMentionCandidates = ChatSendRouting.prepareMentionCandidates(agents: allAgents)
+        }
+        .onChange(of: allAgents.map(\.name)) { _, _ in
+            cachedMentionCandidates = ChatSendRouting.prepareMentionCandidates(agents: allAgents)
         }
         .sheet(isPresented: $showingScheduleEditor) {
             ScheduleEditorView(schedule: nil, draft: scheduleDraft)
@@ -3804,7 +3812,7 @@ struct ChatView: View {
         inputText = ""
         pendingAttachments = []
 
-        let mentionNames = ChatSendRouting.mentionedAgentNames(in: text, agents: allAgents)
+        let mentionNames = ChatSendRouting.mentionedAgentNames(in: text, preparedCandidates: cachedMentionCandidates)
         let mentionedAll = ChatSendRouting.containsMentionAll(in: text)
         let (resolvedMentionAgents, unknownMentions) = ChatSendRouting.resolveMentionedAgents(
             names: mentionNames,

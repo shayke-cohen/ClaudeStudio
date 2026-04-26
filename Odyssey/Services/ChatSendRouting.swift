@@ -120,11 +120,17 @@ enum ChatSendRouting {
     /// `@Name` tokens in send order. When agent definitions are provided, this
     /// greedily matches the longest installed agent name so mentions can include spaces.
     static func mentionedAgentNames(in text: String, agents: [Agent] = []) -> [String] {
-        guard !agents.isEmpty else {
+        if agents.isEmpty {
             return simpleMentionTokens(in: text)
         }
+        return mentionedAgentNames(in: text, preparedCandidates: prepareMentionCandidates(agents: agents))
+    }
 
-        let candidateNames = agents
+    /// Sorts agent display names by length-desc / name-asc once, so callers
+    /// hitting `mentionedAgentNames` repeatedly (ChatView body, autocomplete,
+    /// routing preview) don't re-sort on every keystroke.
+    static func prepareMentionCandidates(agents: [Agent]) -> [String] {
+        agents
             .map(\.name)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -134,6 +140,14 @@ enum ChatSendRouting {
                 }
                 return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
             }
+    }
+
+    /// Match against a previously-sorted candidate list. Use this when calling
+    /// the matcher many times against the same agent set.
+    static func mentionedAgentNames(in text: String, preparedCandidates: [String]) -> [String] {
+        guard !preparedCandidates.isEmpty else {
+            return simpleMentionTokens(in: text)
+        }
 
         var mentions: [String] = []
         var index = text.startIndex
@@ -153,7 +167,7 @@ enum ChatSendRouting {
                 continue
             }
 
-            if let matchedName = candidateNames.first(where: { mentionPrefixRange(for: $0, in: remaining) != nil }),
+            if let matchedName = preparedCandidates.first(where: { mentionPrefixRange(for: $0, in: remaining) != nil }),
                let matchedRange = mentionPrefixRange(for: matchedName, in: remaining) {
                 mentions.append(matchedName)
                 index = matchedRange.upperBound

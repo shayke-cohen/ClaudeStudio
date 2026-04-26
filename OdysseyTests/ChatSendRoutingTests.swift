@@ -110,6 +110,55 @@ final class ChatSendRoutingTests: XCTestCase {
         XCTAssertEqual(names, ["Z", "A", "M"])
     }
 
+    // MARK: - Prepared candidate caching (avoids re-sorting per call)
+
+    func testPreparedCandidates_matchesInlineResult() {
+        let a = Agent(name: "Product")
+        let b = Agent(name: "Product manager")
+        let agents = [a, b]
+        let prepared = ChatSendRouting.prepareMentionCandidates(agents: agents)
+
+        let inline = ChatSendRouting.mentionedAgentNames(
+            in: "@Product manager please", agents: agents
+        )
+        let withCache = ChatSendRouting.mentionedAgentNames(
+            in: "@Product manager please", preparedCandidates: prepared
+        )
+
+        XCTAssertEqual(inline, withCache)
+        XCTAssertEqual(withCache, ["Product manager"])
+    }
+
+    func testPreparedCandidates_emptyAgents_fallsBackToSimpleTokens() {
+        let prepared = ChatSendRouting.prepareMentionCandidates(agents: [])
+        let names = ChatSendRouting.mentionedAgentNames(
+            in: "@foo @bar", preparedCandidates: prepared
+        )
+        XCTAssertEqual(names, ["foo", "bar"])
+    }
+
+    /// Regression guard: typing in chat fires this method many times per render
+    /// (4 distinct call sites in ChatView). Re-sorting candidate names on every
+    /// call with 30 agents adds up; the prepared variant should be linear in
+    /// number of calls, not number of agents × number of calls.
+    func testMentionedAgentNames_repeatedCalls_stayFastWithPreparedCandidates() {
+        let agents = (0..<30).map { i in Agent(name: "Agent\(i)") }
+        let prepared = ChatSendRouting.prepareMentionCandidates(agents: agents)
+        let text = "Hi @Agent7 and @Agent13 please review"
+        let calls = 5_000
+
+        let start = ContinuousClock().now
+        for _ in 0..<calls {
+            _ = ChatSendRouting.mentionedAgentNames(in: text, preparedCandidates: prepared)
+        }
+        let elapsed = ContinuousClock().now - start
+
+        XCTAssertLessThan(
+            elapsed, .milliseconds(500),
+            "5000 prepared-candidate matches took \(elapsed); should be linear, not O(n×agents log agents) per call"
+        )
+    }
+
     // MARK: - @all Detection
 
     func testContainsMentionAll() {
