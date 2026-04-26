@@ -251,6 +251,64 @@ final class AppStateStreamingTests: XCTestCase {
         )
     }
 
+    // MARK: - 60fps buffer: auto-flush, error discard, performance
+
+    /// The 16ms Timer must fire and flush tokens to streamingText without any
+    /// manual flush call. This is the end-to-end auto-flush regression guard.
+    func testStreamToken_timerFlushesAutomatically() {
+        let sid = makeSessionId()
+        appState.handleEventForTesting(.streamToken(sessionId: sid, text: "auto"))
+        // streamingText is nil before the timer fires
+        XCTAssertNil(appState.streamingText[sid], "Tokens must be buffered before timer fires")
+        // Run the main RunLoop long enough for the 16ms timer to fire
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(appState.streamingText[sid], "auto",
+                       "Timer should have flushed buffer to streamingText within 50ms")
+    }
+
+    /// After a sessionError the pending token buffer must be discarded so stale
+    /// partial output from the failed turn never surfaces in streamingText.
+    func testStreamToken_sessionError_discardsBuffer() {
+        let sid = makeSessionId()
+        let uuid = UUID(uuidString: sid)!
+        appState.activeSessions[uuid] = AppState.SessionInfo(id: uuid, agentName: "Bot", isStreaming: true)
+
+        appState.handleEventForTesting(.streamToken(sessionId: sid, text: "before-error"))
+        // Buffer has content but streamingText is still nil
+        XCTAssertNil(appState.streamingText[sid])
+
+        appState.handleEventForTesting(.sessionError(sessionId: sid, error: "network timeout"))
+        // Explicit flush — should be a no-op because the error handler discarded the buffer
+        appState.flushStreamTokenBuffersForTesting()
+
+        XCTAssertNil(appState.streamingText[sid],
+                     "sessionError must discard buffered tokens; streamingText should remain nil")
+    }
+
+    /// 10 000 rapid tokens should process quickly AND leave streamingText unchanged
+    /// until an explicit flush (proving the per-token Observable write is eliminated).
+    func testStreamToken_highVolume_bufferedWithoutObservableWrites() {
+        let sid = makeSessionId()
+        let count = 10_000
+        let start = ContinuousClock().now
+
+        for i in 0..<count {
+            appState.handleEventForTesting(.streamToken(sessionId: sid, text: "t\(i)"))
+        }
+        let elapsed = ContinuousClock().now - start
+
+        // All tokens buffered quickly — no per-token Observable writes to tracked properties
+        XCTAssertLessThan(elapsed, .milliseconds(500),
+                          "Buffering \(count) tokens took \(elapsed); suggests unexpected per-token work")
+        // streamingText must still be nil — no flush has been called
+        XCTAssertNil(appState.streamingText[sid],
+                     "streamingText must be nil until flush; Observable writes per token would make it non-nil here via timer")
+
+        appState.flushStreamTokenBuffersForTesting()
+        let result = appState.streamingText[sid] ?? ""
+        XCTAssertTrue(result.count > 0, "Flush must produce non-empty text")
+    }
+
     // MARK: - Cleanup on result
 
     func testStreamingBuffer_clearedAfterSessionResult() {
