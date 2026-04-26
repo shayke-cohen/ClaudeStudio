@@ -220,7 +220,7 @@ struct ChatView: View {
     @State private var isProcessing = false
     @State private var isManagingWaveResponses = false
     @State private var activeWaveTask: Task<Void, Never>?
-    @State private var lastTokenTimes: [String: Date] = [:]
+    @State private var streamingTimingBox = ChatStreamingTimingBox()
     @State private var processingStartTimes: [String: Date] = [:]
     @State private var isEditingTopic = false
     @State private var editedTopic = ""
@@ -235,7 +235,6 @@ struct ChatView: View {
     @State private var expandedStreamingThinkingSessionKeys: Set<String> = []
     @State private var activeStreamingSessionKeys: Set<String> = []
     @State private var activeStreamingDisplayNames: [String: String] = [:]
-    @State private var lastStreamingTextLengths: [String: Int] = [:]
     @State private var queuedPeerDeliveriesBySession: [UUID: [QueuedPeerDelivery]] = [:]
     @State private var showSlashHelp = false
     @State private var showUnknownSlash = false
@@ -691,8 +690,7 @@ struct ChatView: View {
             ChatStreamingObserver(
                 activeStreamingSessionKeys: $activeStreamingSessionKeys,
                 activeStreamingDisplayNames: $activeStreamingDisplayNames,
-                lastTokenTimes: $lastTokenTimes,
-                lastStreamingTextLengths: $lastStreamingTextLengths,
+                timingBox: streamingTimingBox,
                 processingStartTimes: $processingStartTimes,
                 expandedStreamingThinkingSessionKeys: $expandedStreamingThinkingSessionKeys,
                 isProcessing: $isProcessing,
@@ -796,7 +794,7 @@ struct ChatView: View {
                 guard !isManagingWaveResponses else { continue }
                 let key = streamSessionKeyForUI ?? ""
                 let hasText = appState.streamingText[key] != nil
-                let stale = lastTokenTimes[key].map { Date().timeIntervalSince($0) > 3 } ?? false
+                let stale = streamingTimingBox.lastTokenTimes[key].map { Date().timeIntervalSince($0) > 3 } ?? false
                 if hasText && stale {
                     collectResponseIfSingle()
                     return
@@ -3998,8 +3996,8 @@ struct ChatView: View {
         activeStreamingSessionKeys.removeAll()
         activeStreamingDisplayNames.removeAll()
         processingStartTimes.removeAll()
-        lastTokenTimes.removeAll()
-        lastStreamingTextLengths.removeAll()
+        streamingTimingBox.lastTokenTimes.removeAll()
+        streamingTimingBox.lastStreamingTextLengths.removeAll()
         expandedStreamingThinkingSessionKeys.removeAll()
         queuedPeerDeliveriesBySession.removeAll()
 
@@ -4154,8 +4152,8 @@ struct ChatView: View {
         appState.lastSessionEvent.removeValue(forKey: sidecarKey)
         appState.sessionActivity[sidecarKey] = .waitingForResult
         processingStartTimes[sidecarKey] = Date()
-        lastTokenTimes.removeValue(forKey: sidecarKey)
-        lastStreamingTextLengths[sidecarKey] = 0
+        streamingTimingBox.lastTokenTimes.removeValue(forKey: sidecarKey)
+        streamingTimingBox.lastStreamingTextLengths[sidecarKey] = 0
     }
 
     @MainActor
@@ -4163,8 +4161,8 @@ struct ChatView: View {
         activeStreamingSessionKeys.remove(sidecarKey)
         activeStreamingDisplayNames.removeValue(forKey: sidecarKey)
         processingStartTimes.removeValue(forKey: sidecarKey)
-        lastTokenTimes.removeValue(forKey: sidecarKey)
-        lastStreamingTextLengths.removeValue(forKey: sidecarKey)
+        streamingTimingBox.lastTokenTimes.removeValue(forKey: sidecarKey)
+        streamingTimingBox.lastStreamingTextLengths.removeValue(forKey: sidecarKey)
         expandedStreamingThinkingSessionKeys.remove(sidecarKey)
     }
 
@@ -4177,8 +4175,8 @@ struct ChatView: View {
         activeStreamingSessionKeys.removeAll()
         activeStreamingDisplayNames.removeAll()
         processingStartTimes.removeAll()
-        lastTokenTimes.removeAll()
-        lastStreamingTextLengths.removeAll()
+        streamingTimingBox.lastTokenTimes.removeAll()
+        streamingTimingBox.lastStreamingTextLengths.removeAll()
         expandedStreamingThinkingSessionKeys.removeAll()
         queuedPeerDeliveriesBySession.removeAll()
     }
@@ -5278,8 +5276,7 @@ private struct ChatStreamingObserver: View {
     @Environment(AppState.self) private var appState
     @Binding var activeStreamingSessionKeys: Set<String>
     @Binding var activeStreamingDisplayNames: [String: String]
-    @Binding var lastTokenTimes: [String: Date]
-    @Binding var lastStreamingTextLengths: [String: Int]
+    let timingBox: ChatStreamingTimingBox
     @Binding var processingStartTimes: [String: Date]
     @Binding var expandedStreamingThinkingSessionKeys: Set<String>
     @Binding var isProcessing: Bool
@@ -5293,11 +5290,11 @@ private struct ChatStreamingObserver: View {
             .onChange(of: appState.streamingText) { _, texts in
                 for key in activeStreamingSessionKeys {
                     let newCount = texts[key]?.count ?? 0
-                    let previousCount = lastStreamingTextLengths[key] ?? 0
+                    let previousCount = timingBox.lastStreamingTextLengths[key] ?? 0
                     if newCount > previousCount {
-                        lastTokenTimes[key] = Date()
+                        timingBox.lastTokenTimes[key] = Date()
                     }
-                    lastStreamingTextLengths[key] = newCount
+                    timingBox.lastStreamingTextLengths[key] = newCount
                 }
                 scheduleRestore()
             }
@@ -5326,8 +5323,8 @@ private struct ChatStreamingObserver: View {
             activeStreamingSessionKeys.removeAll()
             activeStreamingDisplayNames.removeAll()
             processingStartTimes.removeAll()
-            lastTokenTimes.removeAll()
-            lastStreamingTextLengths.removeAll()
+            timingBox.lastTokenTimes.removeAll()
+            timingBox.lastStreamingTextLengths.removeAll()
             expandedStreamingThinkingSessionKeys.removeAll()
             return
         }
@@ -5352,14 +5349,14 @@ private struct ChatStreamingObserver: View {
             restoredKeys.insert(sidecarKey)
             restoredDisplayNames[sidecarKey] = session.agent?.name ?? AgentDefaults.displayName(forProvider: session.provider)
             processingStartTimes[sidecarKey] = processingStartTimes[sidecarKey] ?? now
-            lastStreamingTextLengths[sidecarKey] = appState.streamingText[sidecarKey]?.count ?? 0
+            timingBox.lastStreamingTextLengths[sidecarKey] = appState.streamingText[sidecarKey]?.count ?? 0
         }
 
         let removedKeys = activeStreamingSessionKeys.subtracting(restoredKeys)
         for key in removedKeys {
             processingStartTimes.removeValue(forKey: key)
-            lastTokenTimes.removeValue(forKey: key)
-            lastStreamingTextLengths.removeValue(forKey: key)
+            timingBox.lastTokenTimes.removeValue(forKey: key)
+            timingBox.lastStreamingTextLengths.removeValue(forKey: key)
             expandedStreamingThinkingSessionKeys.remove(key)
         }
 
@@ -5367,6 +5364,16 @@ private struct ChatStreamingObserver: View {
         activeStreamingDisplayNames = restoredDisplayNames
         isProcessing = !restoredKeys.isEmpty
     }
+}
+
+// MARK: - Streaming Timing Box
+
+/// Reference-type container for frequently-mutated streaming timing data.
+/// Because it is a class, `@State` holds its identity (not value equality), so
+/// mutations to its properties do NOT trigger SwiftUI body re-evaluations in ChatView.
+final class ChatStreamingTimingBox {
+    var lastTokenTimes: [String: Date] = [:]
+    var lastStreamingTextLengths: [String: Int] = [:]
 }
 
 // MARK: - Isolated Scroll Controller
