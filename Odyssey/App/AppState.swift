@@ -1337,9 +1337,11 @@ final class AppState {
                 if activeSessions[uuid]?.isStreaming != true {
                     activeSessions[uuid]?.isStreaming = true
                 }
-                // Batch token count — only publish every ~10 tokens to reduce dictionary mutations
+                // Batch token count — only publish every ~10 tokens to reduce dictionary mutations.
+                // Always flush on the very first token so the UI shows activity immediately.
                 pendingTokenCounts[uuid, default: 0] += max(1, text.count / 4)
-                if pendingTokenCounts[uuid, default: 0] >= 10 {
+                let isFirstToken = (activeSessions[uuid]?.tokenCount ?? 0) == 0
+                if isFirstToken || pendingTokenCounts[uuid, default: 0] >= 10 {
                     activeSessions[uuid]?.tokenCount += pendingTokenCounts[uuid]!
                     pendingTokenCounts[uuid] = 0
                 }
