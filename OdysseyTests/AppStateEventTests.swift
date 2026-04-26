@@ -152,8 +152,39 @@ final class AppStateEventTests: XCTestCase {
         let sid = UUID().uuidString
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: "Hello"))
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: " World"))
+        // Tokens are buffered at ≤60 fps; flush manually in tests.
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.streamingText[sid], "Hello World")
+    }
+
+    func testEH4c_streamToken_batchedBeforeFlush() {
+        let sid = UUID().uuidString
+        for i in 0..<50 {
+            appState.handleEventForTesting(.streamToken(sessionId: sid, text: "\(i) "))
+        }
+        // Before flush, streamingText should be nil (tokens are still buffered).
+        XCTAssertNil(appState.streamingText[sid], "streamingText must stay nil until flush")
+
+        appState.flushStreamTokenBuffersForTesting()
+        let result = appState.streamingText[sid] ?? ""
+        XCTAssertTrue(result.hasPrefix("0 1 2 "), "Tokens should be in order after flush")
+        XCTAssertEqual(result.split(separator: " ").count, 50)
+    }
+
+    func testEH4d_streamToken_flushedOnSessionResult() {
+        let sid = UUID().uuidString
+        let uuid = UUID(uuidString: sid) ?? UUID()
+        appState.activeSessions[uuid] = AppState.SessionInfo(id: uuid, agentName: "Bot", isStreaming: true)
+
+        appState.handleEventForTesting(.streamToken(sessionId: sid, text: "partial"))
+        // sessionResult must flush the buffer so the result handler sees the text.
+        appState.handleEventForTesting(.sessionResult(
+            sessionId: sid, result: "", cost: 0, tokenCount: 1, toolCallCount: 0
+        ))
+
+        XCTAssertEqual(appState.streamingText[sid], "partial",
+                       "Buffer must be flushed before sessionResult processing")
     }
 
     func testEH4b_streamTokenEvent_seedsLiveSessionUsageFromPersistedSession() {

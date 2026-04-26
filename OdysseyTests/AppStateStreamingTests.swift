@@ -47,6 +47,7 @@ final class AppStateStreamingTests: XCTestCase {
         for token in tokens {
             appState.handleEventForTesting(.streamToken(sessionId: sid, text: token))
         }
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.streamingText[sid], "Hello, world!")
     }
@@ -59,6 +60,7 @@ final class AppStateStreamingTests: XCTestCase {
         for _ in 0..<tokenCount {
             appState.handleEventForTesting(.streamToken(sessionId: sid, text: token))
         }
+        appState.flushStreamTokenBuffersForTesting()
 
         let expected = String(repeating: "ab", count: tokenCount)
         XCTAssertEqual(appState.streamingText[sid], expected)
@@ -68,6 +70,7 @@ final class AppStateStreamingTests: XCTestCase {
         let sid = makeSessionId()
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: ""))
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: "text"))
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.streamingText[sid], "text")
     }
@@ -78,6 +81,7 @@ final class AppStateStreamingTests: XCTestCase {
 
         appState.handleEventForTesting(.streamToken(sessionId: sid1, text: "session1"))
         appState.handleEventForTesting(.streamToken(sessionId: sid2, text: "session2"))
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.streamingText[sid1], "session1")
         XCTAssertEqual(appState.streamingText[sid2], "session2")
@@ -252,6 +256,7 @@ final class AppStateStreamingTests: XCTestCase {
     func testStreamingBuffer_clearedAfterSessionResult() {
         let sid = makeSessionId()
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: "partial"))
+        appState.flushStreamTokenBuffersForTesting()
         XCTAssertNotNil(appState.streamingText[sid])
 
         appState.handleEventForTesting(.sessionResult(
@@ -262,9 +267,10 @@ final class AppStateStreamingTests: XCTestCase {
             toolCallCount: 0
         ))
 
-        // streamingText is kept (used by UI) but internal token array is cleared
-        // Verify that a subsequent stream on the same session starts fresh
+        // streamingText is kept (used by UI) but internal token array is cleared.
+        // The next token starts a new turn; resetStreamingBuffersIfNewTurn clears the stale text.
         appState.handleEventForTesting(.streamToken(sessionId: sid, text: "new"))
+        appState.flushStreamTokenBuffersForTesting()
         XCTAssertEqual(appState.streamingText[sid], "new",
                        "After session result, new stream should start fresh from internal accumulator")
     }

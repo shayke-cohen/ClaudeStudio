@@ -27,7 +27,7 @@ final class AppState {
     /// Conversation IDs currently visible in any window — used for notification/unread gating.
     var visibleConversationIds: Set<UUID> = []
     var streamingText: [String: String] = [:]
-    private var streamingTokens: [String: [String]] = [:]
+    @ObservationIgnored private var streamingTokens: [String: [String]] = [:]
     var thinkingText: [String: String] = [:]
     var streamingImages: [String: [(data: String, mediaType: String)]] = [:]
     var streamingFileCards: [String: [(path: String, type: String, name: String)]] = [:]
@@ -261,8 +261,13 @@ final class AppState {
         "writefile", "createfile", "renamefile", "deletefile"
     ]
     private static let iso8601 = ISO8601DateFormatter()
-    private var pendingTokenCounts: [UUID: Int] = [:]
-    private var pendingPersistFlushTask: Task<Void, Never>?
+    // Not observed by SwiftUI — purely internal bookkeeping.
+    @ObservationIgnored private var pendingTokenCounts: [UUID: Int] = [:]
+    @ObservationIgnored private var pendingPersistFlushTask: Task<Void, Never>?
+    // Batches streaming tokens so streamingText (and thus ChatView) only
+    // updates at ≤60 fps instead of at token-arrival rate.
+    @ObservationIgnored private var pendingStreamTokenBuffer: [String: String] = [:]
+    @ObservationIgnored private var streamTokenFlushTimer: Timer?
 
     private(set) var sidecarManager: SidecarManager?
     private var nostrEventRelay: NostrEventRelay?
@@ -1308,7 +1313,35 @@ final class AppState {
         streamingText.removeValue(forKey: sessionId)
         streamingTokens.removeValue(forKey: sessionId)
         thinkingText.removeValue(forKey: sessionId)
+        pendingStreamTokenBuffer.removeValue(forKey: sessionId)
         lastSessionEvent.removeValue(forKey: sessionId)
+    }
+
+    /// Timer callback: write all buffered tokens to streamingText in one shot.
+    /// Fires at ≤60 fps so the ChatView body only re-renders at display rate.
+    private func flushAllStreamTokenBuffers() {
+        streamTokenFlushTimer = nil
+        guard !pendingStreamTokenBuffer.isEmpty else { return }
+        for (sessionId, buffered) in pendingStreamTokenBuffer {
+            if streamingText[sessionId] != nil {
+                streamingText[sessionId]!.append(buffered)
+            } else {
+                streamingText[sessionId] = buffered
+            }
+        }
+        pendingStreamTokenBuffer.removeAll()
+    }
+
+    /// Flush buffered tokens for a single session immediately (called before
+    /// sessionResult / sessionError so the final text is coherent).
+    private func flushStreamTokenBuffer(for sessionId: String) {
+        guard let buffered = pendingStreamTokenBuffer.removeValue(forKey: sessionId),
+              !buffered.isEmpty else { return }
+        if streamingText[sessionId] != nil {
+            streamingText[sessionId]!.append(buffered)
+        } else {
+            streamingText[sessionId] = buffered
+        }
     }
 
     /// Append to the comms-event timeline, dropping the oldest entries once we
@@ -1327,11 +1360,13 @@ final class AppState {
         case .streamToken(let sessionId, let text):
             resetStreamingBuffersIfNewTurn(sessionId: sessionId)
             streamingTokens[sessionId, default: []].append(text)
-            // Append directly instead of O(n) re-join on every token
-            if streamingText[sessionId] != nil {
-                streamingText[sessionId]!.append(text)
-            } else {
-                streamingText[sessionId] = text
+            // Accumulate in a non-observed buffer; flush to streamingText at ≤60 fps.
+            // This prevents ChatView from re-evaluating its full body on every token.
+            pendingStreamTokenBuffer[sessionId, default: ""] += text
+            if streamTokenFlushTimer == nil {
+                streamTokenFlushTimer = Timer.scheduledTimer(
+                    withTimeInterval: 1.0 / 60.0, repeats: false
+                ) { [weak self] _ in self?.flushAllStreamTokenBuffers() }
             }
             if let uuid = ensureActiveSessionInfo(sessionId: sessionId) {
                 if activeSessions[uuid]?.isStreaming != true {
@@ -1385,6 +1420,8 @@ final class AppState {
             sessionActivity[sessionId] = .waitingForResult
 
         case .sessionResult(let sessionId, let resultText, let cost, let tokenCount, let toolCallCount):
+            // Flush any in-flight buffered tokens before processing the final result.
+            flushStreamTokenBuffer(for: sessionId)
             workerStandbySessions.remove(sessionId)
             if let uuid = ensureActiveSessionInfo(sessionId: sessionId) {
                 // Flush any pending batched token counts before overwriting with final values
@@ -1425,6 +1462,8 @@ final class AppState {
             }
 
         case .sessionError(let sessionId, let error):
+            // Discard any buffered tokens — the turn is aborted.
+            pendingStreamTokenBuffer.removeValue(forKey: sessionId)
             // Stale session references from previous app sessions are harmless — clean up silently.
             if error.contains("Session not found") {
                 Log.appState.debug("Session \(sessionId, privacy: .public): stale reference, cleaning up")
@@ -2365,6 +2404,12 @@ final class AppState {
     /// Exposed for unit testing — calls handleEvent directly.
     func handleEventForTesting(_ event: SidecarEvent) {
         handleEvent(event)
+    }
+
+    /// Exposed for unit testing — flushes the pending stream token buffer immediately,
+    /// simulating what the 60fps timer does. Call after sending streamToken events.
+    func flushStreamTokenBuffersForTesting() {
+        flushAllStreamTokenBuffers()
     }
 
     func recoverSessionsForTesting() async {
