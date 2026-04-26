@@ -48,14 +48,20 @@ struct FileTreeView: View {
     private func loadTree() async {
         isLoading = true
         let url = rootURL
+        let captureShowHidden = showHidden
 
-        let (isGit, statusMap) = await Task.detached {
+        // Run git probe + directory listing off the MainActor — both touch the
+        // filesystem and the listing in particular can take tens of ms on big
+        // workspaces. This runs every time a file-modifying tool fires, so it
+        // was a recurring source of MainActor stalls during chats.
+        let (isGit, statusMap, nodes) = await Task.detached {
             let isGit = GitService.isGitRepo(at: url)
             let statusMap = isGit ? GitService.status(in: url) : [String: GitFileStatus]()
-            return (isGit, statusMap)
+            let nodes = FileSystemService.listDirectory(at: url, showHidden: captureShowHidden)
+            return (isGit, statusMap, nodes)
         }.value
 
-        rootNodes = FileSystemService.listDirectory(at: rootURL, showHidden: showHidden)
+        rootNodes = nodes
         isGitRepo = isGit
         gitStatusMap = statusMap
 
