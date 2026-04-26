@@ -422,6 +422,12 @@ private struct ProjectWindowContent: View {
             DefaultsSeeder.migrateConfigAgentToUlyssesIfNeeded(container: modelContainer)
 
             #if DEBUG
+            // Always-on heartbeat in DEBUG so any stall during streaming/saves
+            // shows up in os_log without needing to instrument by hand.
+            MainThreadStallMonitor.shared.start()
+            #endif
+
+            #if DEBUG
             AppXray.shared.registerObservableObject(appState, name: "appState", setters: [
                 "showAddResidentSheet": { [weak appState] v in
                     let val = (v as? Bool) ?? false

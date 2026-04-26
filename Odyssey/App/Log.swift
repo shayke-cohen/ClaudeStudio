@@ -20,4 +20,7 @@ enum Log {
     static let p2p         = Logger(subsystem: subsystem, category: "p2p")
     static let general     = Logger(subsystem: subsystem, category: "general")
     static let github      = Logger(subsystem: subsystem, category: "github")
+    /// Diagnostics for main-thread stalls, slow saves, hot-path latency.
+    /// Emits at `.debug` (silent in release builds) so it can be left wired in.
+    static let perf        = Logger(subsystem: subsystem, category: "perf")
 }

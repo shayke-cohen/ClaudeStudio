@@ -290,6 +290,7 @@
 		DEA34317D9EE0FD913DDEE54 /* MatrixClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D275D926FA0A8CCDDF578E /* MatrixClient.swift */; };
 		DFB9C92E84E2AC850A55748C /* MultiModelGroupsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D0C567417516A60FC55FDF /* MultiModelGroupsTests.swift */; };
 		E0E1CE97BF52E86DCA6178AC /* GroupLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A61853A394FC65FC3597F096 /* GroupLibraryView.swift */; };
+		E281009DD7C087BAA4370581 /* MainThreadStallMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2970D94505ECC5D6297F0733 /* MainThreadStallMonitor.swift */; };
 		E30A6CDD05CD3E3BE5DC9CA5 /* iOSPairingSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBB5F451810E6E796C0EBDD /* iOSPairingSettingsView.swift */; };
 		E4DB4B6053B64D616682841F /* SidecarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE6D5BFEC4719B2DBEFB703 /* SidecarManager.swift */; };
 		E50441A9D862EA7FD74826EB /* iOSAgentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D667133088DCC6D9B55AC48 /* iOSAgentListView.swift */; };
@@ -407,6 +408,7 @@
 		280817A687C4E0078740536D /* ChatEntryPointWDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEntryPointWDTests.swift; sourceTree = "<group>"; };
 		2850DD870EE28B14DA838DA1 /* AgentCreationSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationSheetTests.swift; sourceTree = "<group>"; };
 		288BDD8A62183CF6A37DF267 /* SkillsMCPsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsMCPsSettingsTab.swift; sourceTree = "<group>"; };
+		2970D94505ECC5D6297F0733 /* MainThreadStallMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadStallMonitor.swift; sourceTree = "<group>"; };
 		29F6D5388AB006681697BFF1 /* TemplatesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesSettingsTab.swift; sourceTree = "<group>"; };
 		2A1D85355DB946B3EC9C67D3 /* BrowserOverlayCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserOverlayCoordinator.swift; sourceTree = "<group>"; };
 		2B4A8439FA6BF28913E45057 /* LocalFileReferenceSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileReferenceSupportTests.swift; sourceTree = "<group>"; };
@@ -1193,6 +1195,7 @@
 				FBB166827A987635C8D535CB /* LocalProviderInstaller.swift */,
 				7D163AC9F9E014E2707DCEF3 /* LocalProviderSupport.swift */,
 				F0E048E67B172A802E9D19FF /* LogAggregator.swift */,
+				2970D94505ECC5D6297F0733 /* MainThreadStallMonitor.swift */,
 				B4D275D926FA0A8CCDDF578E /* MatrixClient.swift */,
 				BF50A910B05D937FF4A593D2 /* MatrixKeychainStore.swift */,
 				1AEE8206BDCADE014FF65EB4 /* MatrixTransport.swift */,
@@ -1770,6 +1773,7 @@
 				642EFE0B37B678444CA8810A /* MCPEditorView.swift in Sources */,
 				09D5183EE00301EE7CF7791D /* MCPLibraryView.swift in Sources */,
 				4D642E86E90F5ACA5EA4339D /* MCPServer.swift in Sources */,
+				E281009DD7C087BAA4370581 /* MainThreadStallMonitor.swift in Sources */,
 				051D4B295377527541A64837 /* MainWindowView.swift in Sources */,
 				FD91432E2B8B6EA5E24E630F /* MarkdownContent.swift in Sources */,
 				26F7BC5E8F69DCA2E24DCB8E /* MatrixAccountView.swift in Sources */,

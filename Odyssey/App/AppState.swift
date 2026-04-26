@@ -1361,6 +1361,11 @@ final class AppState {
     /// only re-renders at display rate even when a turn produces 30–50 tokens/sec.
     private func flushAllStreamTokenBuffers() {
         streamTokenFlushTimer = nil
+        let streamCount = pendingStreamTokenBuffer.count
+        let thinkCount = pendingThinkingTokenBuffer.count
+        let bytes = pendingStreamTokenBuffer.values.reduce(0) { $0 + $1.utf8.count }
+            + pendingThinkingTokenBuffer.values.reduce(0) { $0 + $1.utf8.count }
+        let start = ContinuousClock.now
         if !pendingStreamTokenBuffer.isEmpty {
             for (sessionId, buffered) in pendingStreamTokenBuffer {
                 if streamingText[sessionId] != nil {
@@ -1380,6 +1385,13 @@ final class AppState {
                 }
             }
             pendingThinkingTokenBuffer.removeAll()
+        }
+        let elapsed = ContinuousClock.now - start
+        // > 16 ms eats a frame; > 50 ms is user-visible jank. The flush itself
+        // is just dict mutation — anything slow here is the @Observable-driven
+        // SwiftUI body re-eval triggered by writing streamingText/thinkingText.
+        if elapsed > .milliseconds(16) {
+            Log.perf.warning("flushAllStreamTokenBuffers: \(elapsed, privacy: .public) (streamSessions=\(streamCount), thinkSessions=\(thinkCount), bytes=\(bytes))")
         }
     }
 
@@ -1476,6 +1488,13 @@ final class AppState {
             sessionActivity[sessionId] = .waitingForResult
 
         case .sessionResult(let sessionId, let resultText, let cost, let tokenCount, let toolCallCount):
+            let resultStart = ContinuousClock.now
+            defer {
+                let elapsed = ContinuousClock.now - resultStart
+                if elapsed > .milliseconds(50) {
+                    Log.perf.warning("sessionResult handler: \(elapsed, privacy: .public) (session=\(sessionId, privacy: .public), resultBytes=\(resultText.utf8.count))")
+                }
+            }
             // Flush any in-flight buffered tokens before processing the final result.
             flushStreamTokenBuffer(for: sessionId)
             workerStandbySessions.remove(sessionId)
@@ -2738,7 +2757,15 @@ final class AppState {
         pendingPersistFlushTask?.cancel()
         pendingPersistFlushTask = nil
         guard let ctx = modelContext, ctx.hasChanges else { return }
+        let start = ContinuousClock.now
         try? ctx.save()
+        let elapsed = ContinuousClock.now - start
+        // Every save() invalidates every @Query in the app and forces every
+        // subscribing view to re-evaluate, so anything > 50 ms is a likely
+        // contributor to a perceived stutter.
+        if elapsed > .milliseconds(20) {
+            Log.perf.warning("modelContext.save (debounced): \(elapsed, privacy: .public)")
+        }
     }
 
     private func persistPeerChatMessage(sessionId: String, channelId: String, from: String, message: String) {

@@ -4654,7 +4654,14 @@ struct ChatView: View {
         // flip, banner show, scroll restore) can land first. The save still
         // runs on the main thread but no longer back-to-back-to-back with
         // AppState's session-status save and any pending peer/blackboard save.
-        Task { @MainActor in try? modelContext.save() }
+        Task { @MainActor in
+            let start = ContinuousClock.now
+            try? modelContext.save()
+            let elapsed = ContinuousClock.now - start
+            if elapsed > .milliseconds(20) {
+                Log.perf.warning("modelContext.save (session-end message): \(elapsed, privacy: .public)")
+            }
+        }
         if convo.isSharedRoom {
             Task {
                 await sharedRoomService.publishLocalMessage(response, in: convo)
