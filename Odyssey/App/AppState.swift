@@ -264,9 +264,12 @@ final class AppState {
     // Not observed by SwiftUI — purely internal bookkeeping.
     @ObservationIgnored private var pendingTokenCounts: [UUID: Int] = [:]
     @ObservationIgnored private var pendingPersistFlushTask: Task<Void, Never>?
-    // Batches streaming tokens so streamingText (and thus ChatView) only
-    // updates at ≤60 fps instead of at token-arrival rate.
+    // Batches streaming + thinking tokens so streamingText/thinkingText
+    // (and thus ChatView) only update at ≤60 fps instead of at token-arrival
+    // rate. The timer is scheduled in `.common` mode so flushes still happen
+    // while NSScrollView is in eventTracking mode (active sidebar scroll).
     @ObservationIgnored private var pendingStreamTokenBuffer: [String: String] = [:]
+    @ObservationIgnored private var pendingThinkingTokenBuffer: [String: String] = [:]
     @ObservationIgnored private var streamTokenFlushTimer: Timer?
 
     private(set) var sidecarManager: SidecarManager?
@@ -1314,33 +1317,67 @@ final class AppState {
         streamingTokens.removeValue(forKey: sessionId)
         thinkingText.removeValue(forKey: sessionId)
         pendingStreamTokenBuffer.removeValue(forKey: sessionId)
+        pendingThinkingTokenBuffer.removeValue(forKey: sessionId)
         lastSessionEvent.removeValue(forKey: sessionId)
     }
 
-    /// Timer callback: write all buffered tokens to streamingText in one shot.
-    /// Fires at ≤60 fps so the ChatView body only re-renders at display rate.
+    /// Schedules the 60 fps flush timer if it isn't already running.
+    /// Registered in `.common` mode so flushes still fire while NSScrollView
+    /// is in eventTracking mode (active scroll). Without `.common` the chat
+    /// streaming text appears frozen any time the user is dragging the
+    /// sidebar — and the buffered tokens then flood in once scrolling stops.
+    private func scheduleStreamTokenFlush() {
+        guard streamTokenFlushTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: false) { [weak self] _ in
+            self?.flushAllStreamTokenBuffers()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        streamTokenFlushTimer = timer
+    }
+
+    /// Timer callback: write all buffered streaming + thinking tokens to their
+    /// observed dictionaries in one shot. Fires at ≤60 fps so the ChatView body
+    /// only re-renders at display rate even when a turn produces 30–50 tokens/sec.
     private func flushAllStreamTokenBuffers() {
         streamTokenFlushTimer = nil
-        guard !pendingStreamTokenBuffer.isEmpty else { return }
-        for (sessionId, buffered) in pendingStreamTokenBuffer {
+        if !pendingStreamTokenBuffer.isEmpty {
+            for (sessionId, buffered) in pendingStreamTokenBuffer {
+                if streamingText[sessionId] != nil {
+                    streamingText[sessionId]!.append(buffered)
+                } else {
+                    streamingText[sessionId] = buffered
+                }
+            }
+            pendingStreamTokenBuffer.removeAll()
+        }
+        if !pendingThinkingTokenBuffer.isEmpty {
+            for (sessionId, buffered) in pendingThinkingTokenBuffer {
+                if thinkingText[sessionId] != nil {
+                    thinkingText[sessionId]!.append(buffered)
+                } else {
+                    thinkingText[sessionId] = buffered
+                }
+            }
+            pendingThinkingTokenBuffer.removeAll()
+        }
+    }
+
+    /// Flush buffered tokens for a single session immediately (called before
+    /// sessionResult / sessionError so the final text is coherent).
+    private func flushStreamTokenBuffer(for sessionId: String) {
+        if let buffered = pendingStreamTokenBuffer.removeValue(forKey: sessionId), !buffered.isEmpty {
             if streamingText[sessionId] != nil {
                 streamingText[sessionId]!.append(buffered)
             } else {
                 streamingText[sessionId] = buffered
             }
         }
-        pendingStreamTokenBuffer.removeAll()
-    }
-
-    /// Flush buffered tokens for a single session immediately (called before
-    /// sessionResult / sessionError so the final text is coherent).
-    private func flushStreamTokenBuffer(for sessionId: String) {
-        guard let buffered = pendingStreamTokenBuffer.removeValue(forKey: sessionId),
-              !buffered.isEmpty else { return }
-        if streamingText[sessionId] != nil {
-            streamingText[sessionId]!.append(buffered)
-        } else {
-            streamingText[sessionId] = buffered
+        if let buffered = pendingThinkingTokenBuffer.removeValue(forKey: sessionId), !buffered.isEmpty {
+            if thinkingText[sessionId] != nil {
+                thinkingText[sessionId]!.append(buffered)
+            } else {
+                thinkingText[sessionId] = buffered
+            }
         }
     }
 
@@ -1363,11 +1400,7 @@ final class AppState {
             // Accumulate in a non-observed buffer; flush to streamingText at ≤60 fps.
             // This prevents ChatView from re-evaluating its full body on every token.
             pendingStreamTokenBuffer[sessionId, default: ""] += text
-            if streamTokenFlushTimer == nil {
-                streamTokenFlushTimer = Timer.scheduledTimer(
-                    withTimeInterval: 1.0 / 60.0, repeats: false
-                ) { [weak self] _ in self?.flushAllStreamTokenBuffers() }
-            }
+            scheduleStreamTokenFlush()
             if let uuid = ensureActiveSessionInfo(sessionId: sessionId) {
                 if activeSessions[uuid]?.isStreaming != true {
                     activeSessions[uuid]?.isStreaming = true
@@ -1387,13 +1420,15 @@ final class AppState {
 
         case .streamThinking(let sessionId, let text):
             resetStreamingBuffersIfNewTurn(sessionId: sessionId)
-            if thinkingText[sessionId] != nil {
-                thinkingText[sessionId]!.append(text)
-            } else {
-                thinkingText[sessionId] = text
-            }
+            // Accumulate in a non-observed buffer; flush to thinkingText at ≤60 fps.
+            // Without this, every thinking token (30–50/s) fires @Observable on the
+            // thinkingText dict, redrawing every subscribing subview at token rate.
+            pendingThinkingTokenBuffer[sessionId, default: ""] += text
+            scheduleStreamTokenFlush()
             if let uuid = ensureActiveSessionInfo(sessionId: sessionId) {
-                activeSessions[uuid]?.isStreaming = true
+                if activeSessions[uuid]?.isStreaming != true {
+                    activeSessions[uuid]?.isStreaming = true
+                }
             }
             if sessionActivity[sessionId] != .thinking {
                 sessionActivity[sessionId] = .thinking
@@ -1464,6 +1499,7 @@ final class AppState {
         case .sessionError(let sessionId, let error):
             // Discard any buffered tokens — the turn is aborted.
             pendingStreamTokenBuffer.removeValue(forKey: sessionId)
+            pendingThinkingTokenBuffer.removeValue(forKey: sessionId)
             // Stale session references from previous app sessions are harmless — clean up silently.
             if error.contains("Session not found") {
                 Log.appState.debug("Session \(sessionId, privacy: .public): stale reference, cleaning up")

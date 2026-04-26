@@ -128,6 +128,7 @@ final class AppStateStreamingTests: XCTestCase {
         for token in tokens {
             appState.handleEventForTesting(.streamThinking(sessionId: sid, text: token))
         }
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.thinkingText[sid], "I'm thinking about this...")
     }
@@ -138,9 +139,43 @@ final class AppStateStreamingTests: XCTestCase {
 
         appState.handleEventForTesting(.streamThinking(sessionId: sid1, text: "thought1"))
         appState.handleEventForTesting(.streamThinking(sessionId: sid2, text: "thought2"))
+        appState.flushStreamTokenBuffersForTesting()
 
         XCTAssertEqual(appState.thinkingText[sid1], "thought1")
         XCTAssertEqual(appState.thinkingText[sid2], "thought2")
+    }
+
+    /// Tokens must NOT appear in `thinkingText` before the flush — proving the
+    /// per-token Observable write has been eliminated.
+    func testThinkingText_batchedBeforeFlush() {
+        let sid = makeSessionId()
+        for _ in 0..<200 {
+            appState.handleEventForTesting(.streamThinking(sessionId: sid, text: "x"))
+        }
+        XCTAssertNil(appState.thinkingText[sid],
+                     "Thinking tokens must be buffered, not written to thinkingText, until the flush timer fires.")
+        appState.flushStreamTokenBuffersForTesting()
+        XCTAssertEqual(appState.thinkingText[sid]?.count, 200)
+    }
+
+    /// 10k thinking tokens should buffer quickly with no Observable writes,
+    /// then a single flush produces the full string.
+    func testThinkingText_highVolume_bufferedWithoutObservableWrites() {
+        let sid = makeSessionId()
+        let count = 10_000
+        let start = ContinuousClock().now
+        for _ in 0..<count {
+            appState.handleEventForTesting(.streamThinking(sessionId: sid, text: "x"))
+        }
+        let elapsed = ContinuousClock().now - start
+
+        XCTAssertLessThan(elapsed, .milliseconds(500),
+                          "Buffering \(count) thinking tokens took \(elapsed); suggests unexpected per-token work")
+        XCTAssertNil(appState.thinkingText[sid],
+                     "thinkingText must be nil until flush; per-token Observable writes would make it non-nil here")
+
+        appState.flushStreamTokenBuffersForTesting()
+        XCTAssertEqual(appState.thinkingText[sid]?.count, count)
     }
 
     /// Regression guard for O(n²) string accumulation. With the buggy
@@ -155,6 +190,7 @@ final class AppStateStreamingTests: XCTestCase {
         for _ in 0..<tokenCount {
             appState.handleEventForTesting(.streamThinking(sessionId: sid, text: "x"))
         }
+        appState.flushStreamTokenBuffersForTesting()
         let elapsed = ContinuousClock().now - start
 
         XCTAssertEqual(appState.thinkingText[sid]?.count, tokenCount)
@@ -163,6 +199,23 @@ final class AppStateStreamingTests: XCTestCase {
             .milliseconds(500),
             "Accumulating \(tokenCount) thinking tokens took \(elapsed); >500ms suggests O(n²) string concat regression"
         )
+    }
+
+    /// On `sessionError`, the pending thinking buffer must be discarded so
+    /// stale partial thoughts from the failed turn don't leak into thinkingText.
+    func testStreamThinking_sessionError_discardsBuffer() {
+        let sid = makeSessionId()
+        let uuid = UUID(uuidString: sid)!
+        appState.activeSessions[uuid] = AppState.SessionInfo(id: uuid, agentName: "Bot", isStreaming: true)
+
+        appState.handleEventForTesting(.streamThinking(sessionId: sid, text: "before-error"))
+        XCTAssertNil(appState.thinkingText[sid])
+
+        appState.handleEventForTesting(.sessionError(sessionId: sid, error: "network timeout"))
+        appState.flushStreamTokenBuffersForTesting()
+
+        XCTAssertNil(appState.thinkingText[sid],
+                     "sessionError must discard buffered thinking tokens; thinkingText should remain nil")
     }
 
     // MARK: - Tool call accumulation
