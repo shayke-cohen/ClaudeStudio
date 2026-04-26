@@ -418,6 +418,7 @@ private struct ProjectWindowContent: View {
             p2pNetworkManager.start()
 
             ProjectRecords.repairMissingProjects(in: modelContainer.mainContext)
+            ProjectRecords.seedProjectsFromRecentsIfEmpty(in: modelContainer.mainContext)
             DefaultsSeeder.migrateConfigAgentToUlyssesIfNeeded(container: modelContainer)
 
             #if DEBUG

@@ -736,12 +736,12 @@ struct SidebarView: View {
     private func rebuildAgentCaches() {
         let ulyssesId = agents.first { $0.name == "Ulysses" }?.id
         cachedResidentAgents = agents.filter { $0.isEnabled && $0.isResident && $0.id != ulyssesId }.sorted { $0.name < $1.name }
-        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.id != ulyssesId && agentsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
+        cachedNonResidentAgents = agents.filter { $0.isEnabled && !$0.isResident && $0.id != ulyssesId }.sorted { $0.name < $1.name }
     }
 
     private func rebuildGroupCaches() {
         cachedResidentGroups = groups.filter { $0.isEnabled && $0.isResident }.sorted { $0.name < $1.name }
-        cachedNonResidentGroups = groups.filter { $0.isEnabled && !$0.isResident && groupsWithConversations.contains($0.id) }.sorted { $0.name < $1.name }
+        cachedNonResidentGroups = groups.filter { $0.isEnabled && !$0.isResident }.sorted { $0.name < $1.name }
     }
 
     private func scheduleConversationIndexRebuild() {
@@ -1638,23 +1638,8 @@ struct SidebarView: View {
     private var groupsSection: some View {
         Section {
             if isGroupsSectionExpanded {
-                // Groups with conversation history — shown directly
                 ForEach(nonResidentGroups) { group in
                     groupSidebarRow(group, isPinned: false)
-                }
-
-                // 3. Library hint for groups with no history
-                let inLibraryCount = groups.filter { $0.isEnabled && !$0.isResident && !groupsWithConversations.contains($0.id) }.count
-                if inLibraryCount > 0 {
-                    Button {
-                        showGroupBrowseSheet = true
-                    } label: {
-                        Text("\(inLibraryCount) more in library →")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("sidebar.groupsLibraryHint")
                 }
             }
         } header: {
@@ -2198,23 +2183,8 @@ struct SidebarView: View {
     private var agentsSection: some View {
         Section {
             if isAgentsSectionExpanded {
-                // Agents with conversation history — shown directly
                 ForEach(nonResidentAgents) { agent in
                     agentSidebarRow(agent, isPinned: false)
-                }
-
-                // 3. Library hint for agents with no history
-                let inLibraryCount = agents.filter { $0.isEnabled && !$0.isResident && !agentsWithConversations.contains($0.id) }.count
-                if inLibraryCount > 0 {
-                    Button {
-                        showAgentBrowseSheet = true
-                    } label: {
-                        Text("\(inLibraryCount) more in library →")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("sidebar.agentsLibraryHint")
                 }
             }
         } header: {

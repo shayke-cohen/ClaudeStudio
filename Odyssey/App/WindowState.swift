@@ -162,6 +162,31 @@ enum ProjectRecords {
         return project
     }
 
+    /// If the store has zero projects, seed it from `RecentDirectories` so the
+    /// sidebar isn't blank for users whose project rows were lost in the
+    /// project-first shell reset.
+    @discardableResult
+    static func seedProjectsFromRecentsIfEmpty(in modelContext: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<Project>()
+        let count = (try? modelContext.fetchCount(descriptor)) ?? 0
+        guard count == 0 else { return 0 }
+
+        let recents = RecentDirectories.load()
+        guard !recents.isEmpty else { return 0 }
+
+        let now = Date()
+        var inserted = 0
+        for (index, path) in recents.enumerated() {
+            let project = upsertProject(at: path, in: modelContext)
+            // Stagger lastOpenedAt so the recents order is preserved by the
+            // sidebar's "updated" sort (most-recent first).
+            project.lastOpenedAt = now.addingTimeInterval(-Double(index))
+            inserted += 1
+        }
+        try? modelContext.save()
+        return inserted
+    }
+
     private static func relocatedProjectPath(
         forMissingPath path: String,
         currentDirectoryPath: String,
