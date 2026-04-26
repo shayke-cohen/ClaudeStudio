@@ -25,6 +25,27 @@ struct AttachmentStore {
         return attachment
     }
 
+    /// Returns the same `MessageAttachment` record `save(...)` would, but
+    /// schedules the actual disk write on a detached Task so the caller's
+    /// run loop (typically the main thread reacting to `sessionResult`)
+    /// doesn't block on `Data.write`. The file is on disk by the next
+    /// time the user opens the attachment — Inspector, image preview,
+    /// etc. all gate on a successful read so the brief gap is invisible.
+    static func saveDeferred(data: Data, mediaType: String, fileName: String? = nil) -> MessageAttachment {
+        ensureDirectory()
+        let resolvedName = fileName ?? defaultFileName(for: mediaType)
+        let attachment = MessageAttachment(
+            mediaType: mediaType,
+            fileName: resolvedName,
+            fileSize: data.count
+        )
+        let fileURL = url(for: attachment)
+        Task.detached(priority: .utility) {
+            try? data.write(to: fileURL, options: .atomic)
+        }
+        return attachment
+    }
+
     static func load(attachment: MessageAttachment) -> Data? {
         let fileURL = url(for: attachment)
         return try? Data(contentsOf: fileURL)

@@ -2569,7 +2569,7 @@ final class AppState {
               let convo = (session.conversations ?? []).first,
               !visibleConversationIds.contains(convo.id) else { return }
         convo.isUnread = true
-        try? ctx.save()
+        schedulePersistentSave()
     }
 
     /// Batched session-end persistence: one fetch + one save instead of 3 separate cycles.
@@ -2599,7 +2599,14 @@ final class AppState {
             convo.isUnread = true
         }
 
-        try? ctx.save()
+        // Defer the save: ChatView's finalizeAssistantStreamIntoMessage runs
+        // ~50 ms after this on the same turn end and saves the new message
+        // anyway. Letting that save catch *both* the session-status update
+        // and the new message merges what used to be two back-to-back
+        // synchronous SQLite writes (each invalidating every @Query) into
+        // one. If ChatView is unmounted, the 150 ms debounced fallback
+        // still persists the session changes.
+        schedulePersistentSave()
     }
 
     /// Fire a notification only when the session's conversation is not currently viewed or app is in background.

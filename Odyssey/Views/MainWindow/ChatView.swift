@@ -3804,7 +3804,7 @@ struct ChatView: View {
 
         var wireAttachments: [WireAttachment] = []
         for item in attachments {
-            let attachment = AttachmentStore.save(data: item.data, mediaType: item.mediaType, fileName: item.fileName)
+            let attachment = AttachmentStore.saveDeferred(data: item.data, mediaType: item.mediaType, fileName: item.fileName)
             attachment.message = message
             message.attachments = (message.attachments ?? []) + [attachment]
             modelContext.insert(attachment)
@@ -4589,13 +4589,17 @@ struct ChatView: View {
         modelContext.insert(response)
         GroupPromptBuilder.advanceWatermark(session: session, assistantMessage: response)
 
-        // Finalize accumulated agent images into MessageAttachment records
+        // Finalize accumulated agent images into MessageAttachment records.
+        // Disk write goes through `saveDeferred` so a turn that produced a
+        // few hundred KB of image bytes doesn't block the main thread on
+        // back-to-back `Data.write(to:atomic)` calls right at session end —
+        // a major contributor to the perceived "stuck" beat at turn boundaries.
         if let images = appState.streamingImages[sidecarKey] {
             for img in images {
                 guard let data = Data(base64Encoded: img.data) else { continue }
                 let ext = img.mediaType.components(separatedBy: "/").last ?? "png"
                 let name = "agent-image-\(UUID().uuidString.prefix(8)).\(ext)"
-                let attachment = AttachmentStore.save(data: data, mediaType: img.mediaType, fileName: name)
+                let attachment = AttachmentStore.saveDeferred(data: data, mediaType: img.mediaType, fileName: name)
                 attachment.message = response
                 modelContext.insert(attachment)
                 response.attachments = (response.attachments ?? []) + [attachment]
@@ -4616,7 +4620,12 @@ struct ChatView: View {
             appState.streamingFileCards.removeValue(forKey: sidecarKey)
         }
 
-        try? modelContext.save()
+        // Defer the SQLite save to the next run-loop tick so the rest of this
+        // handler (and any UI updates the caller is about to do — isProcessing
+        // flip, banner show, scroll restore) can land first. The save still
+        // runs on the main thread but no longer back-to-back-to-back with
+        // AppState's session-status save and any pending peer/blackboard save.
+        Task { @MainActor in try? modelContext.save() }
         if convo.isSharedRoom {
             Task {
                 await sharedRoomService.publishLocalMessage(response, in: convo)
