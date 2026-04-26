@@ -12,7 +12,7 @@ private struct ChatScrollOffsetPreferenceKey: PreferenceKey {
     }
 }
 
-private struct ChatVisibleMessageFrame: Equatable {
+struct ChatVisibleMessageFrame: Equatable {
     let id: UUID
     let minY: CGFloat
     let maxY: CGFloat
@@ -23,6 +23,37 @@ private struct ChatVisibleMessageFramesPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout [ChatVisibleMessageFrame], nextValue: () -> [ChatVisibleMessageFrame]) {
         value.append(contentsOf: nextValue())
+    }
+}
+
+enum ChatScrollAnchor {
+    /// Returns the topmost visible message id from a list of frame reports.
+    /// "Visible" means the frame intersects the viewport (`maxY > 0`,
+    /// `minY < viewportHeight`). Ties on minY are broken by id string order
+    /// for determinism. Single O(N) pass — the previous filter+sort form was
+    /// O(N) + O(N log N) per scroll tick of an upward-scrolled chat.
+    static func topVisibleMessageId(
+        from frames: [ChatVisibleMessageFrame],
+        viewportHeight: CGFloat
+    ) -> UUID? {
+        var topId: UUID?
+        var topIdString: String = ""
+        var topMinY = CGFloat.greatestFiniteMagnitude
+        for frame in frames {
+            guard frame.maxY > 0, frame.minY < viewportHeight else { continue }
+            if frame.minY < topMinY {
+                topMinY = frame.minY
+                topId = frame.id
+                topIdString = frame.id.uuidString
+            } else if frame.minY == topMinY {
+                let candidateString = frame.id.uuidString
+                if topId == nil || candidateString < topIdString {
+                    topId = frame.id
+                    topIdString = candidateString
+                }
+            }
+        }
+        return topId
     }
 }
 
@@ -3177,16 +3208,9 @@ struct ChatView: View {
             return
         }
 
-        let visibleFrames = frames
-            .filter { $0.maxY > 0 && $0.minY < viewportHeight }
-            .sorted { lhs, rhs in
-                if lhs.minY == rhs.minY {
-                    return lhs.id.uuidString < rhs.id.uuidString
-                }
-                return lhs.minY < rhs.minY
-            }
-
-        guard let topVisibleMessageId = visibleFrames.first?.id else { return }
+        guard let topVisibleMessageId = ChatScrollAnchor.topVisibleMessageId(
+            from: frames, viewportHeight: viewportHeight
+        ) else { return }
         windowState.setChatScrollAnchor(topVisibleMessageId, for: conversationId)
     }
 
