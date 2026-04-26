@@ -299,8 +299,8 @@ struct SidebarView: View {
     @State private var isPinnedExpanded = true
     @State private var isArchivedExpanded = false
     @State private var projectsShowingAllThreads: Set<UUID> = []
-    @State private var hoveredProjectId: UUID?
-    @State private var hoveredConversationId: UUID?
+    // Hover state moved to per-row RowHoverHost so a hover transition no longer
+    // re-evaluates the entire SidebarView body.
     @State private var expandedProjectIds: Set<UUID> = []
     @AppStorage("sidebar.agentsExpanded") private var isAgentsSectionExpanded: Bool = true
     @AppStorage("sidebar.groupsExpanded") private var isGroupsSectionExpanded: Bool = true
@@ -328,6 +328,19 @@ struct SidebarView: View {
     @State private var groupsWithConversations: Set<UUID> = []
     @State private var sessionIdToAgentId: [UUID: UUID] = [:]
     @State private var conversationIndexRebuildTask: Task<Void, Never>?
+    // Per-project root convos and per-parent forks. Built once per conversation
+    // change, so per-row tree rendering doesn't full-scan `conversations` again.
+    // Live convos are pre-sorted (pinned first, then startedAt desc) to skip the
+    // sort on every body re-render of an expanded project.
+    @State private var liveRootConvosByProject: [UUID: [Conversation]] = [:]
+    @State private var archivedRootConvosByProject: [UUID: [Conversation]] = [:]
+    @State private var forksByParent: [UUID: [Conversation]] = [:]
+    // Per-agent / per-group buckets for the hot row-render path (project = nil).
+    // The general project-scoped helpers still full-scan because they're cold paths.
+    @State private var liveAgentConvosByAgent: [UUID: [Conversation]] = [:]
+    @State private var archivedAgentConvosByAgent: [UUID: [Conversation]] = [:]
+    @State private var liveGroupConvosByGroup: [UUID: [Conversation]] = [:]
+    @State private var archivedGroupConvosByGroup: [UUID: [Conversation]] = [:]
 
     private var autoAssembleEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autoAssembleKey) || (masterFlag && autoAssembleFlag) }
     private var autonomousMissionsEnabled: Bool { FeatureFlags.isEnabled(FeatureFlags.autonomousMissionsKey) || (masterFlag && autonomousMissionsFlag) }
@@ -548,8 +561,11 @@ struct SidebarView: View {
             .onChange(of: groups.count) { _, _ in rebuildGroupCaches() }
             .onChange(of: groups.map { $0.showInSidebar }) { _, _ in rebuildGroupCaches() }
             .onChange(of: groups.map { $0.isResident }) { _, _ in rebuildGroupCaches() }
-            .onChange(of: conversations.count) { _, _ in scheduleConversationIndexRebuild() }
-            .onChange(of: appState.createdSessions.count) { _, _ in scheduleConversationIndexRebuild() }
+            .modifier(ConversationStructureObservers(
+                conversations: conversations,
+                createdSessionsCount: appState.createdSessions.count,
+                onChange: scheduleConversationIndexRebuild
+            ))
     }
 
     private var searchText: String { appState.sidebarSearchText }
@@ -755,6 +771,64 @@ struct SidebarView: View {
         groupsWithConversations = Set(conversations.compactMap(\.sourceGroupId))
         rebuildAgentCaches()
         rebuildGroupCaches()
+        rebuildConversationTreeCaches()
+    }
+
+    private func rebuildConversationTreeCaches() {
+        var liveByProject: [UUID: [Conversation]] = [:]
+        var archivedByProject: [UUID: [Conversation]] = [:]
+        var forks: [UUID: [Conversation]] = [:]
+        var liveAgent: [UUID: [Conversation]] = [:]
+        var archivedAgent: [UUID: [Conversation]] = [:]
+        var liveGroup: [UUID: [Conversation]] = [:]
+        var archivedGroup: [UUID: [Conversation]] = [:]
+        for convo in conversations {
+            // Tree caches first
+            if let parentId = convo.parentConversationId {
+                forks[parentId, default: []].append(convo)
+                continue
+            }
+            if let pid = convo.projectId {
+                if convo.isArchived {
+                    archivedByProject[pid, default: []].append(convo)
+                } else {
+                    liveByProject[pid, default: []].append(convo)
+                }
+            }
+            // Agent / group buckets are global-scope only (matches the row-render path).
+            let isGlobalScope = (convo.threadKind == .scheduled) || convo.projectId == nil
+            guard isGlobalScope else { continue }
+            if let groupId = convo.sourceGroupId {
+                if convo.isArchived {
+                    archivedGroup[groupId, default: []].append(convo)
+                } else {
+                    liveGroup[groupId, default: []].append(convo)
+                }
+            } else if let agentId = conversationToAgentIndex[convo.id] {
+                if convo.isArchived {
+                    archivedAgent[agentId, default: []].append(convo)
+                } else {
+                    liveAgent[agentId, default: []].append(convo)
+                }
+            }
+        }
+        // Pre-sort the hot path: live project convos (pinned first, then startedAt desc).
+        for (k, v) in liveByProject where v.count > 1 {
+            liveByProject[k] = v.sorted { lhs, rhs in
+                if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+                return lhs.startedAt > rhs.startedAt
+            }
+        }
+        for (k, v) in forks where v.count > 1 {
+            forks[k] = v.sorted { $0.startedAt < $1.startedAt }
+        }
+        liveRootConvosByProject = liveByProject
+        archivedRootConvosByProject = archivedByProject
+        forksByParent = forks
+        liveAgentConvosByAgent = liveAgent
+        archivedAgentConvosByAgent = archivedAgent
+        liveGroupConvosByGroup = liveGroup
+        archivedGroupConvosByGroup = archivedGroup
     }
 
     @ViewBuilder
@@ -975,8 +1049,15 @@ struct SidebarView: View {
     }
 
     private func projectHeaderRow(_ project: Project) -> some View {
+        // Row-local hover so a mouse move over this row doesn't invalidate the
+        // entire SidebarView body (which would re-evaluate every section).
+        RowHoverHost { isHoveredProject in
+            projectHeaderRowBody(project, isHoveredProject: isHoveredProject)
+        }
+    }
+
+    private func projectHeaderRowBody(_ project: Project, isHoveredProject: Bool) -> some View {
         let isSelectedProject = windowState.selectedProjectId == project.id
-        let isHoveredProject = hoveredProjectId == project.id
         let showsProjectActions = isSelectedProject || isHoveredProject
         let tint = projectTint(project)
 
@@ -1036,30 +1117,31 @@ struct SidebarView: View {
             }
         }
         .contentShape(Rectangle())
-        .onHover { isHovering in
-            hoveredProjectId = isHovering ? project.id : nil
-        }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(
-                    isSelectedProject
-                    ? AnyShapeStyle(
-                        LinearGradient(
-                            colors: [tint.opacity(0.18), tint.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    : AnyShapeStyle(Color.primary.opacity(0.04))
-                )
-        )
+        .background {
+            // Branching here avoids the AnyShapeStyle allocation that the conditional
+            // `.fill()` form does on every row body call.
+            if isSelectedProject {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [tint.opacity(0.18), tint.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+            } else {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.primary.opacity(0.04))
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(isSelectedProject ? tint.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 1)
         )
-        .shadow(color: isSelectedProject ? tint.opacity(0.10) : .clear, radius: 12, y: 6)
+        // Drop the shadow modifier entirely on unselected rows. `.shadow(color:.clear)`
+        // still walks the Core Animation shadow path on every redraw — it's only
+        // free if the modifier isn't applied at all.
+        .modifier(SelectedProjectShadow(isSelected: isSelectedProject, tint: tint))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
                 projectToArchiveThreads = project
@@ -1098,15 +1180,9 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func projectThreadRows(_ project: Project) -> some View {
-        let allLive = filteredConversations(
-            rootConversations(in: project)
-                .filter { !$0.isArchived }
-                .sorted { lhs, rhs in
-                    if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
-                    return lhs.startedAt > rhs.startedAt
-                }
-        )
-        let archivedThreads = filteredConversations(rootConversations(in: project).filter(\.isArchived))
+        // Pre-sorted by rebuildConversationTreeCaches: pinned first, then startedAt desc.
+        let allLive = filteredConversations(liveRootConvosByProject[project.id] ?? [])
+        let archivedThreads = filteredConversations(archivedRootConvosByProject[project.id] ?? [])
         let showAll = projectsShowingAllThreads.contains(project.id)
         let displayed = showAll ? allLive : Array(allLive.prefix(10))
 
@@ -1401,19 +1477,19 @@ struct SidebarView: View {
     // MARK: - Tree helpers
 
     private func rootConversations(in project: Project) -> [Conversation] {
-        conversations.filter { $0.parentConversationId == nil && $0.projectId == project.id }
+        // Combined live + archived. Callers that need just one should use the
+        // bucket caches directly; this is kept for any cold path that wants the
+        // full set.
+        (liveRootConvosByProject[project.id] ?? []) + (archivedRootConvosByProject[project.id] ?? [])
     }
 
     private func activeConversations(in project: Project) -> [Conversation] {
-        rootConversations(in: project)
-            .filter { !$0.isArchived }
-            .sorted { $0.startedAt > $1.startedAt }
+        // Pre-sorted in the cache (pinned first, then startedAt desc).
+        liveRootConvosByProject[project.id] ?? []
     }
 
     private func childConversations(of parent: Conversation) -> [Conversation] {
-        conversations
-            .filter { $0.parentConversationId == parent.id }
-            .sorted { $0.startedAt < $1.startedAt }
+        forksByParent[parent.id] ?? []
     }
 
     @ViewBuilder
@@ -1489,8 +1565,8 @@ struct SidebarView: View {
     private func groupSidebarRow(_ group: AgentGroup, isPinned: Bool = false) -> some View {
         GroupSidebarRowView(
             group: group,
-            conversations: conversationsForGroup(group),
-            archivedConversations: archivedConversationsForGroup(group),
+            conversations: liveGroupConvosByGroup[group.id] ?? [],
+            archivedConversations: archivedGroupConvosByGroup[group.id] ?? [],
             allAgents: agents,
             isExpanded: Binding(
                 get: { expandedGroupIds.contains(group.id) },
@@ -2152,8 +2228,8 @@ struct SidebarView: View {
     private func agentSidebarRow(_ agent: Agent, isPinned: Bool) -> some View {
         AgentSidebarRowView(
             agent: agent,
-            conversations: conversationsForAgent(agent),
-            archivedConversations: archivedConversationsForAgent(agent),
+            conversations: liveAgentConvosByAgent[agent.id] ?? [],
+            archivedConversations: archivedAgentConvosByAgent[agent.id] ?? [],
             isExpanded: Binding(
                 get: { expandedAgentIds.contains(agent.id) },
                 set: { expanded in
@@ -2219,7 +2295,13 @@ struct SidebarView: View {
     // MARK: - Conversation Row
 
     private func conversationRow(_ convo: Conversation) -> some View {
-        let isHovered = hoveredConversationId == convo.id
+        // Row-local hover (see projectHeaderRow note).
+        RowHoverHost { isHovered in
+            conversationRowBody(convo, isHovered: isHovered)
+        }
+    }
+
+    private func conversationRowBody(_ convo: Conversation, isHovered: Bool) -> some View {
         let isSelected = windowState.selectedConversationId == convo.id
         let showsConversationMenu = isHovered || isSelected
 
@@ -2288,9 +2370,6 @@ struct SidebarView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? Color.accentColor.opacity(0.12) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
         )
-        .onHover { isHovering in
-            hoveredConversationId = isHovering ? convo.id : nil
-        }
         .xrayId("sidebar.conversationRow.\(convo.id.uuidString)")
         .contextMenu {
             conversationMenuContent(convo)
@@ -2431,10 +2510,14 @@ struct SidebarView: View {
 
     // MARK: - Helpers
 
+    private static let relativeTimeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
     private func relativeTime(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        Self.relativeTimeFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     private func lastMessagePreview(_ convo: Conversation) -> (text: String, attachmentIcon: String?)? {
@@ -3054,6 +3137,59 @@ private struct SectionTitleButton: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isExpanded)
+    }
+}
+
+/// Owns its own `isHovered` @State so that `.onHover` transitions don't
+/// invalidate the parent `SidebarView` body. SwiftUI was previously firing every
+/// mouse-move over a row through `hoveredConversationId` / `hoveredProjectId`
+/// at the parent, which forced the whole sidebar tree to re-evaluate. Now only
+/// this small host re-renders, and only the rendered row body inside it.
+private struct RowHoverHost<Content: View>: View {
+    @State private var isHovered = false
+    let content: (Bool) -> Content
+
+    var body: some View {
+        content(isHovered)
+            .onHover { isHovered = $0 }
+    }
+}
+
+/// Conditionally applies a tinted shadow only when a project row is selected.
+/// Wrapping the modifier in a conditional avoids the shadow path firing for the
+/// 99% of rows that don't need one.
+private struct SelectedProjectShadow: ViewModifier {
+    let isSelected: Bool
+    let tint: Color
+
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.shadow(color: tint.opacity(0.10), radius: 12, y: 6)
+        } else {
+            content
+        }
+    }
+}
+
+/// Watches Conversation count + parentConversationId + projectId so the sidebar's
+/// per-project / per-fork tree caches stay in sync. Extracted into its own modifier
+/// because chaining all of these inline tipped the SwiftUI type-checker over its
+/// reasonable-time threshold.
+private struct ConversationStructureObservers: ViewModifier {
+    let conversations: [Conversation]
+    let createdSessionsCount: Int
+    let onChange: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: conversations.count) { _, _ in onChange() }
+            .onChange(of: conversations.map(\.parentConversationId)) { _, _ in onChange() }
+            .onChange(of: conversations.map(\.projectId)) { _, _ in onChange() }
+            // Pin/archive toggles affect the pre-sorted live/archived buckets,
+            // so the cache must rebuild when those flags flip.
+            .onChange(of: conversations.map(\.isPinned)) { _, _ in onChange() }
+            .onChange(of: conversations.map(\.isArchived)) { _, _ in onChange() }
+            .onChange(of: createdSessionsCount) { _, _ in onChange() }
     }
 }
 

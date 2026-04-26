@@ -77,8 +77,46 @@ struct MainWindowView: View {
 
     var body: some View {
         @Bindable var ws = windowState
-        Group {
-            if ws.activeRoute == .settings {
+        let showingSettings = ws.activeRoute == .settings
+        // Keep the workspace tree mounted so navigating in/out of Settings doesn't
+        // rebuild SidebarView (rebuildConversationIndex fetches every Session) and
+        // ChatView (caches + @Query refire). Toggle visibility instead of swapping.
+        ZStack {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                SidebarView()
+            } detail: {
+                Group {
+                    let showInspector = ws.inspectorVisible && windowState.selectedConversationId != nil
+                    let showBrowser = appState.activeBrowserPanelVisible && appState.activeBrowserSessionId != nil
+                    if showInspector || showBrowser {
+                        HSplitView {
+                            mainDetailPane
+                                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+                                .layoutPriority(1)
+                            if showInspector {
+                                inspectorPane
+                                    .frame(minWidth: 320, idealWidth: 360, maxWidth: 400, maxHeight: .infinity)
+                                    .walkthroughAnchor(.inspectorPanel)
+                            }
+                            if showBrowser, let sessionId = appState.activeBrowserSessionId {
+                                browserPanelPane(sessionId: sessionId)
+                                    .frame(minWidth: 400, idealWidth: 500, maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(SplitViewConfigurator(autosaveName: "odyssey.chatBrowserSplit"))
+                        .xrayId("mainWindow.chatBrowserSplit")
+                    } else {
+                        mainDetailPane
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            }
+            .navigationSplitViewStyle(.balanced)
+            .opacity(showingSettings ? 0 : 1)
+            .allowsHitTesting(!showingSettings)
+
+            if showingSettings {
                 SettingsView(
                     pendingConfigSection: ws.pendingConfigSection,
                     pendingConfigSlug: ws.pendingConfigSlug
@@ -89,39 +127,8 @@ struct MainWindowView: View {
                 }
                 .environment(appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
                 .xrayId("mainWindow.settingsScreen")
-            } else {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
-                    SidebarView()
-                } detail: {
-                    Group {
-                        let showInspector = ws.inspectorVisible && windowState.selectedConversationId != nil
-                        let showBrowser = appState.activeBrowserPanelVisible && appState.activeBrowserSessionId != nil
-                        if showInspector || showBrowser {
-                            HSplitView {
-                                mainDetailPane
-                                    .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
-                                    .layoutPriority(1)
-                                if showInspector {
-                                    inspectorPane
-                                        .frame(minWidth: 320, idealWidth: 360, maxWidth: 400, maxHeight: .infinity)
-                                        .walkthroughAnchor(.inspectorPanel)
-                                }
-                                if showBrowser, let sessionId = appState.activeBrowserSessionId {
-                                    browserPanelPane(sessionId: sessionId)
-                                        .frame(minWidth: 400, idealWidth: 500, maxWidth: .infinity, maxHeight: .infinity)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(SplitViewConfigurator(autosaveName: "odyssey.chatBrowserSplit"))
-                            .xrayId("mainWindow.chatBrowserSplit")
-                        } else {
-                            mainDetailPane
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                }
-                .navigationSplitViewStyle(.balanced)
             }
         }
         .frame(minWidth: 900, minHeight: 600)

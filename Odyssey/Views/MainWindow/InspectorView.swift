@@ -984,9 +984,7 @@ struct InspectorView: View {
     }
 
     private func formatNumber(_ n: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
+        InspectorNumberFormatter.shared.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
     private var repoStateLabel: String {
@@ -1648,9 +1646,18 @@ private struct LiveUsageMetrics: View {
 }
 
 private func formatNumberLocal(_ n: Int) -> String {
-    let f = NumberFormatter()
-    f.numberStyle = .decimal
-    return f.string(from: NSNumber(value: n)) ?? "\(n)"
+    InspectorNumberFormatter.shared.string(from: NSNumber(value: n)) ?? "\(n)"
+}
+
+/// Shared decimal NumberFormatter — avoids fresh-allocation on every render of
+/// turn-progress / token-count widgets. Formatters are not thread-safe in
+/// general, but all call sites are @MainActor.
+private enum InspectorNumberFormatter {
+    static let shared: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f
+    }()
 }
 
 private func turnProgressColorLocal(used: Int, max: Int) -> Color {
