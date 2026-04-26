@@ -301,7 +301,13 @@ struct ChatView: View {
     @Query private var allAgents: [Agent]
     @Query private var allTemplates: [PromptTemplate]
 
-    private let autoScrollThreshold: CGFloat = 120
+    /// Distance from the bottom (in points) past which we consider the user
+    /// to have "left" the live stream. Kept small on purpose — at 30 fps
+    /// flushes a turn grows the streaming bubble by ~3-5 pt per flush, well
+    /// inside this band, so live-following stays sticky. A small upward
+    /// scroll past this threshold latches `shouldAutoScroll` off (see the
+    /// `onPreferenceChange` block) so the user is not yanked back down.
+    private let autoScrollThreshold: CGFloat = 40
     private let bottomScrollAnchor = "chat.bottomAnchor"
 
     private var conversationId: UUID {
@@ -2031,7 +2037,17 @@ struct ChatView: View {
                         let nearBottom = distanceFromBottom <= autoScrollThreshold
                         isNearBottom = nearBottom
                         guard !isRestoringScrollPosition else { return }
-                        shouldAutoScroll = nearBottom
+                        // One-way latch: a scroll past the threshold disables
+                        // auto-scroll for the remainder of the turn. We do NOT
+                        // re-enable it just because the user happened to drift
+                        // back near the bottom — re-engagement is explicit
+                        // (Jump-to-Latest button, or `isProcessing` flipping
+                        // to true on a new turn). Without the latch, every
+                        // token-driven layout shift can flip nearBottom back
+                        // to true and yank the user down mid-read.
+                        if !nearBottom {
+                            shouldAutoScroll = false
+                        }
                         if nearBottom {
                             windowState.setChatScrollAnchor(nil, for: conversationId)
                         }
