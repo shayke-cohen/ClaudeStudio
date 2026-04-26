@@ -156,6 +156,50 @@ describe("pauseSession — ask_user cleanup", () => {
 
     expect(registry.get(sessionId)?.status).toBe("paused");
   });
+
+  // spawnAutonomous(waitForResult=true) registers a Promise resolver in
+  // autonomousResults. The resolver was only called from sendMessage's
+  // success / error catch branches — never from the abort branch — so a
+  // pause mid-turn left the awaited promise hanging forever.
+  test("pauseSession resolves any pending autonomous-result waiter", async () => {
+    const sessionId = "auto-waiter-session";
+    registry.create(sessionId, {
+      name: "AutoBot",
+      systemPrompt: "",
+      allowedTools: [],
+      mcpServers: [],
+      model: "claude-sonnet-4-6",
+      workingDirectory: "/tmp",
+      skills: [],
+    });
+
+    let resolved = false;
+    let resolvedValue: string | undefined;
+    const waiterPromise = new Promise<string>((resolve) => {
+      // Inject an autonomous-result waiter directly. spawnAutonomous would
+      // create one of these for us, but mock runtime returns synchronously,
+      // which would resolve the waiter before pauseSession could race.
+      (sm as any).autonomousResults.set(sessionId, {
+        resolve: (value: string) => {
+          resolved = true;
+          resolvedValue = value;
+          resolve(value);
+        },
+      });
+    });
+
+    await sm.pauseSession(sessionId);
+
+    // Pause should have resolved the waiter eagerly, not left it hanging.
+    const raceResult = await Promise.race([
+      waiterPromise.then(() => "resolved"),
+      new Promise<string>((r) => setTimeout(() => r("hung"), 200)),
+    ]);
+    expect(raceResult).toBe("resolved");
+    expect(resolved).toBe(true);
+    expect(resolvedValue).toMatch(/paus/i);
+    expect((sm as any).autonomousResults.has(sessionId)).toBe(false);
+  });
 });
 
 describe("SessionManager short-circuit paths", () => {

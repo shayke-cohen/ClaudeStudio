@@ -449,6 +449,15 @@ export class SessionManager {
       questionsBySession.delete(sessionId);
     }
 
+    // spawnAutonomous(waitForResult=true) leaves a Promise resolver here.
+    // sendMessage's abort branch did NOT call it, so without explicit
+    // cleanup any awaited spawnAutonomous result hung forever after a pause.
+    const waiter = this.autonomousResults.get(sessionId);
+    if (waiter) {
+      waiter.resolve("[Session paused]");
+      this.autonomousResults.delete(sessionId);
+    }
+
     this.flushTokenBatch(sessionId, this.emit);
     this.tokenBatchers.delete(sessionId);
     this.toolCtx.delegation.delete(sessionId);
