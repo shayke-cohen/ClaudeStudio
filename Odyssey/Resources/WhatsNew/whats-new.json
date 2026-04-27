@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.5.14",
+    "date": "2026-04-27",
+    "highlights": [
+      "Much smoother streaming — multi-second freezes during long replies are gone, and the sidebar/chat stay scrollable while agents type",
+      "Auto-scroll no longer fights you — scrolling up during a streaming reply now sticks until you tap Jump to Latest",
+      "Faster chat switching — opening a conversation no longer pauses on a catalog fetch before the composer becomes interactive",
+      "All your agents, groups, and projects show in the sidebar again — and your recent project folders are restored automatically on first launch",
+      "New testing affordances — open an existing conversation by URL (odyssey://chat?conversation=…), plus ⌘L to focus the composer and ⌘J to jump to the latest message"
+    ]
+  },
+  {
     "version": "0.5.13",
     "date": "2026-04-25",
     "highlights": [

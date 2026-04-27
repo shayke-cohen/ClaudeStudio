@@ -2121,7 +2121,7 @@
 				CODE_SIGN_ENTITLEMENTS = Odyssey/Resources/Odyssey.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 38;
+				CURRENT_PROJECT_VERSION = 39;
 				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2133,7 +2133,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.13;
+				MARKETING_VERSION = 0.5.14;
 				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
@@ -2188,7 +2188,7 @@
 				CODE_SIGN_ENTITLEMENTS = Odyssey/Resources/Odyssey.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 38;
+				CURRENT_PROJECT_VERSION = 39;
 				DEVELOPMENT_TEAM = S3GLW74Y8N;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2200,7 +2200,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.13;
+				MARKETING_VERSION = 0.5.14;
 				PRODUCT_BUNDLE_IDENTIFIER = com.shaycohen.odyssey;
 				PRODUCT_NAME = Odyssey;
 				SDKROOT = macosx;
