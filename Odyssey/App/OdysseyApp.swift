@@ -469,6 +469,7 @@ private struct ProjectWindowContent: View {
             let ws = WindowState()
             ws.appState = appState
             windowState = ws
+            appState.registerPrimaryWindowState(ws)
 
             // If an explicit directory was provided (CLI arg), open it straight away.
             // Otherwise, if there's a launch intent without a working directory, execute it directly.

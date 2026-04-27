@@ -293,6 +293,38 @@ final class AppState {
         if let kp = try? IdentityManager.shared.nostrKeypair(for: InstanceConfig.name) {
             nostrPublicKeyHex = kp.pubkeyHex
         }
+        ChatNotificationManager.shared.appState = self
+    }
+
+    // MARK: - Notification routing
+
+    /// The active main-window state, registered by `ProjectWindowContent` once SwiftUI
+    /// instantiates the window. Used to navigate to a conversation when the user taps
+    /// a macOS notification.
+    weak var primaryWindowState: WindowState?
+
+    /// Route deferred when a notification is tapped before the window is ready
+    /// (e.g. cold-launch via notification). Drained when `primaryWindowState` is set.
+    var pendingConversationRoute: UUID?
+
+    /// Selects the given conversation in the primary window. If the window isn't
+    /// ready yet, the request is queued and drained on registration.
+    func routeToConversation(id: UUID) {
+        if let ws = primaryWindowState {
+            ws.selectedConversationId = id
+        } else {
+            pendingConversationRoute = id
+        }
+    }
+
+    /// Called by the window once it's ready to receive routing. Drains any pending
+    /// notification tap that arrived before the window existed.
+    func registerPrimaryWindowState(_ ws: WindowState) {
+        primaryWindowState = ws
+        if let pending = pendingConversationRoute {
+            pendingConversationRoute = nil
+            ws.selectedConversationId = pending
+        }
     }
 
     // instanceWorkingDirectory, loadInstanceWorkingDirectory, setInstanceWorkingDirectory
@@ -1588,8 +1620,8 @@ final class AppState {
             sessionActivity[sessionId] = .done
             handleVoiceModeCompletion(sessionId: sessionId)
             checkConversationIdle(for: sessionId)
-            notifyIfNeeded(sessionId: sessionId) { name, topic in
-                ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic)
+            notifyIfNeeded(sessionId: sessionId) { name, topic, convoId in
+                ChatNotificationManager.shared.notifySessionCompleted(agentName: name, conversationTopic: topic, conversationId: convoId)
             }
             // Flush any coalesced peer/blackboard saves before the batched completion save
             flushPendingPersistentSave()
@@ -1635,8 +1667,8 @@ final class AppState {
             clearPendingUserInput(for: sessionId)
             sessionActivity[sessionId] = .error(error)
             checkConversationIdle(for: sessionId)
-            notifyIfNeeded(sessionId: sessionId) { name, _ in
-                ChatNotificationManager.shared.notifySessionError(agentName: name, error: error)
+            notifyIfNeeded(sessionId: sessionId) { name, _, convoId in
+                ChatNotificationManager.shared.notifySessionError(agentName: name, error: error, conversationId: convoId)
             }
             Log.appState.error("Session \(sessionId, privacy: .public) error: \(error, privacy: .public)")
             flushPendingPersistentSave()
@@ -1682,8 +1714,8 @@ final class AppState {
             )
             sessionActivity[sessionId] = .askingUser
             markConversationUnreadIfNeeded(sessionId: sessionId)
-            notifyIfNeeded(sessionId: sessionId) { name, _ in
-                ChatNotificationManager.shared.notifyAgentQuestion(agentName: name, question: question)
+            notifyIfNeeded(sessionId: sessionId) { name, _, convoId in
+                ChatNotificationManager.shared.notifyAgentQuestion(agentName: name, question: question, conversationId: convoId)
             }
 
         case .agentConfirmation(let sessionId, let confirmationId, let action, let reason, let riskLevel, let details):
@@ -2204,7 +2236,7 @@ final class AppState {
         // Track for auto-persist so the agent response is saved when the session completes
         ghAutoFinalizeSessionIds.insert(sessionId)
 
-        ChatNotificationManager.shared.notifyGHIssueTriggered(issueNumber: issueNumber, repo: repo, title: title)
+        ChatNotificationManager.shared.notifyGHIssueTriggered(issueNumber: issueNumber, repo: repo, title: title, conversationId: convUUID)
         Log.github.info("gh.issue.triggered: created conv=\(conversationId, privacy: .public) sess=\(sessionId, privacy: .public)")
     }
 
@@ -2701,7 +2733,8 @@ final class AppState {
     }
 
     /// Fire a notification only when the session's conversation is not currently viewed or app is in background.
-    private func notifyIfNeeded(sessionId: String, _ action: (String, String?) -> Void) {
+    /// The closure receives the agent display name, conversation topic, and conversation id (for tap-to-route).
+    private func notifyIfNeeded(sessionId: String, _ action: (String, String?, UUID) -> Void) {
         let appIsActive = NSApplication.shared.isActive
         guard let ctx = modelContext, let uuid = UUID(uuidString: sessionId) else { return }
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { s in s.id == uuid })
@@ -2709,7 +2742,7 @@ final class AppState {
               let convo = (session.conversations ?? []).first else { return }
         guard !visibleConversationIds.contains(convo.id) || !appIsActive else { return }
         let agentName = session.agent?.name ?? "Agent"
-        action(agentName, convo.topic)
+        action(agentName, convo.topic, convo.id)
     }
 
     // MARK: - Session usage persistence
