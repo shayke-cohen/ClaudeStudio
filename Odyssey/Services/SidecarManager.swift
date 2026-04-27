@@ -593,6 +593,13 @@ extension SidecarManager {
     /// - Parameter pushMessages: If true, also backfill the last 30 chat messages per
     ///   conversation. Pass true on initial connect; false for periodic metadata-only refreshes.
     func pushConversationSync(modelContext: ModelContext, pushMessages: Bool = false) async {
+        let _pushStart = ContinuousClock.now
+        defer {
+            let elapsed = ContinuousClock.now - _pushStart
+            if elapsed > .milliseconds(100) {
+                Log.perf.warning("pushConversationSync total: \(elapsed, privacy: .public) (pushMessages=\(pushMessages))")
+            }
+        }
         do {
             // Fetch all non-archived conversations (most-recent 100 to avoid huge payloads)
             var convDescriptor = FetchDescriptor<Conversation>(
@@ -607,8 +614,14 @@ extension SidecarManager {
             )
             let projects = (try? modelContext.fetch(projectDescriptor)) ?? []
 
-            // Map conversations to wire type
-            let convWires: [ConversationSummaryWire] = conversations.compactMap { conv in
+            // Map conversations to wire type. Yield to the main run loop every
+            // 20 conversations so a 100-row sync doesn't lock scroll/input —
+            // each iteration lazily loads `messages` and `participants` from
+            // SwiftData, which is synchronous main-thread work and adds up
+            // for stores with hundreds of messages per conversation.
+            var convWires: [ConversationSummaryWire] = []
+            convWires.reserveCapacity(conversations.count)
+            for (index, conv) in conversations.enumerated() {
                 let lastMsg = (conv.messages ?? [])
                     .filter { !$0.isStreaming }
                     .max(by: { $0.timestamp < $1.timestamp })
@@ -625,7 +638,7 @@ extension SidecarManager {
                         isLocal: p.isLocalParticipant
                     )
                 }
-                return ConversationSummaryWire(
+                convWires.append(ConversationSummaryWire(
                     id: conv.id.uuidString,
                     topic: conv.topic ?? "Conversation",
                     lastMessageAt: Self.isoString(from: lastMsg?.timestamp ?? conv.startedAt),
@@ -635,7 +648,8 @@ extension SidecarManager {
                     projectId: conv.projectId?.uuidString,
                     projectName: nil,
                     workingDirectory: conv.primarySession?.workingDirectory
-                )
+                ))
+                if index % 20 == 19 { await Task.yield() }
             }
 
             // Map projects to wire type
