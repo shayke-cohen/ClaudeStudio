@@ -19,6 +19,8 @@ struct OdysseyApp: App {
     @FocusedValue(\.openProjectSettingsAction) private var openProjectSettingsAction
     @FocusedValue(\.addProjectAction) private var addProjectAction
     @FocusedValue(\.showWelcomeGuideAction) private var showWelcomeGuideAction
+    @FocusedValue(\.focusComposerAction) private var focusComposerAction
+    @FocusedValue(\.jumpToLatestAction) private var jumpToLatestAction
 
     @Environment(\.openWindow) private var openWindow
 
@@ -169,6 +171,19 @@ struct OdysseyApp: App {
                 }
                 .keyboardShortcut("0", modifiers: .command)
                 .disabled(resolvedTextSize == .standard)
+            }
+            CommandGroup(after: .textEditing) {
+                Button("Focus Composer") {
+                    focusComposerAction?()
+                }
+                .keyboardShortcut("l", modifiers: .command)
+                .disabled(focusComposerAction == nil)
+
+                Button("Jump to Latest") {
+                    jumpToLatestAction?()
+                }
+                .keyboardShortcut("j", modifiers: .command)
+                .disabled(jumpToLatestAction == nil)
             }
             CommandMenu("Debug") {
                 Button("Send Test Message") {

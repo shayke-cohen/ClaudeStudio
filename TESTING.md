@@ -7,15 +7,16 @@ This document covers how to test Odyssey across all three testing layers, provid
 ## Table of Contents
 
 1. [Testing Overview](#1-testing-overview)
-2. [XCTest (Unit / Integration)](#2-xctest-unit--integration)
-3. [AppXray Setup (Inside-Out Testing)](#3-appxray-setup-inside-out-testing)
-4. [AppXray Selector Syntax](#4-appxray-selector-syntax)
-5. [Screen-by-Screen Control Reference](#5-screen-by-screen-control-reference)
-6. [Reusable Components](#6-reusable-components)
-7. [Argus macOS Testing (Outside-In E2E)](#7-argus-macos-testing-outside-in-e2e)
-8. [Dynamic Identifiers](#8-dynamic-identifiers)
-9. [Naming Convention](#9-naming-convention)
-10. [Known Gaps](#10-known-gaps)
+2. [Driving the App from Tests — Launch Params and Keyboard Shortcuts](#2-driving-the-app-from-tests--launch-params-and-keyboard-shortcuts)
+3. [XCTest (Unit / Integration)](#3-xctest-unit--integration)
+4. [AppXray Setup (Inside-Out Testing)](#4-appxray-setup-inside-out-testing)
+5. [AppXray Selector Syntax](#5-appxray-selector-syntax)
+6. [Screen-by-Screen Control Reference](#6-screen-by-screen-control-reference)
+7. [Reusable Components](#7-reusable-components)
+8. [Argus macOS Testing (Outside-In E2E)](#8-argus-macos-testing-outside-in-e2e)
+9. [Dynamic Identifiers](#9-dynamic-identifiers)
+10. [Naming Convention](#10-naming-convention)
+11. [Known Gaps](#11-known-gaps)
 
 ---
 
@@ -35,7 +36,71 @@ Odyssey uses three complementary testing layers:
 
 ---
 
-## 2. XCTest (Unit / Integration)
+## 2. Driving the App from Tests — Launch Params and Keyboard Shortcuts
+
+Two affordances let a test (or another agent) drive the app **without** clicking through the GUI: URL/CLI launch parameters that route to a specific thread, and keyboard shortcuts that focus the composer or jump scroll without locating an element. Together they cover the majority of repro/perf scenarios — the only time you need AppXray's `tap`/`type` is for in-message UI like sheets and pickers.
+
+### Launch parameters
+
+Every entry point in `LaunchIntent` (CLI flag and `odyssey://` URL) lets you jump straight into a chat. URLs work even on an already-running app via `open -a Odyssey.app "<url>"`; CLI flags are honoured only at fresh launch.
+
+| Goal | URL | CLI |
+|---|---|---|
+| New freeform chat (auto-send a prompt) | `odyssey://chat?prompt=...` | `--chat --prompt "..."` |
+| New chat with a named agent | `odyssey://agent/Coder?prompt=...&workdir=/path&autonomous=true` | `--agent Coder --prompt "..." --workdir /path --autonomous` |
+| New chat with a named group | `odyssey://group/Dev%20Team?autonomous=true` | `--group "Dev Team" --autonomous` |
+| **Open an existing conversation** | `odyssey://chat?conversation=<UUID>&prompt=...` | `--conversation <UUID> --prompt "..."` |
+| **Open the conversation containing a session** | `odyssey://chat?session=<UUID>&prompt=...` | `--session <UUID> --prompt "..."` |
+| Run a saved schedule | `odyssey://schedule/<UUID>?occurrence=2026-03-27T06:00:00Z` | `--schedule <UUID> --occurrence ...` |
+
+The `?conversation` / `?session` (and matching `--conversation` / `--session`) forms are the primary testing affordance: they navigate to an existing thread instead of creating a new one. Combine with the `MockRuntime` `STREAM:<chars>:<rate>` magic prefix in the prompt to drive a sustained mock stream without spending Claude credits — useful for perf tests like the conversation-index repro:
+
+```sh
+open -a /path/to/Debug/Odyssey.app "odyssey://chat?conversation=$UUID&prompt=STREAM:4000:12"
+```
+
+Use `open -a` with a URL when launching a fresh DEBUG build — `WindowGroup(for: String.self)` does not auto-open a window without a document, so plain `open Odyssey.app` can leave you with a running process and zero windows. The grammar lives in [`Odyssey/App/LaunchIntent.swift`](Odyssey/App/LaunchIntent.swift); legacy `claudestudio://` and `claudpeer://` schemes still work for back-compat.
+
+### Keyboard shortcuts
+
+Useful when osascript or AppleScript is driving keystrokes (no mouse, no element-locator timeouts). Trigger via `osascript -e 'tell application "System Events" to keystroke "l" using command down'` or any equivalent.
+
+| Shortcut | Action | Notes |
+|---|---|---|
+| `⌘L` | Focus the chat composer | Active chat must be open. Use after a launch URL when you need to type a follow-up message. |
+| `⌘J` | Jump to latest message in the chat | Re-arms auto-follow for the current turn. |
+| `⌘↩` | Send the composer's text | Same as Return when the message is non-empty; bypasses the autocomplete popups. |
+| `⌘,` | Settings | Standard macOS. |
+| `⌘⇧S` | Schedules library | |
+| `⌘⇧A` | Add Project | |
+| `⌘O` | Open Project (project picker) | |
+| `⌘N` / `⌘⌥N` / `⌘⇧N` | Quick chat / agent picker / group picker | Sidebar-scoped variants |
+| `⌘⇧D` | Debug Log window | DEBUG builds. |
+| `⌘⇧T` | Send a built-in test message | DEBUG builds — exercises the full send path. |
+| `⌘+` / `⌘-` / `⌘0` | Increase / decrease / reset text size | |
+
+When adding new shortcuts, register them through the `FocusedValue` machinery in [`MainWindowView.swift`](Odyssey/Views/MainWindow/MainWindowView.swift) so the App-level `.commands { }` block in [`OdysseyApp.swift`](Odyssey/App/OdysseyApp.swift) can find the active window — and **update this table**.
+
+### End-to-end perf-test recipe
+
+```sh
+# 1. Build the DEBUG app (one-time)
+make build-check
+
+# 2. Launch the app at a known conversation, with a long mock-stream prompt
+APP="/Users/.../Build/Products/Debug/Odyssey.app"
+UUID="<existing-conversation-uuid>"
+open -a "$APP" "odyssey://chat?conversation=$UUID&prompt=STREAM:4000:12"
+
+# 3. While streaming, capture perf logs
+log show --last 5m --predicate 'subsystem == "com.odyssey.app" AND category == "perf"' --info --debug --style compact
+```
+
+The `perf` category emits `Main-thread stall`, `rebuildConversationIndex`, `pushConversationSync`, `flushAllStreamTokenBuffers`, `sessionResult handler`, `modelContext.save`, `ScheduleEngine.evaluateDueSchedules`, and `sendMessage end-to-end` warnings whenever the corresponding work exceeds its threshold. See [`Odyssey/Services/MainThreadStallMonitor.swift`](Odyssey/Services/MainThreadStallMonitor.swift) for the heartbeat implementation; targeted call-site timing lives next to the call sites.
+
+---
+
+## 3. XCTest (Unit / Integration)
 
 ### Existing Test Files
 
@@ -150,7 +215,7 @@ bun test sidecar/test/e2e/connector-live.test.ts
 
 ---
 
-## 3. AppXray Setup (Inside-Out Testing)
+## 4. AppXray Setup (Inside-Out Testing)
 
 ### Architecture
 
@@ -197,7 +262,7 @@ session({ action: "connect", appId: "com.odyssey.app" })
 
 ---
 
-## 4. AppXray Selector Syntax
+## 5. AppXray Selector Syntax
 
 AppXray uses a universal selector syntax to target elements:
 
@@ -228,7 +293,7 @@ interact({ action: "tap", selector: '@index(0, @type("Button"))' })
 
 ---
 
-## 5. Screen-by-Screen Control Reference
+## 6. Screen-by-Screen Control Reference
 
 Each table lists every interactive control, its `accessibilityIdentifier`, its `accessibilityLabel` (if set), and the AppXray selector to target it.
 
@@ -1053,7 +1118,7 @@ Same 3-pane layout restricted to `.permissions`. Uses the same `settings.configu
 
 ---
 
-## 6. Reusable Components
+## 7. Reusable Components
 
 These components appear inside multiple screens.
 
@@ -1186,7 +1251,7 @@ Set via AppKit `setAccessibilityIdentifier`. The SwiftUI wrapper gets its own id
 
 ---
 
-## 7. Argus macOS Testing (Outside-In E2E)
+## 8. Argus macOS Testing (Outside-In E2E)
 
 Argus can drive Odyssey as a macOS app without the AppXray SDK.
 
@@ -1325,7 +1390,7 @@ assert({ type: "ai", prompt: "The chat shows at least one assistant response mes
 
 ---
 
-## 8. Dynamic Identifiers
+## 9. Dynamic Identifiers
 
 Many identifiers include runtime values. Here are the patterns:
 
@@ -1400,7 +1465,7 @@ The slug is the label text lowercased with spaces removed. Examples: `infoRow.st
 
 ---
 
-## 9. Naming Convention
+## 10. Naming Convention
 
 All accessibility identifiers follow a consistent pattern:
 
@@ -1472,7 +1537,7 @@ All accessibility identifiers follow a consistent pattern:
 
 ---
 
-## 10. Known Gaps
+## 11. Known Gaps
 
 The following interactive elements do not have explicit accessibility identifiers:
 

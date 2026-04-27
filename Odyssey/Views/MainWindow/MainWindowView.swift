@@ -31,6 +31,28 @@ private struct ShowWelcomeGuideActionKey: FocusedValueKey {
     typealias Value = ShowWelcomeGuideAction
 }
 
+/// Wired up by `MainWindowView` so the App-level `Edit > Focus Composer`
+/// (`⌘L`) and `View > Jump to Latest` (`⌘J`) menu items can talk to the
+/// active window. Useful for testing harnesses that drive the app via
+/// keyboard (osascript, AppleScript, etc.) without clicking the composer.
+struct FocusComposerAction {
+    let handler: () -> Void
+    func callAsFunction() { handler() }
+}
+
+private struct FocusComposerActionKey: FocusedValueKey {
+    typealias Value = FocusComposerAction
+}
+
+struct JumpToLatestAction {
+    let handler: () -> Void
+    func callAsFunction() { handler() }
+}
+
+private struct JumpToLatestActionKey: FocusedValueKey {
+    typealias Value = JumpToLatestAction
+}
+
 extension FocusedValues {
     var openProjectSettingsAction: OpenProjectSettingsAction? {
         get { self[OpenProjectSettingsActionKey.self] }
@@ -45,6 +67,16 @@ extension FocusedValues {
     var showWelcomeGuideAction: ShowWelcomeGuideAction? {
         get { self[ShowWelcomeGuideActionKey.self] }
         set { self[ShowWelcomeGuideActionKey.self] = newValue }
+    }
+
+    var focusComposerAction: FocusComposerAction? {
+        get { self[FocusComposerActionKey.self] }
+        set { self[FocusComposerActionKey.self] = newValue }
+    }
+
+    var jumpToLatestAction: JumpToLatestAction? {
+        get { self[JumpToLatestActionKey.self] }
+        set { self[JumpToLatestActionKey.self] = newValue }
     }
 }
 
@@ -266,6 +298,14 @@ struct MainWindowView: View {
                 AppSettings.store.removeObject(forKey: AppSettings.walkthroughShownKey)
                 windowState.showFTE = true
             }
+        )
+        .focusedSceneValue(
+            \.focusComposerAction,
+            FocusComposerAction { windowState.focusComposerRequestTick &+= 1 }
+        )
+        .focusedSceneValue(
+            \.jumpToLatestAction,
+            JumpToLatestAction { windowState.jumpToLatestRequestTick &+= 1 }
         )
         .coordinateSpace(name: "walkthroughCoordSpace")
         .onPreferenceChange(WalkthroughAnchorsKey.self) { frames in

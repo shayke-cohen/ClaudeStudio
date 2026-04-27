@@ -11,6 +11,12 @@ struct PasteableTextField: NSViewRepresentable {
     var canSubmitOnReturn: () -> Bool = { true }
     /// Called for ↑ (−1), ↓ (+1), Esc (0). Return true to consume the event.
     var onNavigationKey: ((Int) -> Bool)? = nil
+    /// Bumped by the parent (e.g. via `⌘L`) to programmatically grab keyboard
+    /// focus on the underlying NSTextView. SwiftUI's `@FocusState` doesn't
+    /// reach into `NSViewRepresentable`, so we reconcile via this counter
+    /// in `updateNSView`. Pass the same value every render and only change
+    /// it when you actually want to request focus.
+    var focusRequestTick: Int = 0
     @Environment(\.appTextScale) private var appTextScale
 
     private static let baseLineHeight: CGFloat = 17
@@ -81,6 +87,15 @@ struct PasteableTextField: NSViewRepresentable {
         }
         context.coordinator.recalcHeight(textView)
         context.coordinator.updatePlaceholder()
+        // Apply a focus request only when the tick advances. Using `!=`
+        // rather than `>` so a wraparound doesn't strand the field.
+        if context.coordinator.lastFocusTick != focusRequestTick {
+            context.coordinator.lastFocusTick = focusRequestTick
+            DispatchQueue.main.async {
+                guard let window = textView.window else { return }
+                window.makeFirstResponder(textView)
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -90,6 +105,9 @@ struct PasteableTextField: NSViewRepresentable {
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: PasteableTextField
         weak var textView: NSTextView?
+        /// Tracks the last `focusRequestTick` we acted on so a re-render with
+        /// the same value doesn't re-grab focus on every body update.
+        var lastFocusTick: Int = 0
 
         init(_ parent: PasteableTextField) {
             self.parent = parent

@@ -2078,6 +2078,11 @@ struct ChatView: View {
                         guard shouldAutoScroll else { return }
                         scrollToBottom(proxy, animated: true)
                     }
+                    .onChange(of: windowState.jumpToLatestRequestTick) { _, _ in
+                        // Menu-bar / `⌘J` request: scroll to bottom and
+                        // re-arm auto-follow for the rest of the turn.
+                        jumpToLatest(proxy)
+                    }
                     .background {
                         // Subscribes to streamingText/thinkingText in its own scope so
                         // ChatView.body does NOT re-render per token (only this tiny view does).
@@ -2300,7 +2305,8 @@ struct ChatView: View {
                         slashSelectionIndex = (slashSelectionIndex + direction + flat.count) % flat.count
                     }
                     return true
-                }
+                },
+                focusRequestTick: windowState.focusComposerRequestTick
             )
             .frame(height: inputHeight)
             .xrayId("chat.messageInput")

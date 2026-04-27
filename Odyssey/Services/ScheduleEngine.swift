@@ -153,6 +153,13 @@ final class ScheduleEngine {
     }
 
     func evaluateDueSchedules(now: Date, triggerSource: ScheduledMissionRunTriggerSource) {
+        let _evalStart = ContinuousClock.now
+        defer {
+            let elapsed = ContinuousClock.now - _evalStart
+            if elapsed > .milliseconds(50) {
+                Log.perf.warning("ScheduleEngine.evaluateDueSchedules: \(elapsed, privacy: .public)")
+            }
+        }
         recoverStaleRuns(now: now)
         let schedules = (try? modelContext.fetch(
             FetchDescriptor<ScheduledMission>()
@@ -191,9 +198,16 @@ final class ScheduleEngine {
             return
         }
 
-        let activeRun = (try? modelContext.fetch(FetchDescriptor<ScheduledMissionRun>()))?.first {
-            $0.scheduleId == schedule.id && $0.status == .running
-        }
+        // Filter at the query level — the previous unfiltered fetch+in-memory
+        // filter pulled the whole run history just to find one row.
+        let scheduleId = schedule.id
+        let runningStatus: ScheduledMissionRunStatus = .running
+        let activeRunDescriptor = FetchDescriptor<ScheduledMissionRun>(
+            predicate: #Predicate<ScheduledMissionRun> { run in
+                run.scheduleId == scheduleId && run.status == runningStatus
+            }
+        )
+        let activeRun = try? modelContext.fetch(activeRunDescriptor).first
         if activeRun != nil {
             let skipped = ScheduledMissionRun(
                 scheduleId: schedule.id,
@@ -232,16 +246,31 @@ final class ScheduleEngine {
     }
 
     private func recoverStaleRuns(now: Date) {
-        let runningRuns = ((try? modelContext.fetch(FetchDescriptor<ScheduledMissionRun>())) ?? []).filter {
-            $0.status == .running
-        }
+        // Only fetch runs that are *both* still marked running AND old enough
+        // to be stale. The unfiltered version pulled the entire run history
+        // into memory every 60 s — for a long-lived store that's hundreds or
+        // thousands of rows of synchronous main-thread SwiftData work, which
+        // showed up as a regular ~1 s stall once per minute.
+        let cutoff = now.addingTimeInterval(-Self.staleRunTimeout)
+        let runningStatus: ScheduledMissionRunStatus = .running
+        let descriptor = FetchDescriptor<ScheduledMissionRun>(
+            predicate: #Predicate<ScheduledMissionRun> { run in
+                run.status == runningStatus && run.startedAt < cutoff
+            }
+        )
+        let staleRuns = (try? modelContext.fetch(descriptor)) ?? []
+        guard !staleRuns.isEmpty else { return }
 
-        for run in runningRuns where now.timeIntervalSince(run.startedAt) > Self.staleRunTimeout {
+        for run in staleRuns {
             run.status = .failed
             run.completedAt = now
             run.errorMessage = "schedulerRecoveryTimeout"
 
-            if let schedule = (try? modelContext.fetch(FetchDescriptor<ScheduledMission>()))?.first(where: { $0.id == run.scheduleId }) {
+            let scheduleId = run.scheduleId
+            let scheduleDesc = FetchDescriptor<ScheduledMission>(
+                predicate: #Predicate<ScheduledMission> { $0.id == scheduleId }
+            )
+            if let schedule = try? modelContext.fetch(scheduleDesc).first {
                 schedule.lastFailedAt = now
                 schedule.updatedAt = now
             }

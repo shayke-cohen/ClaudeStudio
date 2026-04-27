@@ -317,6 +317,15 @@ final class WindowState {
 
     var launchError: String?
     var autoSendText: String?
+
+    /// Tick incremented by menu commands (`⌘L`) to ask the active ChatView
+    /// to put first-responder focus on the composer. Counter rather than a
+    /// Bool so each command press fires a distinct `onChange`, even when the
+    /// composer was already focused.
+    var focusComposerRequestTick: Int = 0
+    /// Tick incremented by `⌘J` to scroll the active chat to its newest
+    /// message and re-arm auto-scroll for the rest of the turn.
+    var jumpToLatestRequestTick: Int = 0
     /// Set by the sidebar project template context menu; consumed by ChatView to auto-send
     /// the prompt when the new conversation appears. The consumer should only act when
     /// `pendingTemplatePrompt.conversationId` matches the currently displayed conversation ID.
