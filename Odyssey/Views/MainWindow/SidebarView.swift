@@ -3064,7 +3064,6 @@ private struct ActiveSessionObserver: View {
     let sessionIdToAgentId: [UUID: UUID]
     let groups: [AgentGroup]
 
-    @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
     @State private var debounceTask: Task<Void, Never>?
 
     var body: some View {
@@ -3080,14 +3079,30 @@ private struct ActiveSessionObserver: View {
             .onAppear { rebuild() }
     }
 
+    /// Compute the set of agents/groups with currently-active sessions.
+    /// Iterate `appState.sessionActivity` (a small dict — typically a handful
+    /// of entries during streaming) rather than fetching every Session row
+    /// in the store. The previous `@Query private var allSessions: [Session]`
+    /// here re-fetched the **entire** Session table on every modelContext
+    /// save — for a long-lived store with 12 000+ orphaned sessions that
+    /// turned a streaming turn's terminal save into a multi-second
+    /// main-thread stall (a 9.4 s freeze was observed in the wild). The
+    /// `sessionIdToAgentId` map is built by `rebuildConversationIndex` and
+    /// is always up to date.
     private func rebuild() {
+        let _start = ContinuousClock.now
+        defer {
+            let elapsed = ContinuousClock.now - _start
+            if elapsed > .milliseconds(20) {
+                Log.perf.warning("ActiveSessionObserver.rebuild: \(elapsed, privacy: .public)")
+            }
+        }
         var agentIds = Set<UUID>()
         var groupIds = Set<UUID>()
         let groupAgentSets = Dictionary(groups.map { ($0.id, Set($0.agentIds)) }, uniquingKeysWith: { a, _ in a })
-        for session in allSessions {
-            let key = session.id.uuidString
-            guard appState.sessionActivity[key]?.isActive == true else { continue }
-            guard let agentId = sessionIdToAgentId[session.id] else { continue }
+        for (sessionIdString, activity) in appState.sessionActivity where activity.isActive {
+            guard let sessionId = UUID(uuidString: sessionIdString) else { continue }
+            guard let agentId = sessionIdToAgentId[sessionId] else { continue }
             agentIds.insert(agentId)
             for (gid, memberIds) in groupAgentSets where memberIds.contains(agentId) {
                 groupIds.insert(gid)
