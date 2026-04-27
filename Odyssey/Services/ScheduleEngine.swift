@@ -166,7 +166,14 @@ final class ScheduleEngine {
         )) ?? []
 
         for schedule in schedules where schedule.isEnabled {
-            schedule.lastEvaluatedAt = now
+            // We deliberately do NOT touch `schedule.lastEvaluatedAt` here.
+            // The field is currently unread anywhere in the codebase, and
+            // writing it on every enabled schedule every 60 s caused the
+            // unconditional `try? ctx.save()` below to persist a no-op
+            // mutation — which invalidates every @Query in the app and
+            // burned ~1 s of main-thread re-eval per cycle for users with
+            // a large sidebar. If telemetry needs it later, populate it
+            // only on the cycles that actually claim a run.
             if schedule.nextRunAt == nil {
                 schedule.nextRunAt = ScheduledMissionCadence.nextOccurrence(for: schedule, after: now)
             }
@@ -181,7 +188,12 @@ final class ScheduleEngine {
             claimAndExecute(schedule: schedule, scheduledFor: due, triggerSource: triggerSource, windowState: nil)
         }
 
-        try? modelContext.save()
+        // Skip the save when nothing changed. The common steady-state path
+        // (no schedules due, no nextRunAt seeding) leaves `hasChanges` false
+        // and avoids the @Query cascade entirely.
+        if modelContext.hasChanges {
+            try? modelContext.save()
+        }
     }
 
     private func claimAndExecute(
